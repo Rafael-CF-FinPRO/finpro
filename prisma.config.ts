@@ -7,6 +7,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    // The CLI (migrate/generate/studio) uses the direct connection,
+    // since Supabase's pooled connection isn't suited for DDL/migrations.
+    url: env("DIRECT_URL"),
   },
 });

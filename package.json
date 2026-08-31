@@ -9,12 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@prisma/adapter-libsql": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "7.10.0",
+    "@supabase/supabase-js": "^2.112.4",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "jose": "^6.2.10",
     "next": "16.3.3",
+    "pg": "^8.23.0",
     "prisma": "7.10.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
