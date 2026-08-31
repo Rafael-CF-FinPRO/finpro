@@ -5,7 +5,7 @@ import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/jwt";
 const PROTECTED_PATHS = [
   "/dashboard",
   "/lancamentos",
-  "/metas",
+  "/orcamento",
   "/configuracoes",
 ];
 

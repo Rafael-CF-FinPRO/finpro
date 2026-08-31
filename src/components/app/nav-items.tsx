@@ -85,6 +85,6 @@ function SettingsIcon({ className }: { className?: string }) {
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: DashboardIcon },
   { href: "/lancamentos", label: "Lançamentos", icon: TransactionsIcon },
-  { href: "/metas", label: "Metas", icon: GoalsIcon },
+  { href: "/orcamento", label: "Orçamento", icon: GoalsIcon },
   { href: "/configuracoes", label: "Configurações", icon: SettingsIcon },
 ];
