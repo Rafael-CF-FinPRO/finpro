@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { parseMoneyToCents } from "@/lib/money";
-import { parseDateInputValue } from "@/lib/dates";
+import { isValidMonthKey, parseDateInputValue } from "@/lib/dates";
 
 export const registerSchema = z
   .object({
@@ -52,6 +52,91 @@ export const transactionSchema = z.object({
     .max(280, "Observação muito longa.")
     .optional()
     .or(z.literal("")),
+});
+
+export const incomeSchema = z.object({
+  monthlyIncomeCents: z
+    .string()
+    .min(1, "Informe a renda mensal.")
+    .transform((value, ctx) => {
+      const cents = parseMoneyToCents(value);
+      if (cents === null) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Informe uma renda válida, maior que zero.",
+        });
+        return z.NEVER;
+      }
+      return cents;
+    }),
+});
+
+const percentageSchema = z
+  .number("Percentual inválido.")
+  .int("Percentual inválido.")
+  .min(0, "Percentual não pode ser negativo.")
+  .max(100, "Percentual não pode ser maior que 100%.");
+
+const budgetClassificationEnum = z.enum(
+  ["CUSTOS_OBRIGATORIOS", "CONFORTOS", "PRAZERES", "INVESTIMENTOS", "CONHECIMENTO", "METAS"],
+  "Classificação inválida."
+);
+
+const allClassificationEnum = z.enum(
+  ["RECEITA", "CUSTOS_OBRIGATORIOS", "CONFORTOS", "PRAZERES", "INVESTIMENTOS", "CONHECIMENTO", "METAS"],
+  "Classificação inválida."
+);
+
+// One combined save for the whole edit session (classifications + every
+// category touched across them), plus how to apply it — see
+// src/app/actions/budget.ts for what "month" vs "default" actually do.
+export const budgetDistributionSchema = z.object({
+  applyScope: z.enum(["month", "default"], "Escolha como aplicar a alteração."),
+  monthKey: z.string().refine(isValidMonthKey, { message: "Mês inválido." }),
+  classifications: z
+    .array(
+      z.object({
+        classification: budgetClassificationEnum,
+        percentage: percentageSchema,
+      })
+    )
+    .min(1, "Informe ao menos uma classificação.")
+    .refine((items) => items.reduce((sum, item) => sum + item.percentage, 0) === 100, {
+      message: "As classificações precisam totalizar 100%.",
+    }),
+  categories: z.array(
+    z.object({
+      categoryId: z.string().min(1, "Categoria inválida."),
+      percentage: percentageSchema,
+    })
+  ),
+});
+
+export const monthOverrideSchema = z.object({
+  monthKey: z.string().refine(isValidMonthKey, { message: "Mês inválido." }),
+});
+
+const categoryNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Informe o nome da categoria.")
+  .max(60, "Nome muito longo.");
+
+export const createCategorySchema = z.object({
+  name: categoryNameSchema,
+  type: z.enum(["ENTRADA", "SAIDA"], "Tipo inválido."),
+  classification: allClassificationEnum,
+});
+
+export const updateCategorySchema = z.object({
+  id: z.string().min(1, "Categoria inválida."),
+  name: categoryNameSchema,
+  classification: allClassificationEnum,
+});
+
+export const setCategoryActiveSchema = z.object({
+  id: z.string().min(1, "Categoria inválida."),
+  isActive: z.boolean(),
 });
 
 export const loginSchema = z.object({

@@ -25,11 +25,15 @@ async function requireUserId() {
   return session.userId;
 }
 
-async function resolveCategory(categoryId: string, type: "ENTRADA" | "SAIDA") {
+async function resolveCategory(
+  categoryId: string,
+  type: "ENTRADA" | "SAIDA",
+  userId: string
+) {
   const category = await prisma.category.findUnique({
     where: { id: categoryId },
   });
-  if (!category || category.type !== type) {
+  if (!category || category.type !== type || category.userId !== userId) {
     return null;
   }
   return category;
@@ -59,7 +63,7 @@ export async function createTransactionAction(
     };
   }
 
-  const category = await resolveCategory(parsed.data.categoryId, parsed.data.type);
+  const category = await resolveCategory(parsed.data.categoryId, parsed.data.type, userId);
   if (!category) {
     return {
       error: "Selecione uma categoria válida.",
@@ -118,7 +122,7 @@ export async function updateTransactionAction(
     };
   }
 
-  const category = await resolveCategory(parsed.data.categoryId, parsed.data.type);
+  const category = await resolveCategory(parsed.data.categoryId, parsed.data.type, userId);
   if (!category) {
     return {
       error: "Selecione uma categoria válida.",

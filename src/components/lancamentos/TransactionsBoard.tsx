@@ -6,12 +6,14 @@ import { CLASSIFICATION_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
 import { TransactionModal } from "./TransactionModal";
 import { TransactionForm } from "./TransactionForm";
 import { DeleteTransactionButton } from "./DeleteTransactionButton";
+import type { Classification } from "@/generated/prisma/enums";
 
 export type CategoryOption = {
   id: string;
   name: string;
   type: "ENTRADA" | "SAIDA";
-  classification: "RECEITA" | "CUSTO_FIXO" | "CUSTO_VARIAVEL";
+  classification: Classification;
+  isActive: boolean;
 };
 
 export type TransactionRow = {
@@ -21,7 +23,7 @@ export type TransactionRow = {
   description: string;
   categoryId: string;
   categoryName: string;
-  classification: "RECEITA" | "CUSTO_FIXO" | "CUSTO_VARIAVEL";
+  classification: Classification;
   dateValue: string;
   dateLabel: string;
   note: string;

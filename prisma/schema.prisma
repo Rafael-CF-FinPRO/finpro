@@ -8,15 +8,17 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
+  id           String   @id @default(cuid())
   name         String
-  email        String    @unique
+  email        String   @unique
   passwordHash String
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   passwordResetTokens PasswordResetToken[]
   transactions        Transaction[]
+  budgetProfile       BudgetProfile?
+  categories          Category[]
 }
 
 model PasswordResetToken {
@@ -37,27 +39,46 @@ enum TransactionType {
   SAIDA
 }
 
+// RECEITA is used for Entrada (income) categories and doesn't participate
+// in the budget's distribution — the budget splits what you do with your
+// income across the other six, which represent areas of a person's
+// financial life (not an accounting/business cost split).
 enum Classification {
   RECEITA
-  CUSTO_FIXO
-  CUSTO_VARIAVEL
+  CUSTOS_OBRIGATORIOS
+  CONFORTOS
+  PRAZERES
+  INVESTIMENTOS
+  CONHECIMENTO
+  METAS
 }
 
+// Categories belong to a single user and are fully editable by them
+// (name, classification, active/inactive) — unlike Classification, which
+// is a fixed, system-defined set. `isActive: false` is a soft delete: the
+// category stops being offered for new lançamentos, but existing
+// Transactions/BudgetCategoryAllocation rows that reference it are never
+// touched, so history stays intact.
 model Category {
-  id             String           @id @default(cuid())
+  id             String          @id @default(cuid())
+  userId         String
   name           String
   type           TransactionType
   classification Classification
-  order          Int              @default(0)
-  createdAt      DateTime         @default(now())
+  order          Int             @default(0)
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
 
-  transactions Transaction[]
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  budgetAllocations BudgetCategoryAllocation[]
 
-  @@unique([name, type])
+  @@unique([userId, name, type])
+  @@index([userId])
 }
 
 model Transaction {
-  id             String           @id @default(cuid())
+  id             String          @id @default(cuid())
   userId         String
   type           TransactionType
   amountCents    Int
@@ -66,11 +87,65 @@ model Transaction {
   classification Classification
   date           DateTime
   note           String?
-  createdAt      DateTime         @default(now())
+  createdAt      DateTime        @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id])
 
   @@index([userId])
   @@index([userId, date])
+}
+
+// One profile per user, holding their monthly reference income (manually
+// declared — see AGENTS.md stage 3 spec: never recalculated from actual
+// transactions).
+model BudgetProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  monthlyIncomeCents Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user                      User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classificationAllocations BudgetClassificationAllocation[]
+  categoryAllocations       BudgetCategoryAllocation[]
+}
+
+// Level 1 of the budget: how much of the income (%) goes to each
+// Classification. `monthKey` is either the literal "default" (the
+// standing budget applied to every month) or "YYYY-MM" for a one-off
+// override of that specific month — never both at once for the same
+// classification, enforced by the unique constraint below.
+model BudgetClassificationAllocation {
+  id              String         @id @default(cuid())
+  budgetProfileId String
+  classification  Classification
+  percentage      Int
+  monthKey        String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  budgetProfile BudgetProfile @relation(fields: [budgetProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetProfileId, classification, monthKey])
+  @@index([budgetProfileId, monthKey])
+}
+
+// Level 2 of the budget: how much of its parent Classification's amount
+// (%) goes to each Category within it. Same "default" vs "YYYY-MM"
+// convention as above.
+model BudgetCategoryAllocation {
+  id              String   @id @default(cuid())
+  budgetProfileId String
+  categoryId      String
+  percentage      Int
+  monthKey        String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  budgetProfile BudgetProfile @relation(fields: [budgetProfileId], references: [id], onDelete: Cascade)
+  category      Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetProfileId, categoryId, monthKey])
+  @@index([budgetProfileId, monthKey])
 }

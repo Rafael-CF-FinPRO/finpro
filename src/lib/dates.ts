@@ -57,3 +57,64 @@ export function currentMonthRange(): MonthRange {
 export function previousMonthRange(): MonthRange {
   return monthRange(-1);
 }
+
+const MONTH_KEY_PATTERN = /^(\d{4})-(\d{2})$/;
+
+/** The current calendar month as a "YYYY-MM" key, in UTC (matches how
+ * all budget/transaction dates are stored and reasoned about). */
+export function currentMonthKey(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export function isValidMonthKey(value: string): boolean {
+  if (!MONTH_KEY_PATTERN.test(value)) return false;
+  const [, , month] = MONTH_KEY_PATTERN.exec(value)!;
+  const m = Number(month);
+  return m >= 1 && m <= 12;
+}
+
+/** The [from, to) UTC date range covered by a "YYYY-MM" month key. */
+export function monthRangeForKey(monthKey: string): MonthRange {
+  const match = MONTH_KEY_PATTERN.exec(monthKey);
+  if (!match) throw new Error(`Invalid month key: ${monthKey}`);
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  return {
+    from: new Date(Date.UTC(year, month, 1)),
+    to: new Date(Date.UTC(year, month + 1, 1)),
+  };
+}
+
+export function shiftMonthKey(monthKey: string, delta: number): string {
+  const match = MONTH_KEY_PATTERN.exec(monthKey);
+  if (!match) throw new Error(`Invalid month key: ${monthKey}`);
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const shifted = new Date(Date.UTC(year, month + delta, 1));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+const MONTH_LABELS = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
+/** "YYYY-MM" -> "Setembro 2026" */
+export function formatMonthKeyLabel(monthKey: string): string {
+  const match = MONTH_KEY_PATTERN.exec(monthKey);
+  if (!match) return monthKey;
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  return `${MONTH_LABELS[month]} ${year}`;
+}

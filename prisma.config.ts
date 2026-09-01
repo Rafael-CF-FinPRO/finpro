@@ -5,7 +5,8 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
-    seed: "node --env-file=.env --experimental-strip-types prisma/seed.ts",
+    // No global DB seed anymore: categories are per-user now, seeded at
+    // registration time from src/lib/default-categories.ts instead.
   },
   datasource: {
     // The CLI (migrate/generate/studio) uses the direct connection,

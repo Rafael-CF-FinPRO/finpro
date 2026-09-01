@@ -8,12 +8,14 @@ import {
 } from "@/app/actions/transactions";
 import { CLASSIFICATION_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
 import { todayLocalDateInputValue } from "@/lib/dates";
+import type { Classification } from "@/generated/prisma/enums";
 
 type CategoryOption = {
   id: string;
   name: string;
   type: "ENTRADA" | "SAIDA";
-  classification: "RECEITA" | "CUSTO_FIXO" | "CUSTO_VARIAVEL";
+  classification: Classification;
+  isActive: boolean;
 };
 
 export type TransactionFormInitialData = {
@@ -45,7 +47,13 @@ export function TransactionForm({
     initialData?.categoryId ?? ""
   );
 
-  const categoriesForType = categories.filter((c) => c.type === type);
+  // Inactive categories aren't offered for new selections, but an
+  // existing transaction that already points at one must keep showing
+  // it — otherwise editing that transaction would silently lose or
+  // change its category.
+  const categoriesForType = categories.filter(
+    (c) => c.type === type && (c.isActive || c.id === initialData?.categoryId)
+  );
   const selectedCategory = categoriesForType.find(
     (c) => c.id === selectedCategoryId
   );

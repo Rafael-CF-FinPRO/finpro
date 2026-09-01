@@ -7,6 +7,10 @@ export const TYPE_LABELS: Record<TransactionType, string> = {
 
 export const CLASSIFICATION_LABELS: Record<Classification, string> = {
   RECEITA: "Receita",
-  CUSTO_FIXO: "Custo Fixo",
-  CUSTO_VARIAVEL: "Custo Variável",
+  CUSTOS_OBRIGATORIOS: "Custos Obrigatórios",
+  CONFORTOS: "Confortos",
+  PRAZERES: "Prazeres",
+  INVESTIMENTOS: "Investimentos",
+  CONHECIMENTO: "Conhecimento",
+  METAS: "Metas",
 };

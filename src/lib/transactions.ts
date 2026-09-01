@@ -4,7 +4,7 @@ import {
   parseDateInputValue,
   previousMonthRange,
 } from "@/lib/dates";
-import type { Classification, TransactionType } from "@/generated/prisma/enums";
+import { Classification, type TransactionType } from "@/generated/prisma/enums";
 
 export type PeriodFilter = "current" | "previous" | "custom";
 export type TypeFilter = "all" | TransactionType;
@@ -33,10 +33,9 @@ export function parseFilters(
       : "all";
 
   const classification =
-    searchParams.classification === "RECEITA" ||
-    searchParams.classification === "CUSTO_FIXO" ||
-    searchParams.classification === "CUSTO_VARIAVEL"
-      ? searchParams.classification
+    typeof searchParams.classification === "string" &&
+    (Object.values(Classification) as string[]).includes(searchParams.classification)
+      ? (searchParams.classification as Classification)
       : "all";
 
   const categoryId =
@@ -119,8 +118,9 @@ export function summarize(
   };
 }
 
-export async function getCategories() {
+export async function getCategories(userId: string) {
   return prisma.category.findMany({
+    where: { userId },
     orderBy: [{ type: "asc" }, { order: "asc" }],
   });
 }

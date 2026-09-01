@@ -30,7 +30,7 @@ export default async function LancamentosPage({
   const filters = parseFilters(params);
 
   const [categories, transactions] = await Promise.all([
-    getCategories(),
+    getCategories(session.userId),
     getTransactions(session.userId, filters),
   ]);
 
@@ -54,6 +54,7 @@ export default async function LancamentosPage({
     name: c.name,
     type: c.type,
     classification: c.classification,
+    isActive: c.isActive,
   }));
 
   return (

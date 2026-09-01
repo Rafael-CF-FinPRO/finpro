@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSession, destroySession } from "@/lib/session";
+import { DEFAULT_CATEGORY_TEMPLATE } from "@/lib/default-categories";
 import {
   forgotPasswordSchema,
   loginSchema,
@@ -53,6 +54,13 @@ export async function registerAction(
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({
     data: { name, email, passwordHash },
+  });
+
+  // Give the new user their own starting set of categories (see
+  // src/lib/default-categories.ts — provisional list, editable by the
+  // user afterwards).
+  await prisma.category.createMany({
+    data: DEFAULT_CATEGORY_TEMPLATE.map((c) => ({ ...c, userId: user.id })),
   });
 
   await createSession(user.id);
