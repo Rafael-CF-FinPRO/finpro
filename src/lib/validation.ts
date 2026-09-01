@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { parseMoneyToCents } from "@/lib/money";
+import { parseDateInputValue } from "@/lib/dates";
 
 export const registerSchema = z
   .object({
@@ -13,6 +15,44 @@ export const registerSchema = z
     message: "As senhas não coincidem.",
     path: ["confirmPassword"],
   });
+
+export const transactionSchema = z.object({
+  type: z.enum(["ENTRADA", "SAIDA"], "Tipo inválido."),
+  amountCents: z
+    .string()
+    .min(1, "Informe o valor.")
+    .transform((value, ctx) => {
+      const cents = parseMoneyToCents(value);
+      if (cents === null) {
+        ctx.addIssue({ code: "custom", message: "Informe um valor válido." });
+        return z.NEVER;
+      }
+      return cents;
+    }),
+  description: z
+    .string()
+    .trim()
+    .min(1, "Informe uma descrição.")
+    .max(120, "Descrição muito longa."),
+  categoryId: z.string().min(1, "Selecione uma categoria."),
+  date: z
+    .string()
+    .min(1, "Informe a data.")
+    .transform((value, ctx) => {
+      const date = parseDateInputValue(value);
+      if (!date) {
+        ctx.addIssue({ code: "custom", message: "Informe uma data válida." });
+        return z.NEVER;
+      }
+      return date;
+    }),
+  note: z
+    .string()
+    .trim()
+    .max(280, "Observação muito longa.")
+    .optional()
+    .or(z.literal("")),
+});
 
 export const loginSchema = z.object({
   email: z.email("Informe um e-mail válido.").trim().toLowerCase(),

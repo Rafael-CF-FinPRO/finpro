@@ -16,6 +16,7 @@ model User {
   updatedAt    DateTime  @updatedAt
 
   passwordResetTokens PasswordResetToken[]
+  transactions        Transaction[]
 }
 
 model PasswordResetToken {
@@ -29,4 +30,47 @@ model PasswordResetToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+enum TransactionType {
+  ENTRADA
+  SAIDA
+}
+
+enum Classification {
+  RECEITA
+  CUSTO_FIXO
+  CUSTO_VARIAVEL
+}
+
+model Category {
+  id             String           @id @default(cuid())
+  name           String
+  type           TransactionType
+  classification Classification
+  order          Int              @default(0)
+  createdAt      DateTime         @default(now())
+
+  transactions Transaction[]
+
+  @@unique([name, type])
+}
+
+model Transaction {
+  id             String           @id @default(cuid())
+  userId         String
+  type           TransactionType
+  amountCents    Int
+  description    String
+  categoryId     String
+  classification Classification
+  date           DateTime
+  note           String?
+  createdAt      DateTime         @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([userId])
+  @@index([userId, date])
 }
