@@ -7,10 +7,8 @@ export const TYPE_LABELS: Record<TransactionType, string> = {
 
 export const CLASSIFICATION_LABELS: Record<Classification, string> = {
   RECEITA: "Receita",
-  CUSTOS_OBRIGATORIOS: "Custos Obrigatórios",
-  CONFORTOS: "Confortos",
-  PRAZERES: "Prazeres",
+  ESSENCIAIS: "Essenciais",
+  NAO_ESSENCIAIS: "Não Essenciais",
+  FINANCIAMENTOS: "Financiamentos",
   INVESTIMENTOS: "Investimentos",
-  CONHECIMENTO: "Conhecimento",
-  METAS: "Metas",
 };

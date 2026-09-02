@@ -103,11 +103,11 @@ export function BudgetPieChart({ slices }: { slices: Slice[] }) {
           x={cx}
           y={cy - 6}
           textAnchor="middle"
-          className="fill-slate-900 text-sm font-semibold"
+          className="fill-stone-900 text-sm font-semibold"
         >
           {active ? `${active.percentage}%` : "Orçamento"}
         </text>
-        <text x={cx} y={cy + 14} textAnchor="middle" className="fill-slate-500 text-xs">
+        <text x={cx} y={cy + 14} textAnchor="middle" className="fill-stone-500 text-xs">
           {active
             ? formatCentsToBRL(active.budgetedCents)
             : `${slices.filter((s) => s.percentage > 0).length} classificações`}
@@ -126,8 +126,8 @@ export function BudgetPieChart({ slices }: { slices: Slice[] }) {
               className="h-2.5 w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: CLASSIFICATION_COLORS[slice.classification] }}
             />
-            <span className="text-slate-700">{CLASSIFICATION_LABELS[slice.classification]}</span>
-            <span className="ml-auto font-medium text-slate-900">{slice.percentage}%</span>
+            <span className="text-stone-700">{CLASSIFICATION_LABELS[slice.classification]}</span>
+            <span className="ml-auto font-medium text-stone-900">{slice.percentage}%</span>
           </li>
         ))}
       </ul>

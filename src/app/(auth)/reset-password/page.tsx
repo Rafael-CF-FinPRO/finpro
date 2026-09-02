@@ -18,7 +18,7 @@ export default async function ResetPasswordPage({
     return (
       <div>
         <div className="mb-6 text-center">
-          <h1 className="text-xl font-semibold text-slate-900">
+          <h1 className="text-xl font-semibold text-stone-900">
             Link inválido
           </h1>
         </div>
@@ -35,7 +35,7 @@ export default async function ResetPasswordPage({
   return (
     <div>
       <div className="mb-6 text-center">
-        <h1 className="text-xl font-semibold text-slate-900">
+        <h1 className="text-xl font-semibold text-stone-900">
           Definir nova senha
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">

@@ -59,7 +59,7 @@ export default async function LancamentosPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Lançamentos</h1>
+      <h1 className="text-2xl font-semibold text-stone-900">Lançamentos</h1>
       <p className="mt-1 text-sm text-[var(--muted)]">
         Suas entradas e saídas financeiras.
       </p>

@@ -8,6 +8,7 @@ import {
 } from "@/app/actions/transactions";
 import { CLASSIFICATION_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
 import { todayLocalDateInputValue } from "@/lib/dates";
+import { withCategoryDisplayName } from "@/lib/category-display";
 import type { Classification } from "@/generated/prisma/enums";
 
 type CategoryOption = {
@@ -51,8 +52,8 @@ export function TransactionForm({
   // existing transaction that already points at one must keep showing
   // it — otherwise editing that transaction would silently lose or
   // change its category.
-  const categoriesForType = categories.filter(
-    (c) => c.type === type && (c.isActive || c.id === initialData?.categoryId)
+  const categoriesForType = withCategoryDisplayName(
+    categories.filter((c) => c.type === type && (c.isActive || c.id === initialData?.categoryId))
   );
   const selectedCategory = categoriesForType.find(
     (c) => c.id === selectedCategoryId
@@ -78,7 +79,7 @@ export function TransactionForm({
             />
           </svg>
         </div>
-        <p className="font-medium text-slate-700">
+        <p className="font-medium text-stone-700">
           {TYPE_LABELS[type]} registrada com sucesso.
         </p>
       </div>
@@ -156,7 +157,7 @@ export function TransactionForm({
           </option>
           {categoriesForType.map((category) => (
             <option key={category.id} value={category.id}>
-              {category.name}
+              {category.displayName}
             </option>
           ))}
         </select>
@@ -168,7 +169,7 @@ export function TransactionForm({
         {selectedCategory && (
           <p className="mt-1.5 text-sm text-[var(--muted)]">
             Classificação:{" "}
-            <span className="font-medium text-slate-700">
+            <span className="font-medium text-stone-700">
               {CLASSIFICATION_LABELS[selectedCategory.classification]}
             </span>
           </p>

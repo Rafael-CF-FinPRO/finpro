@@ -21,9 +21,9 @@ export function PercentageSlider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         aria-label={ariaLabel ?? label}
-        className="h-2 w-full min-w-[120px] cursor-pointer appearance-none rounded-full bg-slate-200 accent-[var(--primary)]"
+        className="h-2 w-full min-w-[120px] cursor-pointer appearance-none rounded-full bg-stone-200 accent-[var(--primary)]"
       />
-      <span className="w-14 shrink-0 text-right text-sm font-semibold tabular-nums text-slate-900">
+      <span className="w-14 shrink-0 text-right text-sm font-semibold tabular-nums text-stone-900">
         {value}%
       </span>
     </div>

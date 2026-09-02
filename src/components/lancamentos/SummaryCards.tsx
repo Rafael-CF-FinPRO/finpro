@@ -22,7 +22,7 @@ export function SummaryCards({ summary }: { summary: TransactionsSummary }) {
         <p className="text-sm text-[var(--muted)]">Saldo</p>
         <p
           className={`mt-1 text-xl font-semibold ${
-            isNegative ? "text-[var(--danger)]" : "text-slate-900"
+            isNegative ? "text-[var(--danger)]" : "text-stone-900"
           }`}
         >
           {formatCentsToBRL(summary.balanceCents)}

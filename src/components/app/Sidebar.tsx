@@ -27,7 +27,7 @@ function NavLinks({ direction }: { direction: "vertical" | "horizontal" }) {
             className={`flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
               isActive
                 ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
             }`}
           >
             <Icon className="shrink-0" />

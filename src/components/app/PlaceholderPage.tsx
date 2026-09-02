@@ -7,7 +7,7 @@ export function PlaceholderPage({
 }) {
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
+      <h1 className="text-2xl font-semibold text-stone-900">{title}</h1>
       <p className="mt-1 text-sm text-[var(--muted)]">{description}</p>
 
       <div className="card mt-6 flex min-h-[280px] flex-col items-center justify-center gap-2 p-8 text-center">
@@ -28,7 +28,7 @@ export function PlaceholderPage({
             />
           </svg>
         </div>
-        <p className="font-medium text-slate-700">Em construção</p>
+        <p className="font-medium text-stone-700">Em construção</p>
         <p className="max-w-sm text-sm text-[var(--muted)]">
           Esta área será desenvolvida em uma próxima etapa do FinPRO.
         </p>

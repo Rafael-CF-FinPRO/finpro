@@ -22,7 +22,7 @@ export function DeleteTransactionButton({
       <button
         type="submit"
         aria-label="Excluir"
-        className="rounded-lg p-1.5 text-slate-400 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
+        className="rounded-lg p-1.5 text-stone-400 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
           <path

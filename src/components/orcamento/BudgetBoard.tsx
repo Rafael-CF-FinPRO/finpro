@@ -62,6 +62,7 @@ export function BudgetBoard({
 
   const classificationTotal = sumPercentages(Object.values(pctByClassification));
   const isValidClassificationTotal = classificationTotal === 100;
+  const distributionRemaining = 100 - classificationTotal;
 
   function categoryTotalFor(classification: Classification): number | null {
     const cls = classifications.find((c) => c.classification === classification);
@@ -152,6 +153,7 @@ export function BudgetBoard({
   return (
     <div className="space-y-4">
       <div className="card p-4">
+        <p className="mb-3 text-sm font-medium text-stone-700">Distribuição do orçamento</p>
         <BudgetPieChart slices={pieSlices} />
       </div>
 
@@ -159,12 +161,12 @@ export function BudgetBoard({
         <p className="text-sm text-[var(--muted)]">
           {isCustomMonth ? (
             <>
-              <span className="font-medium text-slate-700">{formatMonthKeyLabel(monthKey)}</span>{" "}
+              <span className="font-medium text-stone-700">{formatMonthKeyLabel(monthKey)}</span>{" "}
               tem uma personalização própria.
             </>
           ) : (
             <>
-              <span className="font-medium text-slate-700">{formatMonthKeyLabel(monthKey)}</span>{" "}
+              <span className="font-medium text-stone-700">{formatMonthKeyLabel(monthKey)}</span>{" "}
               segue o orçamento padrão.
             </>
           )}
@@ -197,10 +199,12 @@ export function BudgetBoard({
           const clsPct =
             mode === "edit" ? pctByClassification[cls.classification] ?? 0 : cls.percentage;
           const liveBudgeted = centsFromPercentage(monthlyIncomeCents, clsPct);
+          const liveDiferenca = liveBudgeted - cls.realizedCents;
           const livePctGasto = computeBudgetPct(cls.realizedCents, liveBudgeted);
           const liveStatus = computeBudgetStatus(cls.realizedCents, liveBudgeted);
           const isExpanded = Boolean(expanded[cls.classification]);
           const catTotal = categoryTotalFor(cls.classification);
+          const activeCategories = cls.categories.filter((c) => c.isActive);
 
           return (
             <div key={cls.classification} className="card overflow-hidden">
@@ -211,7 +215,7 @@ export function BudgetBoard({
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: CLASSIFICATION_COLORS[cls.classification as NonReceita] }}
                     />
-                    <p className="font-semibold text-slate-900">
+                    <p className="font-semibold text-stone-900">
                       {CLASSIFICATION_LABELS[cls.classification]}
                     </p>
                   </div>
@@ -229,41 +233,50 @@ export function BudgetBoard({
                     />
                   </div>
                 ) : (
-                  <p className="mt-1 text-sm font-medium text-slate-700">{clsPct}%</p>
+                  <p className="mt-1 text-sm font-medium text-stone-700">{clsPct}%</p>
                 )}
 
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                   <div>
-                    <p className="text-[var(--muted)]">Valor orçado</p>
-                    <p className="font-medium text-slate-900">{formatCentsToBRL(liveBudgeted)}</p>
+                    <p className="text-[var(--muted)]">Orçado</p>
+                    <p className="font-medium text-stone-900">{formatCentsToBRL(liveBudgeted)}</p>
                   </div>
                   <div>
                     <p className="text-[var(--muted)]">Realizado</p>
-                    <p className="font-medium text-slate-900">
+                    <p className="font-medium text-stone-900">
                       {formatCentsToBRL(cls.realizedCents)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[var(--muted)]">% Utilizado</p>
-                    <p className="font-medium text-slate-900">
-                      {livePctGasto === null ? "—" : `${livePctGasto.toLocaleString("pt-BR")}%`}
+                    <p className="text-[var(--muted)]">Diferença</p>
+                    <p
+                      className={`font-medium ${
+                        liveDiferenca < 0 ? "text-[var(--danger)]" : "text-stone-900"
+                      }`}
+                    >
+                      {formatCentsToBRL(liveDiferenca)}
                     </p>
                   </div>
                   <div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setExpanded((prev) => ({
-                          ...prev,
-                          [cls.classification]: !prev[cls.classification],
-                        }))
-                      }
-                      className="text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
-                    >
-                      {isExpanded ? "Ocultar categorias ▲" : "Ver categorias ▼"}
-                    </button>
+                    <p className="text-[var(--muted)]">% Utilizado</p>
+                    <p className="font-medium text-stone-900">
+                      {livePctGasto === null ? "—" : `${livePctGasto.toLocaleString("pt-BR")}%`}
+                    </p>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpanded((prev) => ({
+                      ...prev,
+                      [cls.classification]: !prev[cls.classification],
+                    }))
+                  }
+                  className="mt-3 text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
+                >
+                  {isExpanded ? "Ocultar categorias ▲" : "Ver categorias ▼"}
+                </button>
 
                 {mode === "edit" && catTotal !== null && (
                   <p
@@ -288,29 +301,48 @@ export function BudgetBoard({
                     }
                   />
                 ) : (
-                  <div className="space-y-2 border-t border-[var(--surface-border)] bg-slate-50/60 p-4">
-                    {cls.categories.filter((c) => c.isActive).length === 0 ? (
+                  <div className="space-y-2 border-t border-[var(--surface-border)] bg-stone-50/60 p-4">
+                    {activeCategories.length === 0 ? (
                       <p className="text-sm text-[var(--muted)]">
                         Nenhuma categoria ativa nesta classificação.
                       </p>
                     ) : (
-                      cls.categories
-                        .filter((c) => c.isActive)
-                        .map((cat) => (
-                          <div
-                            key={cat.categoryId}
-                            className="flex flex-wrap items-center justify-between gap-2 text-sm"
-                          >
-                            <span className="text-slate-700">{cat.name}</span>
-                            <span className="flex items-center gap-3">
-                              <span className="font-medium text-slate-900">{cat.percentage}%</span>
-                              <span className="text-[var(--muted)]">
-                                {formatCentsToBRL(cat.budgetedCents)}
-                              </span>
+                      activeCategories.map((cat) => {
+                        const catPctGasto = computeBudgetPct(cat.realizedCents, cat.budgetedCents);
+                        return (
+                          <div key={cat.categoryId} className="card p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="font-medium text-stone-900">{cat.name}</p>
                               <StatusBadge status={cat.status} />
-                            </span>
+                            </div>
+                            <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                              <div>
+                                <p className="text-[var(--muted)]">Orçado</p>
+                                <p className="font-medium text-stone-900">
+                                  {formatCentsToBRL(cat.budgetedCents)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[var(--muted)]">Realizado</p>
+                                <p className="font-medium text-stone-900">
+                                  {formatCentsToBRL(cat.realizedCents)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[var(--muted)]">% Utilizado</p>
+                                <p className="font-medium text-stone-900">
+                                  {catPctGasto === null
+                                    ? "—"
+                                    : `${catPctGasto.toLocaleString("pt-BR")}%`}
+                                </p>
+                              </div>
+                            </div>
+                            {!cat.isConfigured && cat.percentage === 0 && (
+                              <p className="mt-1.5 text-xs text-[var(--muted)]">Não configurada</p>
+                            )}
                           </div>
-                        ))
+                        );
+                      })
                     )}
                   </div>
                 ))}
@@ -326,8 +358,11 @@ export function BudgetBoard({
               isValidClassificationTotal ? "text-[var(--success)]" : "text-[var(--danger)]"
             }`}
           >
-            Total distribuído: {classificationTotal}%
-            {!isValidClassificationTotal && " — a distribuição precisa totalizar 100%."}
+            {isValidClassificationTotal
+              ? `Total distribuído: ${classificationTotal}%`
+              : distributionRemaining > 0
+                ? `Distribuição restante: ${distributionRemaining}%`
+                : `Distribuição excede o limite em ${Math.abs(distributionRemaining)}%.`}
           </p>
           <button
             type="button"

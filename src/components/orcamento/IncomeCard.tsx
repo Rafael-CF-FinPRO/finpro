@@ -32,12 +32,12 @@ export function IncomeCard({ monthlyIncomeCents, hasProfile }: { monthlyIncomeCe
             ⓘ
           </button>
           {showInfo && (
-            <div className="absolute left-0 top-5 z-10 w-72 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] p-3 text-xs leading-relaxed text-slate-600 shadow-lg">
+            <div className="absolute left-0 top-5 z-10 w-72 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] p-3 text-xs leading-relaxed text-stone-600 shadow-lg">
               <p>
                 Some toda a renda anual esperada (salário, pró-labore, negócios, comissões,
                 bônus, 13º, renda extra etc.) e divida por 12.
               </p>
-              <p className="mt-1.5 font-medium text-slate-700">
+              <p className="mt-1.5 font-medium text-stone-700">
                 Exemplo: R$ 300.000,00 ÷ 12 = R$ 25.000,00/mês.
               </p>
               <p className="mt-1.5">
@@ -98,7 +98,7 @@ export function IncomeCard({ monthlyIncomeCents, hasProfile }: { monthlyIncomeCe
         </form>
       ) : (
         <div className="mt-1 flex flex-wrap items-center gap-3">
-          <p className="text-2xl font-semibold text-slate-900">
+          <p className="text-2xl font-semibold text-stone-900">
             {formatCentsToBRL(monthlyIncomeCents)}
           </p>
           <button

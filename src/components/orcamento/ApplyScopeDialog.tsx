@@ -25,7 +25,7 @@ export function ApplyScopeDialog({
           onClick={() => onChoose("month")}
           className="block w-full rounded-xl border border-[var(--surface-border)] p-4 text-left transition-colors hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <p className="font-semibold text-slate-900">Somente este mês</p>
+          <p className="font-semibold text-stone-900">Somente este mês</p>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Altera apenas o orçamento de {monthLabel}.
           </p>
@@ -37,7 +37,7 @@ export function ApplyScopeDialog({
           onClick={() => onChoose("default")}
           className="block w-full rounded-xl border border-[var(--surface-border)] p-4 text-left transition-colors hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <p className="font-semibold text-slate-900">Este mês e todos os próximos</p>
+          <p className="font-semibold text-stone-900">Este mês e todos os próximos</p>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Atualiza seu orçamento padrão e aplica essa nova configuração a {monthLabel} e aos
             próximos meses. Meses com personalização própria continuam com sua configuração

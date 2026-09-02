@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #f7f4ec;
+  --foreground: #1a1a1a;
   --surface: #ffffff;
-  --surface-border: #e2e8f0;
-  --muted: #64748b;
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --danger: #dc2626;
-  --danger-bg: #fef2f2;
-  --danger-border: #fecaca;
-  --success: #16a34a;
-  --success-bg: #f0fdf4;
-  --success-border: #bbf7d0;
+  --surface-border: #e7e1d2;
+  --muted: #78716c;
+  --primary: #16181f;
+  --primary-hover: #2b2e37;
+  --danger: #c1422e;
+  --danger-bg: #fbeee9;
+  --danger-border: #eec7b8;
+  --success: #0f7a63;
+  --success-bg: #e9f5f1;
+  --success-border: #bfe0d4;
 }
 
 @theme inline {
@@ -40,15 +40,15 @@ body {
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50;
+    @apply inline-flex items-center justify-center rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50;
   }
 
   .field-label {
-    @apply mb-1.5 block text-sm font-medium text-slate-700;
+    @apply mb-1.5 block text-sm font-medium text-stone-700;
   }
 
   .field-input {
-    @apply block w-full rounded-lg border border-[var(--surface-border)] bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20;
+    @apply block w-full rounded-lg border border-[var(--surface-border)] bg-white px-3.5 py-2.5 text-sm text-stone-900 shadow-sm transition-colors placeholder:text-stone-400 focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20;
   }
 
   .card {

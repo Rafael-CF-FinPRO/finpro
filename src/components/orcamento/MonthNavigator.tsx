@@ -20,7 +20,7 @@ export function MonthNavigator({ monthKey }: { monthKey: string }) {
         type="button"
         aria-label="Mês anterior"
         onClick={() => goTo(shiftMonthKey(monthKey, -1))}
-        className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+        className="rounded-lg p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-800"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
           <path
@@ -32,14 +32,14 @@ export function MonthNavigator({ monthKey }: { monthKey: string }) {
           />
         </svg>
       </button>
-      <p className="min-w-[10ch] text-center text-lg font-semibold text-slate-900">
+      <p className="min-w-[10ch] text-center text-lg font-semibold text-stone-900">
         {formatMonthKeyLabel(monthKey)}
       </p>
       <button
         type="button"
         aria-label="Próximo mês"
         onClick={() => goTo(shiftMonthKey(monthKey, 1))}
-        className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+        className="rounded-lg p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-800"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
           <path

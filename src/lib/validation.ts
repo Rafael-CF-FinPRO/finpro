@@ -78,12 +78,12 @@ const percentageSchema = z
   .max(100, "Percentual não pode ser maior que 100%.");
 
 const budgetClassificationEnum = z.enum(
-  ["CUSTOS_OBRIGATORIOS", "CONFORTOS", "PRAZERES", "INVESTIMENTOS", "CONHECIMENTO", "METAS"],
+  ["ESSENCIAIS", "NAO_ESSENCIAIS", "FINANCIAMENTOS", "INVESTIMENTOS"],
   "Classificação inválida."
 );
 
 const allClassificationEnum = z.enum(
-  ["RECEITA", "CUSTOS_OBRIGATORIOS", "CONFORTOS", "PRAZERES", "INVESTIMENTOS", "CONHECIMENTO", "METAS"],
+  ["RECEITA", "ESSENCIAIS", "NAO_ESSENCIAIS", "FINANCIAMENTOS", "INVESTIMENTOS"],
   "Classificação inválida."
 );
 

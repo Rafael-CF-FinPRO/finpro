@@ -5,7 +5,7 @@ export function LogoutButton() {
     <form action={logoutAction}>
       <button
         type="submit"
-        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900"
       >
         <svg
           width="16"

@@ -5,7 +5,7 @@ import { getBudgetOverview } from "@/lib/budget";
 import { currentMonthKey, isValidMonthKey } from "@/lib/dates";
 import { IncomeCard } from "@/components/orcamento/IncomeCard";
 import { MonthNavigator } from "@/components/orcamento/MonthNavigator";
-import { TopIndicators } from "@/components/orcamento/TopIndicators";
+import { BudgetSummaryDashboard } from "@/components/orcamento/BudgetSummaryDashboard";
 import { BudgetBoard } from "@/components/orcamento/BudgetBoard";
 import type { BudgetOverview } from "@/lib/budget";
 
@@ -43,7 +43,7 @@ export default async function OrcamentoPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Orçamento</h1>
+      <h1 className="text-2xl font-semibold text-stone-900">Orçamento</h1>
       <p className="mt-1 text-sm text-[var(--muted)]">
         Distribua sua renda mensal entre classificações e categorias.
       </p>
@@ -62,12 +62,9 @@ export default async function OrcamentoPage({
           </div>
 
           <div className="mt-4">
-            <TopIndicators
-              incomeCents={overview.monthlyIncomeCents}
-              budgetedCents={overview.totals.budgetedCents}
-              realizedCents={overview.totals.realizedCents}
-              availableCents={overview.totals.availableCents}
-              usedPct={overview.totals.usedPct}
+            <BudgetSummaryDashboard
+              monthlyIncomeCents={overview.monthlyIncomeCents}
+              classifications={overview.classifications}
             />
           </div>
 

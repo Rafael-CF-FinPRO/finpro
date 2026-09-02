@@ -114,15 +114,15 @@ export function TransactionsBoard({
               <tbody className="divide-y divide-[var(--surface-border)]">
                 {transactions.map((t) => (
                   <tr key={t.id}>
-                    <td className="px-4 py-3 text-slate-600">{t.dateLabel}</td>
+                    <td className="px-4 py-3 text-stone-600">{t.dateLabel}</td>
                     <td className="px-4 py-3">
                       <TypeBadge type={t.type} />
                     </td>
-                    <td className="px-4 py-3 font-medium text-slate-900">
+                    <td className="px-4 py-3 font-medium text-stone-900">
                       {t.description}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{t.categoryName}</td>
-                    <td className="px-4 py-3 text-slate-600">
+                    <td className="px-4 py-3 text-stone-600">{t.categoryName}</td>
+                    <td className="px-4 py-3 text-stone-600">
                       {CLASSIFICATION_LABELS[t.classification]}
                     </td>
                     <td
@@ -143,7 +143,7 @@ export function TransactionsBoard({
                           onClick={() =>
                             setModal({ mode: "edit", type: t.type, transaction: t })
                           }
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                          className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
                         >
                           <EditIcon />
                         </button>
@@ -161,7 +161,7 @@ export function TransactionsBoard({
                 <li key={t.id} className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-slate-900">
+                      <p className="truncate font-medium text-stone-900">
                         {t.description}
                       </p>
                       <p className="mt-0.5 text-xs text-[var(--muted)]">
@@ -193,7 +193,7 @@ export function TransactionsBoard({
                         onClick={() =>
                           setModal({ mode: "edit", type: t.type, transaction: t })
                         }
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                        className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
                       >
                         <EditIcon />
                       </button>
@@ -217,6 +217,12 @@ export function TransactionsBoard({
           onClose={() => setModal(null)}
         >
           <TransactionForm
+            // Force a fresh mount per transaction (or for "create") so the
+            // form's local category-selection state always re-initializes
+            // from `initialData` — without this, React can reuse the same
+            // instance across different modal states and leave a stale
+            // category selected.
+            key={modal.mode === "edit" ? modal.transaction.id : "create"}
             type={modal.type}
             categories={categories}
             onSaved={() => setModal(null)}

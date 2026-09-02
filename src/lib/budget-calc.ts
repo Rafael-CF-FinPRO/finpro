@@ -2,19 +2,17 @@ import type { Classification } from "@/generated/prisma/enums";
 
 export type BudgetStatus = "DENTRO" | "FORA";
 
-/** The six personal-budget areas a user distributes their income across.
+/** The four personal-budget areas a user distributes their income across
+ * (mirrors the reference spreadsheet's "Orçamento de Gastos" sheet).
  * Fixed and explicit (not derived from whatever categories happen to
  * exist) so every classification — including ones with no category under
- * them yet, like Metas — is always shown and configurable. RECEITA is
- * intentionally excluded: it's income, not something the budget itself
- * distributes. */
+ * them yet — is always shown and configurable. RECEITA is intentionally
+ * excluded: it's income, not something the budget itself distributes. */
 export const BUDGET_CLASSIFICATIONS: Classification[] = [
-  "CUSTOS_OBRIGATORIOS",
-  "CONFORTOS",
-  "PRAZERES",
+  "ESSENCIAIS",
+  "NAO_ESSENCIAIS",
+  "FINANCIAMENTOS",
   "INVESTIMENTOS",
-  "CONHECIMENTO",
-  "METAS",
 ];
 
 export function computeBudgetStatus(realizedCents: number, budgetedCents: number): BudgetStatus {

@@ -47,12 +47,17 @@ export async function createCategoryAction(input: {
   }
 
   const existing = await prisma.category.findFirst({
-    where: { userId, name: parsed.data.name, type: parsed.data.type },
+    where: {
+      userId,
+      name: parsed.data.name,
+      type: parsed.data.type,
+      classification,
+    },
   });
   if (existing) {
     return {
-      error: "Você já tem uma categoria com esse nome para esse tipo.",
-      fieldErrors: { name: ["Você já tem uma categoria com esse nome para esse tipo."] },
+      error: "Você já tem uma categoria com esse nome nessa classificação.",
+      fieldErrors: { name: ["Você já tem uma categoria com esse nome nessa classificação."] },
     };
   }
 
@@ -105,13 +110,14 @@ export async function updateCategoryAction(input: {
       userId,
       type: category.type,
       name: parsed.data.name,
+      classification: parsed.data.classification,
       id: { not: category.id },
     },
   });
   if (duplicate) {
     return {
-      error: "Você já tem uma categoria com esse nome para esse tipo.",
-      fieldErrors: { name: ["Você já tem uma categoria com esse nome para esse tipo."] },
+      error: "Você já tem uma categoria com esse nome nessa classificação.",
+      fieldErrors: { name: ["Você já tem uma categoria com esse nome nessa classificação."] },
     };
   }
 
@@ -135,6 +141,40 @@ export async function updateCategoryAction(input: {
       });
     }
   });
+
+  revalidatePath("/orcamento");
+  revalidatePath("/lancamentos");
+  return { success: true };
+}
+
+// Real delete, only when nothing depends on the category — otherwise we'd
+// either lose historical Transactions or leave them pointing at nothing.
+// When there IS a dependency, the caller should inactivate instead.
+export async function deleteCategoryAction(input: {
+  id: string;
+}): Promise<CategoryActionState> {
+  const userId = await requireUserId();
+
+  if (typeof input.id !== "string" || !input.id) {
+    return { error: "Categoria inválida." };
+  }
+
+  const category = await prisma.category.findUnique({ where: { id: input.id } });
+  if (!category || category.userId !== userId) {
+    return { error: "Categoria não encontrada." };
+  }
+
+  const transactionCount = await prisma.transaction.count({
+    where: { categoryId: category.id },
+  });
+  if (transactionCount > 0) {
+    return {
+      error:
+        "Esta categoria tem lançamentos vinculados e não pode ser excluída. Inative-a para preservar o histórico.",
+    };
+  }
+
+  await prisma.category.delete({ where: { id: category.id } });
 
   revalidatePath("/orcamento");
   revalidatePath("/lancamentos");

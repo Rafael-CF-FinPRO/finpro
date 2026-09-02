@@ -19,7 +19,7 @@ export function Topbar({
 
       <div className="flex items-center gap-3">
         <div className="hidden text-right sm:block">
-          <p className="text-sm font-medium text-slate-900">{userName}</p>
+          <p className="text-sm font-medium text-stone-900">{userName}</p>
           <p className="text-xs text-[var(--muted)]">{userEmail}</p>
         </div>
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)]/10 text-sm font-semibold text-[var(--primary)]">

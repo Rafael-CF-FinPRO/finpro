@@ -20,8 +20,8 @@ export function ForgotPasswordForm() {
         <p className="alert-success">{state.message}</p>
 
         {state.devResetLink && (
-          <div className="rounded-lg border border-dashed border-[var(--surface-border)] bg-slate-50 p-3.5 text-sm text-slate-600">
-            <p className="font-medium text-slate-700">Modo de desenvolvimento</p>
+          <div className="rounded-lg border border-dashed border-[var(--surface-border)] bg-stone-50 p-3.5 text-sm text-stone-600">
+            <p className="font-medium text-stone-700">Modo de desenvolvimento</p>
             <p className="mt-1">
               Nenhum serviço de e-mail está configurado ainda. Use o link
               abaixo para continuar o teste:

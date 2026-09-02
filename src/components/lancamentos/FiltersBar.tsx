@@ -2,12 +2,15 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { CLASSIFICATION_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
+import { withCategoryDisplayName } from "@/lib/category-display";
 import type { TransactionFilters } from "@/lib/transactions";
+import type { Classification } from "@/generated/prisma/enums";
 
 type CategoryOption = {
   id: string;
   name: string;
   type: "ENTRADA" | "SAIDA";
+  classification: Classification;
 };
 
 export function FiltersBar({
@@ -33,10 +36,9 @@ export function FiltersBar({
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  const visibleCategories =
-    filters.type === "all"
-      ? categories
-      : categories.filter((c) => c.type === filters.type);
+  const visibleCategories = withCategoryDisplayName(
+    filters.type === "all" ? categories : categories.filter((c) => c.type === filters.type)
+  );
 
   return (
     <div className="card flex flex-wrap items-center gap-3 p-3">
@@ -98,7 +100,7 @@ export function FiltersBar({
         <option value="">Todas as categorias</option>
         {visibleCategories.map((category) => (
           <option key={category.id} value={category.id}>
-            {category.name}
+            {category.displayName}
           </option>
         ))}
       </select>

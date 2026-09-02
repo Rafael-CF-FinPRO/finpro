@@ -41,16 +41,16 @@ enum TransactionType {
 
 // RECEITA is used for Entrada (income) categories and doesn't participate
 // in the budget's distribution — the budget splits what you do with your
-// income across the other six, which represent areas of a person's
-// financial life (not an accounting/business cost split).
+// income across the other four, a personal/household budget structure
+// (not an accounting/business cost split) mirroring the reference
+// spreadsheet's "Orçamento de Gastos" sheet: Essenciais, Não Essenciais,
+// Financiamentos (debt/financing) and Investimentos.
 enum Classification {
   RECEITA
-  CUSTOS_OBRIGATORIOS
-  CONFORTOS
-  PRAZERES
+  ESSENCIAIS
+  NAO_ESSENCIAIS
+  FINANCIAMENTOS
   INVESTIMENTOS
-  CONHECIMENTO
-  METAS
 }
 
 // Categories belong to a single user and are fully editable by them
@@ -59,6 +59,14 @@ enum Classification {
 // category stops being offered for new lançamentos, but existing
 // Transactions/BudgetCategoryAllocation rows that reference it are never
 // touched, so history stays intact.
+//
+// The same concept name can exist under more than one Classification for
+// the same user (e.g. "Pets" as both Essencial and Não Essencial) — each
+// is its own row with its own id, distinguished in the UI as
+// "Pets — Essencial" / "Pets — Não Essencial" (see
+// src/lib/category-display.ts). The unique constraint below reflects
+// that: two categories can share a name, but not the same
+// (name, type, classification) triple.
 model Category {
   id             String          @id @default(cuid())
   userId         String
@@ -73,7 +81,7 @@ model Category {
   transactions      Transaction[]
   budgetAllocations BudgetCategoryAllocation[]
 
-  @@unique([userId, name, type])
+  @@unique([userId, name, type, classification])
   @@index([userId])
 }
 

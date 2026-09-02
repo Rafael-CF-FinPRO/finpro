@@ -16,7 +16,7 @@ export default async function LoginPage({
   return (
     <div>
       <div className="mb-6 text-center">
-        <h1 className="text-xl font-semibold text-slate-900">
+        <h1 className="text-xl font-semibold text-stone-900">
           Entre na sua conta
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">

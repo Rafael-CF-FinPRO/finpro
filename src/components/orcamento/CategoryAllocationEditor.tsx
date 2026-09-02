@@ -4,25 +4,20 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   createCategoryAction,
+  deleteCategoryAction,
   setCategoryActiveAction,
   updateCategoryAction,
 } from "@/app/actions/categories";
 import { computeBudgetPct, computeBudgetStatus, centsFromPercentage } from "@/lib/budget-calc";
 import { formatCentsToBRL } from "@/lib/money";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
+import { BUDGET_CLASSIFICATIONS } from "@/lib/budget-calc";
 import type { CategoryBudgetRow } from "@/lib/budget";
 import type { Classification } from "@/generated/prisma/enums";
 import { PercentageSlider } from "./PercentageSlider";
 import { StatusBadge } from "./StatusBadge";
 
-const CLASSIFICATION_OPTIONS: Classification[] = [
-  "CUSTOS_OBRIGATORIOS",
-  "CONFORTOS",
-  "PRAZERES",
-  "INVESTIMENTOS",
-  "CONHECIMENTO",
-  "METAS",
-];
+const CLASSIFICATION_OPTIONS = BUDGET_CLASSIFICATIONS;
 
 export function CategoryAllocationEditor({
   classification,
@@ -89,6 +84,18 @@ export function CategoryAllocationEditor({
     });
   }
 
+  function handleDelete(categoryId: string) {
+    setError(null);
+    startTransition(async () => {
+      const result = await deleteCategoryAction({ id: categoryId });
+      if (result.error) {
+        setError(result.error);
+      } else {
+        refresh();
+      }
+    });
+  }
+
   function handleAdd() {
     setError(null);
     startTransition(async () => {
@@ -108,7 +115,7 @@ export function CategoryAllocationEditor({
   }
 
   return (
-    <div className="space-y-3 border-t border-[var(--surface-border)] bg-slate-50/60 p-4">
+    <div className="space-y-3 border-t border-[var(--surface-border)] bg-stone-50/60 p-4">
       {active.length === 0 && (
         <p className="text-sm text-[var(--muted)]">
           Nenhuma categoria ativa vinculada a esta classificação ainda.
@@ -157,7 +164,7 @@ export function CategoryAllocationEditor({
                 </div>
               ) : (
                 <>
-                  <p className="font-medium text-slate-900">{cat.name}</p>
+                  <p className="font-medium text-stone-900">{cat.name}</p>
                   <div className="flex items-center gap-3">
                     {!cat.isConfigured && catPct === 0 && (
                       <span className="text-xs text-[var(--muted)]">Não configurada</span>
@@ -192,15 +199,15 @@ export function CategoryAllocationEditor({
             <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
               <div>
                 <p className="text-[var(--muted)]">Orçado</p>
-                <p className="font-medium text-slate-900">{formatCentsToBRL(liveBudgeted)}</p>
+                <p className="font-medium text-stone-900">{formatCentsToBRL(liveBudgeted)}</p>
               </div>
               <div>
                 <p className="text-[var(--muted)]">Realizado</p>
-                <p className="font-medium text-slate-900">{formatCentsToBRL(cat.realizedCents)}</p>
+                <p className="font-medium text-stone-900">{formatCentsToBRL(cat.realizedCents)}</p>
               </div>
               <div>
                 <p className="text-[var(--muted)]">% Gasto</p>
-                <p className="font-medium text-slate-900">
+                <p className="font-medium text-stone-900">
                   {livePctGasto === null ? "—" : `${livePctGasto.toLocaleString("pt-BR")}%`}
                 </p>
               </div>
@@ -217,15 +224,25 @@ export function CategoryAllocationEditor({
           <p className="text-xs font-medium text-[var(--muted)]">Categorias inativas</p>
           {inactive.map((cat) => (
             <div key={cat.categoryId} className="flex items-center justify-between text-sm">
-              <span className="text-slate-500">{cat.name}</span>
-              <button
-                type="button"
-                className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
-                disabled={pending}
-                onClick={() => handleToggleActive(cat.categoryId, true)}
-              >
-                Reativar
-              </button>
+              <span className="text-stone-500">{cat.name}</span>
+              <span className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
+                  disabled={pending}
+                  onClick={() => handleToggleActive(cat.categoryId, true)}
+                >
+                  Reativar
+                </button>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-[var(--danger)]"
+                  disabled={pending}
+                  onClick={() => handleDelete(cat.categoryId)}
+                >
+                  Excluir
+                </button>
+              </span>
             </div>
           ))}
         </div>

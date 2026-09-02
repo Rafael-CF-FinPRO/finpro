@@ -9,7 +9,7 @@ export default function ForgotPasswordPage() {
   return (
     <div>
       <div className="mb-6 text-center">
-        <h1 className="text-xl font-semibold text-slate-900">
+        <h1 className="text-xl font-semibold text-stone-900">
           Recuperar senha
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
