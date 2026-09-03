@@ -1,7 +1,13 @@
-export function Logo({ className }: { className?: string }) {
+export function Logo({
+  className,
+  iconOnly = false,
+}: {
+  className?: string;
+  iconOnly?: boolean;
+}) {
   return (
     <div className={`flex items-center gap-2 ${className ?? ""}`}>
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--primary)] text-white">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)] text-white">
         <svg
           width="18"
           height="18"
@@ -25,9 +31,11 @@ export function Logo({ className }: { className?: string }) {
           />
         </svg>
       </span>
-      <span className="text-lg font-semibold tracking-tight text-stone-900">
-        Fin<span className="text-[var(--primary)]">PRO</span>
-      </span>
+      {!iconOnly && (
+        <span className="text-lg font-semibold tracking-tight text-stone-900">
+          Fin<span className="text-[var(--primary)]">PRO</span>
+        </span>
+      )}
     </div>
   );
 }

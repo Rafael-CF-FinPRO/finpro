@@ -32,9 +32,12 @@ export const transactionSchema = z.object({
   description: z
     .string()
     .trim()
-    .min(1, "Informe uma descrição.")
-    .max(120, "Descrição muito longa."),
+    .max(120, "Descrição muito longa.")
+    .optional()
+    .or(z.literal("")),
   categoryId: z.string().min(1, "Selecione uma categoria."),
+  paymentMethodId: z.string().optional().or(z.literal("")),
+  tagId: z.string().optional().or(z.literal("")),
   date: z
     .string()
     .min(1, "Informe a data.")
@@ -78,12 +81,12 @@ const percentageSchema = z
   .max(100, "Percentual não pode ser maior que 100%.");
 
 const budgetClassificationEnum = z.enum(
-  ["ESSENCIAIS", "NAO_ESSENCIAIS", "FINANCIAMENTOS", "INVESTIMENTOS"],
+  ["ESSENCIAIS", "NAO_ESSENCIAIS", "DIVIDAS", "INVESTIMENTOS"],
   "Classificação inválida."
 );
 
 const allClassificationEnum = z.enum(
-  ["RECEITA", "ESSENCIAIS", "NAO_ESSENCIAIS", "FINANCIAMENTOS", "INVESTIMENTOS"],
+  ["RECEITA", "ESSENCIAIS", "NAO_ESSENCIAIS", "DIVIDAS", "INVESTIMENTOS"],
   "Classificação inválida."
 );
 
@@ -138,6 +141,34 @@ export const setCategoryActiveSchema = z.object({
   id: z.string().min(1, "Categoria inválida."),
   isActive: z.boolean(),
 });
+
+const paymentMethodNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Informe o nome do meio de pagamento.")
+  .max(40, "Nome muito longo.");
+
+export const createPaymentMethodSchema = z.object({ name: paymentMethodNameSchema });
+export const updatePaymentMethodSchema = z.object({
+  id: z.string().min(1, "Meio de pagamento inválido."),
+  name: paymentMethodNameSchema,
+});
+export const deletePaymentMethodSchema = z.object({
+  id: z.string().min(1, "Meio de pagamento inválido."),
+});
+
+const tagNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Informe o nome da tag.")
+  .max(40, "Nome muito longo.");
+
+export const createTagSchema = z.object({ name: tagNameSchema });
+export const updateTagSchema = z.object({
+  id: z.string().min(1, "Tag inválida."),
+  name: tagNameSchema,
+});
+export const deleteTagSchema = z.object({ id: z.string().min(1, "Tag inválida.") });
 
 export const loginSchema = z.object({
   email: z.email("Informe um e-mail válido.").trim().toLowerCase(),

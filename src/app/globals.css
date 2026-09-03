@@ -14,6 +14,9 @@
   --success: #0f7a63;
   --success-bg: #e9f5f1;
   --success-border: #bfe0d4;
+  --warning: #b45309;
+  --warning-bg: #fdf3e2;
+  --warning-border: #f3d9a8;
 }
 
 @theme inline {

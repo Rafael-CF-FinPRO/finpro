@@ -19,6 +19,8 @@ model User {
   transactions        Transaction[]
   budgetProfile       BudgetProfile?
   categories          Category[]
+  paymentMethods      PaymentMethod[]
+  tags                Tag[]
 }
 
 model PasswordResetToken {
@@ -44,12 +46,13 @@ enum TransactionType {
 // income across the other four, a personal/household budget structure
 // (not an accounting/business cost split) mirroring the reference
 // spreadsheet's "Orçamento de Gastos" sheet: Essenciais, Não Essenciais,
-// Financiamentos (debt/financing) and Investimentos.
+// Dívidas (debt/financing obligations — "Financiamento" is one of its
+// Categories, not a Classification of its own) and Investimentos.
 enum Classification {
   RECEITA
   ESSENCIAIS
   NAO_ESSENCIAIS
-  FINANCIAMENTOS
+  DIVIDAS
   INVESTIMENTOS
 }
 
@@ -60,13 +63,16 @@ enum Classification {
 // Transactions/BudgetCategoryAllocation rows that reference it are never
 // touched, so history stays intact.
 //
-// The same concept name can exist under more than one Classification for
-// the same user (e.g. "Pets" as both Essencial and Não Essencial) — each
-// is its own row with its own id, distinguished in the UI as
-// "Pets — Essencial" / "Pets — Não Essencial" (see
-// src/lib/category-display.ts). The unique constraint below reflects
-// that: two categories can share a name, but not the same
-// (name, type, classification) triple.
+// The same concept can exist under more than one Classification for the
+// same user (e.g. "Pets - Essencial" and "Pets - Não Essencial") — each
+// is its own row with its own id and its own full name (the default
+// categories already bake " - Essencial" / " - Não Essencial" into the
+// name itself, per the spreadsheet's naming convention, so they never
+// look identical). src/lib/category-display.ts is a display-only
+// fallback that disambiguates two categories a user creates with the
+// exact same name in different Classifications, which this schema still
+// allows. The unique constraint below reflects that: two categories can
+// share a name, but not the same (name, type, classification) triple.
 model Category {
   id             String          @id @default(cuid())
   userId         String
@@ -85,20 +91,65 @@ model Category {
   @@index([userId])
 }
 
-model Transaction {
-  id             String          @id @default(cuid())
-  userId         String
-  type           TransactionType
-  amountCents    Int
-  description    String
-  categoryId     String
-  classification Classification
-  date           DateTime
-  note           String?
-  createdAt      DateTime        @default(now())
+// A user-defined, freeform label for grouping otherwise-unrelated
+// transactions under one occasional event — a trip, an outing, anything
+// sporadic that cuts across the normal Category/Classification split
+// (e.g. every expense from "Viagem Nordeste 2026", regardless of
+// whether it's Alimentação, Transporte, or Lazer). Deliberately much
+// lighter-weight than Category: no classification, no active/inactive
+// state, real delete allowed (see PaymentMethod for the same reasoning).
+model Tag {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id])
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// How a transaction was paid (Pix, cartão de crédito, dinheiro...) —
+// optional, validated against this per-user list rather than a free-text
+// field. Unlike Category, PaymentMethod and Tag are pure descriptive
+// metadata, not part of a transaction's core financial identity, so a
+// real delete (not soft-delete/inactivation) is safe: `onDelete: SetNull`
+// on Transaction just clears the label from any historical rows instead
+// of touching their amount/date/description/category.
+model PaymentMethod {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Transaction {
+  id              String          @id @default(cuid())
+  userId          String
+  type            TransactionType
+  amountCents     Int
+  description     String?
+  categoryId      String
+  classification  Classification
+  date            DateTime
+  note            String?
+  paymentMethodId String?
+  tagId           String?
+  createdAt       DateTime        @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      Category       @relation(fields: [categoryId], references: [id])
+  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  tag           Tag?           @relation(fields: [tagId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([userId, date])
@@ -139,9 +190,15 @@ model BudgetClassificationAllocation {
   @@index([budgetProfileId, monthKey])
 }
 
-// Level 2 of the budget: how much of its parent Classification's amount
-// (%) goes to each Category within it. Same "default" vs "YYYY-MM"
-// convention as above.
+// Level 2 of the budget: how much of the TOTAL monthly income (%) is
+// budgeted to each Category — computed directly against
+// BudgetProfile.monthlyIncomeCents, not against its parent
+// Classification's share (a Category's percentage is not a fraction of
+// its Classification's percentage; the Classification's percentage is
+// simply the sum of its Categories' percentages, and the two are
+// tracked independently so a Classification can be under- or, until
+// saved, over-distributed by its Categories). Same "default" vs
+// "YYYY-MM" convention as above.
 model BudgetCategoryAllocation {
   id              String   @id @default(cuid())
   budgetProfileId String

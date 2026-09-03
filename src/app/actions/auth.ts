@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSession, destroySession } from "@/lib/session";
 import { DEFAULT_CATEGORY_TEMPLATE } from "@/lib/default-categories";
+import { DEFAULT_PAYMENT_METHODS } from "@/lib/default-payment-methods";
 import {
   forgotPasswordSchema,
   loginSchema,
@@ -56,11 +57,15 @@ export async function registerAction(
     data: { name, email, passwordHash },
   });
 
-  // Give the new user their own starting set of categories (see
-  // src/lib/default-categories.ts — provisional list, editable by the
-  // user afterwards).
+  // Give the new user their own starting set of categories and payment
+  // methods — both fully editable afterwards. Tags aren't seeded: they're
+  // meant to be created ad hoc (a trip, an outing), not picked from a
+  // starter list.
   await prisma.category.createMany({
     data: DEFAULT_CATEGORY_TEMPLATE.map((c) => ({ ...c, userId: user.id })),
+  });
+  await prisma.paymentMethod.createMany({
+    data: DEFAULT_PAYMENT_METHODS.map((pm) => ({ ...pm, userId: user.id })),
   });
 
   await createSession(user.id);

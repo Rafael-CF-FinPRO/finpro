@@ -13,14 +13,18 @@ import { formatCentsToBRL } from "@/lib/money";
 import { formatMonthKeyLabel } from "@/lib/dates";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
+import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
+import { getCategoryIcon } from "@/lib/category-icons";
 import type { ClassificationBudgetRow } from "@/lib/budget";
 import type { Classification } from "@/generated/prisma/enums";
 import { PercentageSlider } from "./PercentageSlider";
 import { StatusBadge } from "./StatusBadge";
+import { IconBadge } from "./IconBadge";
 import { CategoryAllocationEditor } from "./CategoryAllocationEditor";
 import { BudgetPieChart } from "./BudgetPieChart";
 import { ApplyScopeDialog } from "./ApplyScopeDialog";
 import { RestoreDefaultDialog } from "./RestoreDefaultDialog";
+import { IncomeCard } from "./IncomeCard";
 
 type NonReceita = Exclude<Classification, "RECEITA">;
 
@@ -64,16 +68,22 @@ export function BudgetBoard({
   const isValidClassificationTotal = classificationTotal === 100;
   const distributionRemaining = 100 - classificationTotal;
 
-  function categoryTotalFor(classification: Classification): number | null {
+  // Every Category's percentage is a direct share of total income, so a
+  // Classification's own percentage is only ever a ceiling for the sum
+  // of its Categories, never a total they must exactly hit — under-
+  // distributing is fine (nothing forces every point of a
+  // classification's budget onto a named category), only exceeding it
+  // is invalid.
+  function categoryTotalFor(classification: Classification): number {
     const cls = classifications.find((c) => c.classification === classification);
     const activeIds = (cls?.categories ?? []).filter((c) => c.isActive).map((c) => c.categoryId);
-    if (activeIds.length === 0) return null;
     return sumPercentages(activeIds.map((id) => pctByCategory[id] ?? 0));
   }
 
   const categoryTotalsValid = classifications.every((cls) => {
-    const total = categoryTotalFor(cls.classification);
-    return total === null || total === 100;
+    const distributed = categoryTotalFor(cls.classification);
+    const meta = pctByClassification[cls.classification] ?? 0;
+    return distributed <= meta;
   });
 
   const canSave = isValidClassificationTotal && categoryTotalsValid;
@@ -152,7 +162,7 @@ export function BudgetBoard({
 
   return (
     <div className="space-y-4">
-      <div className="card p-4">
+      <div className="card sticky top-2 z-20 p-4 shadow-md sm:top-4">
         <p className="mb-3 text-sm font-medium text-stone-700">Distribuição do orçamento</p>
         <BudgetPieChart slices={pieSlices} />
       </div>
@@ -194,6 +204,12 @@ export function BudgetBoard({
         </div>
       </div>
 
+      {/* BudgetBoard only ever renders once a BudgetProfile already
+          exists (page.tsx gates it behind overview.hasProfile), so the
+          card is always in its "already set" display state here — the
+          onboarding/first-time form lives on the page itself instead. */}
+      <IncomeCard monthlyIncomeCents={monthlyIncomeCents} hasProfile />
+
       <div className="space-y-3">
         {classifications.map((cls) => {
           const clsPct =
@@ -203,17 +219,21 @@ export function BudgetBoard({
           const livePctGasto = computeBudgetPct(cls.realizedCents, liveBudgeted);
           const liveStatus = computeBudgetStatus(cls.realizedCents, liveBudgeted);
           const isExpanded = Boolean(expanded[cls.classification]);
-          const catTotal = categoryTotalFor(cls.classification);
           const activeCategories = cls.categories.filter((c) => c.isActive);
+          const distributed =
+            mode === "edit"
+              ? categoryTotalFor(cls.classification)
+              : activeCategories.reduce((sum, c) => sum + c.percentage, 0);
+          const isOverDistributed = distributed > clsPct;
 
           return (
             <div key={cls.classification} className="card overflow-hidden">
               <div className="p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: CLASSIFICATION_COLORS[cls.classification as NonReceita] }}
+                  <div className="flex items-center gap-2.5">
+                    <IconBadge
+                      icon={CLASSIFICATION_ICONS[cls.classification as NonReceita]}
+                      color={CLASSIFICATION_COLORS[cls.classification as NonReceita]}
                     />
                     <p className="font-semibold text-stone-900">
                       {CLASSIFICATION_LABELS[cls.classification]}
@@ -278,22 +298,33 @@ export function BudgetBoard({
                   {isExpanded ? "Ocultar categorias ▲" : "Ver categorias ▼"}
                 </button>
 
-                {mode === "edit" && catTotal !== null && (
+                <div className="mt-2 text-xs">
+                  {isOverDistributed && (
+                    <p className="font-medium text-[var(--danger)]">
+                      As categorias de {CLASSIFICATION_LABELS[cls.classification]} ultrapassam o
+                      orçamento definido para esta classificação.
+                    </p>
+                  )}
                   <p
-                    className={`mt-2 text-xs font-medium ${
-                      catTotal === 100 ? "text-[var(--success)]" : "text-[var(--danger)]"
-                    }`}
+                    className={
+                      isOverDistributed
+                        ? "font-medium text-[var(--danger)]"
+                        : "text-[var(--muted)]"
+                    }
                   >
-                    Categorias: {catTotal}%{catTotal !== 100 && " — precisa totalizar 100%."}
+                    Meta: {clsPct}% · Distribuído: {distributed}%
+                    {isOverDistributed
+                      ? ` · Excedente: ${distributed - clsPct}%`
+                      : ` · Não distribuído: ${clsPct - distributed}%`}
                   </p>
-                )}
+                </div>
               </div>
 
               {isExpanded &&
                 (mode === "edit" ? (
                   <CategoryAllocationEditor
                     classification={cls.classification}
-                    classificationBudgetedCents={liveBudgeted}
+                    monthlyIncomeCents={monthlyIncomeCents}
                     categories={cls.categories}
                     pct={pctByCategory}
                     onPctChange={(categoryId, value) =>
@@ -309,10 +340,24 @@ export function BudgetBoard({
                     ) : (
                       activeCategories.map((cat) => {
                         const catPctGasto = computeBudgetPct(cat.realizedCents, cat.budgetedCents);
+                        const classificationColor =
+                          CLASSIFICATION_COLORS[cls.classification as NonReceita];
                         return (
-                          <div key={cat.categoryId} className="card p-3">
+                          <div
+                            key={cat.categoryId}
+                            className="card border-l-4 p-3"
+                            style={{ borderLeftColor: classificationColor }}
+                          >
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="font-medium text-stone-900">{cat.name}</p>
+                              <div className="flex items-center gap-2">
+                                <IconBadge
+                                  icon={getCategoryIcon(cat.name)}
+                                  color={classificationColor}
+                                  variant="soft"
+                                  size="sm"
+                                />
+                                <p className="font-medium text-stone-900">{cat.name}</p>
+                              </div>
                               <StatusBadge status={cat.status} />
                             </div>
                             <div className="mt-2 grid grid-cols-3 gap-2 text-sm">

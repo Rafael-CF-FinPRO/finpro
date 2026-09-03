@@ -11,28 +11,32 @@ import {
 import { computeBudgetPct, computeBudgetStatus, centsFromPercentage } from "@/lib/budget-calc";
 import { formatCentsToBRL } from "@/lib/money";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
+import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
+import { getCategoryIcon } from "@/lib/category-icons";
 import { BUDGET_CLASSIFICATIONS } from "@/lib/budget-calc";
 import type { CategoryBudgetRow } from "@/lib/budget";
 import type { Classification } from "@/generated/prisma/enums";
 import { PercentageSlider } from "./PercentageSlider";
 import { StatusBadge } from "./StatusBadge";
+import { IconBadge } from "./IconBadge";
 
 const CLASSIFICATION_OPTIONS = BUDGET_CLASSIFICATIONS;
 
 export function CategoryAllocationEditor({
   classification,
-  classificationBudgetedCents,
+  monthlyIncomeCents,
   categories,
   pct,
   onPctChange,
 }: {
   classification: Classification;
-  classificationBudgetedCents: number;
+  monthlyIncomeCents: number;
   categories: CategoryBudgetRow[];
   pct: Record<string, number>;
   onPctChange: (categoryId: string, value: number) => void;
 }) {
   const router = useRouter();
+  const classificationColor = CLASSIFICATION_COLORS[classification as Exclude<Classification, "RECEITA">];
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -124,13 +128,17 @@ export function CategoryAllocationEditor({
 
       {active.map((cat) => {
         const catPct = pct[cat.categoryId] ?? 0;
-        const liveBudgeted = centsFromPercentage(classificationBudgetedCents, catPct);
+        const liveBudgeted = centsFromPercentage(monthlyIncomeCents, catPct);
         const livePctGasto = computeBudgetPct(cat.realizedCents, liveBudgeted);
         const liveStatus = computeBudgetStatus(cat.realizedCents, liveBudgeted);
         const isEditing = editingId === cat.categoryId;
 
         return (
-          <div key={cat.categoryId} className="card p-3">
+          <div
+            key={cat.categoryId}
+            className="card border-l-4 p-3"
+            style={{ borderLeftColor: classificationColor }}
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
               {isEditing ? (
                 <div className="flex flex-1 flex-wrap items-center gap-2">
@@ -164,7 +172,15 @@ export function CategoryAllocationEditor({
                 </div>
               ) : (
                 <>
-                  <p className="font-medium text-stone-900">{cat.name}</p>
+                  <div className="flex items-center gap-2">
+                    <IconBadge
+                      icon={getCategoryIcon(cat.name)}
+                      color={classificationColor}
+                      variant="soft"
+                      size="sm"
+                    />
+                    <p className="font-medium text-stone-900">{cat.name}</p>
+                  </div>
                   <div className="flex items-center gap-3">
                     {!cat.isConfigured && catPct === 0 && (
                       <span className="text-xs text-[var(--muted)]">Não configurada</span>

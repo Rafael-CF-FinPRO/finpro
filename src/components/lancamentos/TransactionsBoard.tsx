@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatCentsToBRL } from "@/lib/money";
 import { CLASSIFICATION_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
 import { TransactionModal } from "./TransactionModal";
-import { TransactionForm } from "./TransactionForm";
+import { TransactionForm, type SimpleOption } from "./TransactionForm";
 import { DeleteTransactionButton } from "./DeleteTransactionButton";
 import type { Classification } from "@/generated/prisma/enums";
 
@@ -24,6 +24,10 @@ export type TransactionRow = {
   categoryId: string;
   categoryName: string;
   classification: Classification;
+  paymentMethodId: string | null;
+  paymentMethodName: string | null;
+  tagId: string | null;
+  tagName: string | null;
   dateValue: string;
   dateLabel: string;
   note: string;
@@ -63,11 +67,29 @@ function TypeBadge({ type }: { type: "ENTRADA" | "SAIDA" }) {
   );
 }
 
+// Descrição is optional — fall back to the category name so the row
+// always has a meaningful title.
+function displayTitle(t: TransactionRow): string {
+  return t.description || t.categoryName;
+}
+
+function TagBadge({ name }: { name: string }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">
+      {name}
+    </span>
+  );
+}
+
 export function TransactionsBoard({
   categories,
+  paymentMethods,
+  tags,
   transactions,
 }: {
   categories: CategoryOption[];
+  paymentMethods: SimpleOption[];
+  tags: SimpleOption[];
   transactions: TransactionRow[];
 }) {
   const [modal, setModal] = useState<ModalState>(null);
@@ -107,6 +129,8 @@ export function TransactionsBoard({
                   <th className="px-4 py-3 font-medium">Descrição</th>
                   <th className="px-4 py-3 font-medium">Categoria</th>
                   <th className="px-4 py-3 font-medium">Classificação</th>
+                  <th className="px-4 py-3 font-medium">Meio de pagamento</th>
+                  <th className="px-4 py-3 font-medium">Tag</th>
                   <th className="px-4 py-3 text-right font-medium">Valor</th>
                   <th className="px-4 py-3 text-right font-medium">Ações</th>
                 </tr>
@@ -119,11 +143,19 @@ export function TransactionsBoard({
                       <TypeBadge type={t.type} />
                     </td>
                     <td className="px-4 py-3 font-medium text-stone-900">
-                      {t.description}
+                      {displayTitle(t)}
                     </td>
                     <td className="px-4 py-3 text-stone-600">{t.categoryName}</td>
                     <td className="px-4 py-3 text-stone-600">
                       {CLASSIFICATION_LABELS[t.classification]}
+                    </td>
+                    <td className="px-4 py-3 text-stone-600">
+                      {t.paymentMethodName ?? "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {t.tagName ? <TagBadge name={t.tagName} /> : (
+                        <span className="text-stone-400">—</span>
+                      )}
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-medium ${
@@ -147,7 +179,7 @@ export function TransactionsBoard({
                         >
                           <EditIcon />
                         </button>
-                        <DeleteTransactionButton id={t.id} description={t.description} />
+                        <DeleteTransactionButton id={t.id} description={displayTitle(t)} />
                       </div>
                     </td>
                   </tr>
@@ -162,10 +194,14 @@ export function TransactionsBoard({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-stone-900">
-                        {t.description}
+                        {displayTitle(t)}
                       </p>
                       <p className="mt-0.5 text-xs text-[var(--muted)]">
-                        {t.dateLabel} · {t.categoryName}
+                        {t.dateLabel}
+                        {/* Title already falls back to the category name
+                            when there's no description — avoid repeating it. */}
+                        {t.description ? ` · ${t.categoryName}` : ""}
+                        {t.paymentMethodName ? ` · ${t.paymentMethodName}` : ""}
                       </p>
                     </div>
                     <p
@@ -180,11 +216,12 @@ export function TransactionsBoard({
                     </p>
                   </div>
                   <div className="mt-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <TypeBadge type={t.type} />
                       <span className="text-xs text-[var(--muted)]">
                         {CLASSIFICATION_LABELS[t.classification]}
                       </span>
+                      {t.tagName && <TagBadge name={t.tagName} />}
                     </div>
                     <div className="flex items-center gap-1">
                       <button
@@ -197,7 +234,7 @@ export function TransactionsBoard({
                       >
                         <EditIcon />
                       </button>
-                      <DeleteTransactionButton id={t.id} description={t.description} />
+                      <DeleteTransactionButton id={t.id} description={displayTitle(t)} />
                     </div>
                   </div>
                 </li>
@@ -225,6 +262,8 @@ export function TransactionsBoard({
             key={modal.mode === "edit" ? modal.transaction.id : "create"}
             type={modal.type}
             categories={categories}
+            paymentMethods={paymentMethods}
+            tags={tags}
             onSaved={() => setModal(null)}
             initialData={
               modal.mode === "edit"
@@ -235,6 +274,8 @@ export function TransactionsBoard({
                       .replace(".", ","),
                     description: modal.transaction.description,
                     categoryId: modal.transaction.categoryId,
+                    paymentMethodId: modal.transaction.paymentMethodId ?? "",
+                    tagId: modal.transaction.tagId ?? "",
                     dateValue: modal.transaction.dateValue,
                     note: modal.transaction.note,
                   }

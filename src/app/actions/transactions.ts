@@ -39,6 +39,25 @@ async function resolveCategory(
   return category;
 }
 
+// Both Meio de Pagamento and Tag are optional — an empty id just means
+// "none selected", never trusted blindly: a non-empty id must resolve
+// to a record this user actually owns, or the field is rejected.
+type OptionalRefResult = { ok: true; id: string | null } | { ok: false };
+
+async function resolvePaymentMethodId(id: string, userId: string): Promise<OptionalRefResult> {
+  if (!id) return { ok: true, id: null };
+  const paymentMethod = await prisma.paymentMethod.findUnique({ where: { id } });
+  if (!paymentMethod || paymentMethod.userId !== userId) return { ok: false };
+  return { ok: true, id: paymentMethod.id };
+}
+
+async function resolveTagId(id: string, userId: string): Promise<OptionalRefResult> {
+  if (!id) return { ok: true, id: null };
+  const tag = await prisma.tag.findUnique({ where: { id } });
+  if (!tag || tag.userId !== userId) return { ok: false };
+  return { ok: true, id: tag.id };
+}
+
 export async function createTransactionAction(
   _prevState: TransactionActionState,
   formData: FormData
@@ -52,6 +71,8 @@ export async function createTransactionAction(
     amountCents: formString(formData, "amountCents"),
     description: formString(formData, "description"),
     categoryId: formString(formData, "categoryId"),
+    paymentMethodId: formString(formData, "paymentMethodId"),
+    tagId: formString(formData, "tagId"),
     date: formString(formData, "date"),
     note: formString(formData, "note"),
   });
@@ -71,14 +92,32 @@ export async function createTransactionAction(
     };
   }
 
+  const paymentMethod = await resolvePaymentMethodId(parsed.data.paymentMethodId ?? "", userId);
+  if (!paymentMethod.ok) {
+    return {
+      error: "Selecione um meio de pagamento válido.",
+      fieldErrors: { paymentMethodId: ["Selecione um meio de pagamento válido."] },
+    };
+  }
+
+  const tag = await resolveTagId(parsed.data.tagId ?? "", userId);
+  if (!tag.ok) {
+    return {
+      error: "Selecione uma tag válida.",
+      fieldErrors: { tagId: ["Selecione uma tag válida."] },
+    };
+  }
+
   await prisma.transaction.create({
     data: {
       userId,
       type: parsed.data.type,
       amountCents: parsed.data.amountCents,
-      description: parsed.data.description,
+      description: parsed.data.description || null,
       categoryId: category.id,
       classification: category.classification,
+      paymentMethodId: paymentMethod.id,
+      tagId: tag.id,
       date: parsed.data.date,
       note: parsed.data.note || null,
     },
@@ -111,6 +150,8 @@ export async function updateTransactionAction(
     amountCents: formString(formData, "amountCents"),
     description: formString(formData, "description"),
     categoryId: formString(formData, "categoryId"),
+    paymentMethodId: formString(formData, "paymentMethodId"),
+    tagId: formString(formData, "tagId"),
     date: formString(formData, "date"),
     note: formString(formData, "note"),
   });
@@ -130,14 +171,32 @@ export async function updateTransactionAction(
     };
   }
 
+  const paymentMethod = await resolvePaymentMethodId(parsed.data.paymentMethodId ?? "", userId);
+  if (!paymentMethod.ok) {
+    return {
+      error: "Selecione um meio de pagamento válido.",
+      fieldErrors: { paymentMethodId: ["Selecione um meio de pagamento válido."] },
+    };
+  }
+
+  const tag = await resolveTagId(parsed.data.tagId ?? "", userId);
+  if (!tag.ok) {
+    return {
+      error: "Selecione uma tag válida.",
+      fieldErrors: { tagId: ["Selecione uma tag válida."] },
+    };
+  }
+
   await prisma.transaction.update({
     where: { id },
     data: {
       type: parsed.data.type,
       amountCents: parsed.data.amountCents,
-      description: parsed.data.description,
+      description: parsed.data.description || null,
       categoryId: category.id,
       classification: category.classification,
+      paymentMethodId: paymentMethod.id,
+      tagId: tag.id,
       date: parsed.data.date,
       note: parsed.data.note || null,
     },

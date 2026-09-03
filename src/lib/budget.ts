@@ -123,7 +123,12 @@ export async function getBudgetOverview(
         .filter((c) => c.classification === classification)
         .map((cat) => {
           const catPercentage = categoryPctMap.get(cat.id) ?? 0;
-          const catBudgeted = Math.round((budgetedCents * catPercentage) / 100);
+          // A Category's value is a direct percentage of total income —
+          // never a percentage of its Classification's amount. See the
+          // comment on BudgetCategoryAllocation in schema.prisma.
+          const catBudgeted = Math.round(
+            (profile.monthlyIncomeCents * catPercentage) / 100
+          );
           const catRealized = realizedMap.get(cat.id) ?? 0;
           return {
             categoryId: cat.id,

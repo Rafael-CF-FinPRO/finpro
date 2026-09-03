@@ -48,13 +48,6 @@ export default async function OrcamentoPage({
         Distribua sua renda mensal entre classificações e categorias.
       </p>
 
-      <div className="mt-6">
-        <IncomeCard
-          monthlyIncomeCents={overview.monthlyIncomeCents}
-          hasProfile={overview.hasProfile}
-        />
-      </div>
-
       {overview.hasProfile ? (
         <>
           <div className="mt-6">
@@ -84,8 +77,14 @@ export default async function OrcamentoPage({
           </div>
         </>
       ) : (
-        <div className="card mt-6 p-8 text-center text-sm text-[var(--muted)]">
-          Defina sua renda mensal de referência acima para começar a configurar o orçamento.
+        <div className="mt-6 space-y-4">
+          <IncomeCard
+            monthlyIncomeCents={overview.monthlyIncomeCents}
+            hasProfile={overview.hasProfile}
+          />
+          <div className="card p-8 text-center text-sm text-[var(--muted)]">
+            Defina sua renda mensal de referência para começar a configurar o orçamento.
+          </div>
         </div>
       )}
     </div>

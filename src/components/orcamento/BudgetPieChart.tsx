@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
+import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { formatCentsToBRL } from "@/lib/money";
+import { IconBadge } from "./IconBadge";
 import type { Classification } from "@/generated/prisma/enums";
 
 type Slice = {
@@ -122,9 +124,10 @@ export function BudgetPieChart({ slices }: { slices: Slice[] }) {
             onMouseEnter={() => setActive(slice)}
             onMouseLeave={() => setActive(null)}
           >
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: CLASSIFICATION_COLORS[slice.classification] }}
+            <IconBadge
+              icon={CLASSIFICATION_ICONS[slice.classification]}
+              color={CLASSIFICATION_COLORS[slice.classification]}
+              size="sm"
             />
             <span className="text-stone-700">{CLASSIFICATION_LABELS[slice.classification]}</span>
             <span className="ml-auto font-medium text-stone-900">{slice.percentage}%</span>

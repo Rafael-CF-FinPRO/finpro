@@ -11,11 +11,11 @@ export function Topbar({
   const initial = userName.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-[var(--surface-border)] bg-[var(--surface)] px-4 md:px-8">
-      <div className="md:hidden">
-        <Logo />
-      </div>
-      <div className="hidden md:block" />
+    // Desktop shows the logo, user info and logout inside the sidebar
+    // instead — this bar only exists for the viewports where the
+    // sidebar is hidden.
+    <header className="flex h-16 items-center justify-between border-b border-[var(--surface-border)] bg-[var(--surface)] px-4 md:hidden">
+      <Logo />
 
       <div className="flex items-center gap-3">
         <div className="hidden text-right sm:block">

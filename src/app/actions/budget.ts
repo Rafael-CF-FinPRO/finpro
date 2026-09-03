@@ -94,7 +94,7 @@ export async function saveBudgetDistributionAction(input: {
     submittedClassifications.length === expectedClassifications.length &&
     submittedClassifications.every((c, i) => c === expectedClassifications[i]);
   if (!classificationsMatch) {
-    return { error: "Configure todas as seis classificações, sem duplicar ou omitir nenhuma." };
+    return { error: "Configure todas as quatro classificações, sem duplicar ou omitir nenhuma." };
   }
 
   // Never trust the client for which classification a category belongs
@@ -129,9 +129,20 @@ export async function saveBudgetDistributionAction(input: {
     submittedByClassification.set(classification, list);
   }
 
+  // Every Category percentage is a direct share of total income — a
+  // Classification's percentage is just the sum of its own Categories'
+  // percentages (tracked independently, see schema.prisma). So instead
+  // of requiring the categories under a classification to sum to
+  // exactly 100%, they must sum to at most that classification's own
+  // percentage: under-distributing is fine (nothing forces every dollar
+  // of a classification's budget onto a named category yet), but
+  // exceeding it is rejected outright.
+  const classificationPctMap = new Map(
+    classifications.map((c) => [c.classification as Classification, c.percentage])
+  );
+
   for (const classification of BUDGET_CLASSIFICATIONS) {
     const expectedIds = (categoriesByClassification.get(classification) ?? []).slice().sort();
-    if (expectedIds.length === 0) continue; // nothing to distribute (e.g. Metas with no categories yet)
 
     const submitted = submittedByClassification.get(classification) ?? [];
     const submittedIds = submitted.map((c) => c.categoryId).sort();
@@ -143,10 +154,12 @@ export async function saveBudgetDistributionAction(input: {
         error: `Configure todas as categorias de ${CLASSIFICATION_LABELS[classification]}, sem duplicar ou omitir nenhuma.`,
       };
     }
-    const sum = submitted.reduce((s, c) => s + c.percentage, 0);
-    if (sum !== 100) {
+
+    const distributed = submitted.reduce((s, c) => s + c.percentage, 0);
+    const meta = classificationPctMap.get(classification) ?? 0;
+    if (distributed > meta) {
       return {
-        error: `As categorias de ${CLASSIFICATION_LABELS[classification]} precisam totalizar 100%.`,
+        error: `As categorias de ${CLASSIFICATION_LABELS[classification]} ultrapassam o orçamento definido para esta classificação. Meta: ${meta}% · Distribuído: ${distributed}% · Excedente: ${distributed - meta}%.`,
       };
     }
   }

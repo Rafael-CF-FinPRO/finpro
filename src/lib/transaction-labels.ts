@@ -9,6 +9,6 @@ export const CLASSIFICATION_LABELS: Record<Classification, string> = {
   RECEITA: "Receita",
   ESSENCIAIS: "Essenciais",
   NAO_ESSENCIAIS: "Não Essenciais",
-  FINANCIAMENTOS: "Financiamentos",
+  DIVIDAS: "Dívidas",
   INVESTIMENTOS: "Investimentos",
 };

@@ -86,7 +86,11 @@ export async function getTransactions(userId: string, filters: TransactionFilter
         ? { classification: filters.classification }
         : {}),
     },
-    include: { category: { select: { name: true } } },
+    include: {
+      category: { select: { name: true } },
+      paymentMethod: { select: { name: true } },
+      tag: { select: { name: true } },
+    },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
   });
 }
@@ -122,5 +126,19 @@ export async function getCategories(userId: string) {
   return prisma.category.findMany({
     where: { userId },
     orderBy: [{ type: "asc" }, { order: "asc" }],
+  });
+}
+
+export async function getPaymentMethods(userId: string) {
+  return prisma.paymentMethod.findMany({
+    where: { userId },
+    orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+  });
+}
+
+export async function getTags(userId: string) {
+  return prisma.tag.findMany({
+    where: { userId },
+    orderBy: { name: "asc" },
   });
 }

@@ -11,12 +11,32 @@ export type BudgetStatus = "DENTRO" | "FORA";
 export const BUDGET_CLASSIFICATIONS: Classification[] = [
   "ESSENCIAIS",
   "NAO_ESSENCIAIS",
-  "FINANCIAMENTOS",
+  "DIVIDAS",
   "INVESTIMENTOS",
 ];
 
 export function computeBudgetStatus(realizedCents: number, budgetedCents: number): BudgetStatus {
   return realizedCents <= budgetedCents ? "DENTRO" : "FORA";
+}
+
+export type BudgetHealth = "COM_FOLGA" | "EM_ATENCAO" | "ESTOURADA";
+
+const ATTENTION_THRESHOLD_PCT = 80;
+
+/** A finer-grained read on a classification's spending than the binary
+ * Dentro/Fora status: "com folga" while there's clear room left,
+ * "em atenção" once it's close to the line, "estourada" once it's past
+ * it. A classification with nothing budgeted yet is only "estourada" if
+ * money was actually spent against it — otherwise there's nothing to
+ * warn about. */
+export function computeBudgetHealth(realizedCents: number, budgetedCents: number): BudgetHealth {
+  if (budgetedCents <= 0) {
+    return realizedCents > 0 ? "ESTOURADA" : "COM_FOLGA";
+  }
+  const pct = (realizedCents / budgetedCents) * 100;
+  if (pct > 100) return "ESTOURADA";
+  if (pct >= ATTENTION_THRESHOLD_PCT) return "EM_ATENCAO";
+  return "COM_FOLGA";
 }
 
 /** Percentage (1 decimal place) of `realizedCents` over `budgetedCents`,

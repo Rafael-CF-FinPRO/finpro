@@ -4,6 +4,8 @@ import { getSession } from "@/lib/session";
 import { formatDateBR, toDateInputValue } from "@/lib/dates";
 import {
   getCategories,
+  getPaymentMethods,
+  getTags,
   getTransactions,
   parseFilters,
   summarize,
@@ -29,8 +31,10 @@ export default async function LancamentosPage({
   const params = await searchParams;
   const filters = parseFilters(params);
 
-  const [categories, transactions] = await Promise.all([
+  const [categories, paymentMethods, tags, transactions] = await Promise.all([
     getCategories(session.userId),
+    getPaymentMethods(session.userId),
+    getTags(session.userId),
     getTransactions(session.userId, filters),
   ]);
 
@@ -40,10 +44,14 @@ export default async function LancamentosPage({
     id: t.id,
     type: t.type,
     amountCents: t.amountCents,
-    description: t.description,
+    description: t.description ?? "",
     categoryId: t.categoryId,
     categoryName: t.category.name,
     classification: t.classification,
+    paymentMethodId: t.paymentMethodId,
+    paymentMethodName: t.paymentMethod?.name ?? null,
+    tagId: t.tagId,
+    tagName: t.tag?.name ?? null,
     dateValue: toDateInputValue(t.date),
     dateLabel: formatDateBR(t.date),
     note: t.note ?? "",
@@ -56,6 +64,9 @@ export default async function LancamentosPage({
     classification: c.classification,
     isActive: c.isActive,
   }));
+
+  const paymentMethodOptions = paymentMethods.map((pm) => ({ id: pm.id, name: pm.name }));
+  const tagOptions = tags.map((t) => ({ id: t.id, name: t.name }));
 
   return (
     <div>
@@ -73,7 +84,12 @@ export default async function LancamentosPage({
       </div>
 
       <div className="mt-4">
-        <TransactionsBoard categories={categoryOptions} transactions={transactionRows} />
+        <TransactionsBoard
+          categories={categoryOptions}
+          paymentMethods={paymentMethodOptions}
+          tags={tagOptions}
+          transactions={transactionRows}
+        />
       </div>
     </div>
   );

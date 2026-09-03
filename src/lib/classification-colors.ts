@@ -9,6 +9,16 @@ export const CLASSIFICATION_COLORS: Record<
 > = {
   ESSENCIAIS: "#4f46e5",
   NAO_ESSENCIAIS: "#f59e0b",
-  FINANCIAMENTOS: "#dc2626",
+  DIVIDAS: "#dc2626",
   INVESTIMENTOS: "#16a34a",
 };
+
+/** Appends an alpha channel to one of the hex colors above, so Category
+ * rows can read as a soft tint of their parent Classification's color
+ * (contrast between the two levels) without a second color palette to
+ * maintain. `alphaHex` is a two-digit hex string, e.g. "14" (~8%) for a
+ * background tint or "33" (~20%) for something that needs to read more
+ * clearly, like an icon badge on a light background. */
+export function withAlpha(hexColor: string, alphaHex: string): string {
+  return `${hexColor}${alphaHex}`;
+}

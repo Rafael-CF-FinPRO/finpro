@@ -1,11 +1,14 @@
 import { logoutAction } from "@/app/actions/auth";
 
-export function LogoutButton() {
+export function LogoutButton({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <form action={logoutAction}>
       <button
         type="submit"
-        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900"
+        title={collapsed ? "Sair" : undefined}
+        className={`inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900 ${
+          collapsed ? "justify-center p-2" : "px-3 py-2"
+        }`}
       >
         <svg
           width="16"
@@ -13,6 +16,7 @@ export function LogoutButton() {
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          className="shrink-0"
         >
           <path
             d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
@@ -22,7 +26,7 @@ export function LogoutButton() {
             strokeLinejoin="round"
           />
         </svg>
-        Sair
+        {!collapsed && "Sair"}
       </button>
     </form>
   );
