@@ -3,7 +3,6 @@ import {
   UtensilsCrossed,
   GraduationCap,
   LayoutGrid,
-  ShoppingCart,
   Home,
   PawPrint,
   Wrench,
@@ -40,7 +39,6 @@ const CATEGORY_ICON_BY_NAME: Record<string, LucideIcon> = {
   // Custos Obrigatórios
   Moradia: Home,
   Alimentação: UtensilsCrossed,
-  Mercado: ShoppingCart,
   Saúde: Heart,
   Educação: GraduationCap,
   Transporte: Car,
