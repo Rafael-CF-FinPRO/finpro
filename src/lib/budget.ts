@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import { monthRangeForKey } from "@/lib/dates";
+import { monthRangeForKey, enumerateMonthKeys, formatMonthKeyShortLabel } from "@/lib/dates";
 import {
   BUDGET_CLASSIFICATIONS,
   computeBudgetPct,
   computeBudgetStatus,
+  computeBudgetHealth,
   type BudgetStatus,
+  type BudgetHealth,
 } from "@/lib/budget-calc";
 import type { Classification } from "@/generated/prisma/enums";
 
@@ -174,6 +176,116 @@ export async function getBudgetOverview(
       realizedCents: totalRealized,
       availableCents: totalBudgeted - totalRealized,
       usedPct: computeBudgetPct(totalRealized, totalBudgeted),
+    },
+  };
+}
+
+export type BudgetHistoryMonth = {
+  monthKey: string;
+  label: string;
+  shortLabel: string;
+  budgetedCents: number;
+  realizedCents: number;
+};
+
+export type BudgetHistoryClassificationRow = {
+  classification: Classification;
+  budgetedCents: number;
+  realizedCents: number;
+  avgRealizedCents: number;
+  pctGasto: number | null;
+  status: BudgetStatus;
+  health: BudgetHealth;
+};
+
+export type BudgetHistory = {
+  hasProfile: boolean;
+  fromMonthKey: string;
+  toMonthKey: string;
+  months: BudgetHistoryMonth[];
+  classifications: BudgetHistoryClassificationRow[];
+  totals: {
+    incomeCents: number;
+    budgetedCents: number;
+    realizedCents: number;
+    avgRealizedCents: number;
+  };
+};
+
+/** Aggregates getBudgetOverview across every month from fromMonthKey to
+ * toMonthKey (inclusive) — reusing it rather than re-deriving the
+ * default-vs-custom-month resolution logic, so a personalized month
+ * inside the range is still accounted for correctly. Used by the
+ * Dashboard's "Visão Histórica" — the monthly view keeps using
+ * getBudgetOverview directly. */
+export async function getBudgetHistory(
+  userId: string,
+  fromMonthKey: string,
+  toMonthKey: string
+): Promise<BudgetHistory> {
+  const profile = await getBudgetProfile(userId);
+
+  if (!profile) {
+    return {
+      hasProfile: false,
+      fromMonthKey,
+      toMonthKey,
+      months: [],
+      classifications: [],
+      totals: { incomeCents: 0, budgetedCents: 0, realizedCents: 0, avgRealizedCents: 0 },
+    };
+  }
+
+  const monthKeys = enumerateMonthKeys(fromMonthKey, toMonthKey);
+  const overviews = await Promise.all(
+    monthKeys.map((monthKey) => getBudgetOverview(userId, monthKey))
+  );
+
+  const months: BudgetHistoryMonth[] = overviews.map((ov) => ({
+    monthKey: ov.monthKey,
+    label: ov.monthKey,
+    shortLabel: formatMonthKeyShortLabel(ov.monthKey),
+    budgetedCents: ov.totals.budgetedCents,
+    realizedCents: ov.totals.realizedCents,
+  }));
+
+  const monthCount = Math.max(overviews.length, 1);
+
+  const classifications: BudgetHistoryClassificationRow[] = BUDGET_CLASSIFICATIONS.map(
+    (classification) => {
+      let budgetedCents = 0;
+      let realizedCents = 0;
+      for (const ov of overviews) {
+        const row = ov.classifications.find((c) => c.classification === classification);
+        budgetedCents += row?.budgetedCents ?? 0;
+        realizedCents += row?.realizedCents ?? 0;
+      }
+      return {
+        classification,
+        budgetedCents,
+        realizedCents,
+        avgRealizedCents: Math.round(realizedCents / monthCount),
+        pctGasto: computeBudgetPct(realizedCents, budgetedCents),
+        status: computeBudgetStatus(realizedCents, budgetedCents),
+        health: computeBudgetHealth(realizedCents, budgetedCents),
+      };
+    }
+  );
+
+  const totalBudgeted = months.reduce((s, m) => s + m.budgetedCents, 0);
+  const totalRealized = months.reduce((s, m) => s + m.realizedCents, 0);
+
+  return {
+    hasProfile: true,
+    fromMonthKey,
+    toMonthKey,
+    months,
+    classifications,
+    totals: {
+      incomeCents: profile.monthlyIncomeCents * monthCount,
+      budgetedCents: totalBudgeted,
+      realizedCents: totalRealized,
+      avgRealizedCents: Math.round(totalRealized / monthCount),
     },
   };
 }

@@ -5,7 +5,6 @@ import { getBudgetOverview } from "@/lib/budget";
 import { currentMonthKey, isValidMonthKey } from "@/lib/dates";
 import { IncomeCard } from "@/components/orcamento/IncomeCard";
 import { MonthNavigator } from "@/components/orcamento/MonthNavigator";
-import { BudgetSummaryDashboard } from "@/components/orcamento/BudgetSummaryDashboard";
 import { BudgetBoard } from "@/components/orcamento/BudgetBoard";
 import type { BudgetOverview } from "@/lib/budget";
 
@@ -55,13 +54,6 @@ export default async function OrcamentoPage({
           </div>
 
           <div className="mt-4">
-            <BudgetSummaryDashboard
-              monthlyIncomeCents={overview.monthlyIncomeCents}
-              classifications={overview.classifications}
-            />
-          </div>
-
-          <div className="mt-6">
             <BudgetBoard
               // The board holds local edit state (sliders, which scope is
               // being edited). It must remount — not just re-render — any

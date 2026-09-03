@@ -118,3 +118,49 @@ export function formatMonthKeyLabel(monthKey: string): string {
   const month = Number(match[2]) - 1;
   return `${MONTH_LABELS[month]} ${year}`;
 }
+
+const MONTH_LABELS_SHORT = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+];
+
+/** "YYYY-MM" -> "Set/26" — compact label for the history evolution chart,
+ * where many months need to fit side by side. */
+export function formatMonthKeyShortLabel(monthKey: string): string {
+  const match = MONTH_KEY_PATTERN.exec(monthKey);
+  if (!match) return monthKey;
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  return `${MONTH_LABELS_SHORT[month]}/${String(year).slice(-2)}`;
+}
+
+/** Every "YYYY-MM" key from `fromMonthKey` to `toMonthKey`, inclusive,
+ * in chronological order. Swaps the two if given in reverse. Clamped to
+ * 24 months so a mistyped or manipulated URL can't trigger an
+ * unbounded number of budget-overview queries. */
+export function enumerateMonthKeys(fromMonthKey: string, toMonthKey: string): string[] {
+  let from = fromMonthKey;
+  let to = toMonthKey;
+  if (from > to) {
+    [from, to] = [to, from];
+  }
+
+  const keys: string[] = [];
+  let cursor = from;
+  const MAX_MONTHS = 24;
+  while (cursor <= to && keys.length < MAX_MONTHS) {
+    keys.push(cursor);
+    cursor = shiftMonthKey(cursor, 1);
+  }
+  return keys;
+}
