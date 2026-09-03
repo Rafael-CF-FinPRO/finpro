@@ -17,9 +17,8 @@ import type { Classification } from "@/generated/prisma/enums";
 // the same order used throughout Orçamento.
 const CLASSIFICATION_ORDER: Classification[] = [
   "RECEITA",
-  "ESSENCIAIS",
-  "NAO_ESSENCIAIS",
-  "DIVIDAS",
+  "CUSTOS_OBRIGATORIOS",
+  "PRAZERES_E_CONFORTOS",
   "INVESTIMENTOS",
 ];
 

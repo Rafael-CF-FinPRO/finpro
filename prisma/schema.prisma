@@ -50,9 +50,8 @@ enum TransactionType {
 // Categories, not a Classification of its own) and Investimentos.
 enum Classification {
   RECEITA
-  ESSENCIAIS
-  NAO_ESSENCIAIS
-  DIVIDAS
+  CUSTOS_OBRIGATORIOS
+  PRAZERES_E_CONFORTOS
   INVESTIMENTOS
 }
 
@@ -77,6 +76,7 @@ model Category {
   id             String          @id @default(cuid())
   userId         String
   name           String
+  description    String?
   type           TransactionType
   classification Classification
   order          Int             @default(0)

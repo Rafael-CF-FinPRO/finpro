@@ -21,12 +21,10 @@ import {
   Gift,
   Shirt,
   MoreHorizontal,
-  HandCoins,
-  Banknote,
-  FileText,
   CreditCard,
   Briefcase,
   TrendingUp,
+  Target,
   Tag,
   type LucideIcon,
 } from "lucide-react";
@@ -34,47 +32,41 @@ import {
 // Keyed by the exact canonical category name (see
 // src/lib/default-categories.ts) — a category the user renamed, or
 // created themselves, falls back to a generic icon rather than showing
-// nothing.
+// nothing. Some names (Pets, Transporte, Cuidados Pessoais, Prestadores
+// de Serviço e Serviços) appear once here even though the category
+// itself exists under two different Classifications — same concept,
+// same icon either way.
 const CATEGORY_ICON_BY_NAME: Record<string, LucideIcon> = {
-  // Essenciais
-  Saúde: Heart,
-  Alimentação: UtensilsCrossed,
-  Educação: GraduationCap,
-  "Essenciais Geral": LayoutGrid,
-  Mercado: ShoppingCart,
+  // Custos Obrigatórios
   Moradia: Home,
-  "Pets - Essencial": PawPrint,
-  "Prestadores de Serviço - Essencial": Wrench,
+  Alimentação: UtensilsCrossed,
+  Mercado: ShoppingCart,
+  Saúde: Heart,
+  Educação: GraduationCap,
+  Transporte: Car,
   Seguros: Shield,
-  "Serviços Financeiros": Landmark,
-  "Transporte - Essencial": Car,
-  Imposto: Receipt,
-  "Cuidados Pessoais - Essencial": UserRound,
+  Impostos: Receipt,
   "Filhos e Família": Users,
+  Pets: PawPrint,
+  "Prestadores de Serviço e Serviços": Wrench,
+  "Serviços Financeiros": Landmark,
+  "Financiamentos e Compromissos Financeiros": CreditCard,
+  "Outros Custos Obrigatórios": LayoutGrid,
 
-  // Não Essenciais
+  // Prazeres e Confortos
   "Viagens e Passeios": Plane,
+  "Lanches, Restaurantes e Confraternizações": Coffee,
+  "Lazer e Diversão": Gamepad2,
   Assinaturas: Repeat,
   Compras: ShoppingBag,
-  "Lanches, Restaurante e Confraternizações": Coffee,
-  "Lazer e Diversão": Gamepad2,
-  "Pets - Não Essencial": PawPrint,
-  "Presentes e Doações": Gift,
-  "Cuidados Pessoais - Não Essencial": UserRound,
-  "Prestadores de Serviço - Não Essencial": Wrench,
   "Roupas e Vestuário": Shirt,
-  "Transporte - Não Essencial": Car,
-  "Outros Não Essenciais": MoreHorizontal,
-
-  // Dívidas
-  Consórcio: HandCoins,
-  Empréstimo: Banknote,
-  Financiamento: FileText,
-  "Financiamentos e Dívidas Geral": CreditCard,
-  "Parcelamento Cartão": CreditCard,
+  "Presentes e Doações": Gift,
+  "Cuidados Pessoais": UserRound,
+  "Outros Prazeres e Confortos": MoreHorizontal,
 
   // Investimentos
   "Carteira de Investimentos": Briefcase,
+  "Metas e Projetos": Target,
   "Outros Investimentos": TrendingUp,
 };
 

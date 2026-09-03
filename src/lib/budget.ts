@@ -13,6 +13,7 @@ export type { BudgetStatus };
 export type CategoryBudgetRow = {
   categoryId: string;
   name: string;
+  description: string | null;
   isActive: boolean;
   percentage: number;
   isConfigured: boolean;
@@ -133,6 +134,7 @@ export async function getBudgetOverview(
           return {
             categoryId: cat.id,
             name: cat.name,
+            description: cat.description,
             isActive: cat.isActive,
             percentage: catPercentage,
             isConfigured: categoryPctMap.has(cat.id),

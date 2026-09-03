@@ -41,9 +41,11 @@ export function CategoryAllocationEditor({
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [editClassification, setEditClassification] = useState<Classification>(classification);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
 
   const active = categories.filter((c) => c.isActive);
   const inactive = categories.filter((c) => !c.isActive);
@@ -55,6 +57,7 @@ export function CategoryAllocationEditor({
   function startEdit(cat: CategoryBudgetRow) {
     setEditingId(cat.categoryId);
     setEditName(cat.name);
+    setEditDescription(cat.description ?? "");
     setEditClassification(classification);
     setError(null);
   }
@@ -65,6 +68,7 @@ export function CategoryAllocationEditor({
       const result = await updateCategoryAction({
         id: categoryId,
         name: editName,
+        description: editDescription,
         classification: editClassification,
       });
       if (result.error) {
@@ -105,6 +109,7 @@ export function CategoryAllocationEditor({
     startTransition(async () => {
       const result = await createCategoryAction({
         name: newName,
+        description: newDescription,
         type: "SAIDA",
         classification,
       });
@@ -112,6 +117,7 @@ export function CategoryAllocationEditor({
         setError(result.error);
       } else {
         setNewName("");
+        setNewDescription("");
         setAdding(false);
         refresh();
       }
@@ -139,12 +145,13 @@ export function CategoryAllocationEditor({
             className="card border-l-4 p-3"
             style={{ borderLeftColor: classificationColor }}
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {isEditing ? (
-                <div className="flex flex-1 flex-wrap items-center gap-2">
+            {isEditing ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Nome da categoria"
                     className="field-input w-40"
                   />
                   <select
@@ -158,10 +165,18 @@ export function CategoryAllocationEditor({
                       </option>
                     ))}
                   </select>
+                </div>
+                <input
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Descrição — o que entra nesta categoria"
+                  className="field-input"
+                />
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     className="btn-primary"
-                    disabled={pending || !editName.trim()}
+                    disabled={pending || !editName.trim() || !editDescription.trim()}
                     onClick={() => handleSaveEdit(cat.categoryId)}
                   >
                     Salvar
@@ -170,40 +185,45 @@ export function CategoryAllocationEditor({
                     Cancelar
                   </button>
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2">
-                    <IconBadge
-                      icon={getCategoryIcon(cat.name)}
-                      color={classificationColor}
-                      variant="soft"
-                      size="sm"
-                    />
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="flex items-start gap-2">
+                  <IconBadge
+                    icon={getCategoryIcon(cat.name)}
+                    color={classificationColor}
+                    variant="soft"
+                    size="sm"
+                  />
+                  <div>
                     <p className="font-medium text-stone-900">{cat.name}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {!cat.isConfigured && catPct === 0 && (
-                      <span className="text-xs text-[var(--muted)]">Não configurada</span>
+                    {cat.description && (
+                      <p className="text-xs text-stone-600">{cat.description}</p>
                     )}
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
-                      onClick={() => startEdit(cat)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-[var(--danger)]"
-                      disabled={pending}
-                      onClick={() => handleToggleActive(cat.categoryId, false)}
-                    >
-                      Inativar
-                    </button>
                   </div>
-                </>
-              )}
-            </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {!cat.isConfigured && catPct === 0 && (
+                    <span className="text-xs text-[var(--muted)]">Não configurada</span>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
+                    onClick={() => startEdit(cat)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-[var(--danger)]"
+                    disabled={pending}
+                    onClick={() => handleToggleActive(cat.categoryId, false)}
+                  >
+                    Inativar
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="mt-2">
               <PercentageSlider
@@ -265,7 +285,7 @@ export function CategoryAllocationEditor({
       )}
 
       {adding ? (
-        <div className="flex flex-wrap items-center gap-2 pt-1">
+        <div className="flex flex-col gap-2 pt-1">
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -273,24 +293,33 @@ export function CategoryAllocationEditor({
             className="field-input w-48"
             autoFocus
           />
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={pending || !newName.trim()}
-            onClick={handleAdd}
-          >
-            Adicionar
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              setAdding(false);
-              setNewName("");
-            }}
-          >
-            Cancelar
-          </button>
+          <input
+            value={newDescription}
+            onChange={(e) => setNewDescription(e.target.value)}
+            placeholder="Descrição — o que entra nesta categoria"
+            className="field-input"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={pending || !newName.trim() || !newDescription.trim()}
+              onClick={handleAdd}
+            >
+              Adicionar
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setAdding(false);
+                setNewName("");
+                setNewDescription("");
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       ) : (
         <button

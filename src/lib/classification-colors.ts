@@ -7,9 +7,8 @@ export const CLASSIFICATION_COLORS: Record<
   Exclude<Classification, "RECEITA">,
   string
 > = {
-  ESSENCIAIS: "#4f46e5",
-  NAO_ESSENCIAIS: "#f59e0b",
-  DIVIDAS: "#dc2626",
+  CUSTOS_OBRIGATORIOS: "#4f46e5",
+  PRAZERES_E_CONFORTOS: "#f59e0b",
   INVESTIMENTOS: "#16a34a",
 };
 

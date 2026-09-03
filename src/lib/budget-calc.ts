@@ -2,16 +2,15 @@ import type { Classification } from "@/generated/prisma/enums";
 
 export type BudgetStatus = "DENTRO" | "FORA";
 
-/** The four personal-budget areas a user distributes their income across
- * (mirrors the reference spreadsheet's "Orçamento de Gastos" sheet).
+/** The three personal-budget areas a user distributes their income
+ * across: Custos Obrigatórios, Prazeres e Confortos, Investimentos.
  * Fixed and explicit (not derived from whatever categories happen to
  * exist) so every classification — including ones with no category under
  * them yet — is always shown and configurable. RECEITA is intentionally
  * excluded: it's income, not something the budget itself distributes. */
 export const BUDGET_CLASSIFICATIONS: Classification[] = [
-  "ESSENCIAIS",
-  "NAO_ESSENCIAIS",
-  "DIVIDAS",
+  "CUSTOS_OBRIGATORIOS",
+  "PRAZERES_E_CONFORTOS",
   "INVESTIMENTOS",
 ];
 

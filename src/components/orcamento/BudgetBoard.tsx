@@ -11,7 +11,7 @@ import {
 } from "@/lib/budget-calc";
 import { formatCentsToBRL } from "@/lib/money";
 import { formatMonthKeyLabel } from "@/lib/dates";
-import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
+import { CLASSIFICATION_LABELS, CLASSIFICATION_DESCRIPTIONS } from "@/lib/transaction-labels";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
 import { getCategoryIcon } from "@/lib/category-icons";
@@ -230,14 +230,19 @@ export function BudgetBoard({
             <div key={cls.classification} className="card overflow-hidden">
               <div className="p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-start gap-2.5">
                     <IconBadge
                       icon={CLASSIFICATION_ICONS[cls.classification as NonReceita]}
                       color={CLASSIFICATION_COLORS[cls.classification as NonReceita]}
                     />
-                    <p className="font-semibold text-stone-900">
-                      {CLASSIFICATION_LABELS[cls.classification]}
-                    </p>
+                    <div>
+                      <p className="font-semibold text-stone-900">
+                        {CLASSIFICATION_LABELS[cls.classification]}
+                      </p>
+                      <p className="text-xs text-stone-600">
+                        {CLASSIFICATION_DESCRIPTIONS[cls.classification]}
+                      </p>
+                    </div>
                   </div>
                   <StatusBadge status={liveStatus} />
                 </div>
@@ -348,15 +353,20 @@ export function BudgetBoard({
                             className="card border-l-4 p-3"
                             style={{ borderLeftColor: classificationColor }}
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="flex items-start gap-2">
                                 <IconBadge
                                   icon={getCategoryIcon(cat.name)}
                                   color={classificationColor}
                                   variant="soft"
                                   size="sm"
                                 />
-                                <p className="font-medium text-stone-900">{cat.name}</p>
+                                <div>
+                                  <p className="font-medium text-stone-900">{cat.name}</p>
+                                  {cat.description && (
+                                    <p className="text-xs text-stone-600">{cat.description}</p>
+                                  )}
+                                </div>
                               </div>
                               <StatusBadge status={cat.status} />
                             </div>

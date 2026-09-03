@@ -81,12 +81,12 @@ const percentageSchema = z
   .max(100, "Percentual não pode ser maior que 100%.");
 
 const budgetClassificationEnum = z.enum(
-  ["ESSENCIAIS", "NAO_ESSENCIAIS", "DIVIDAS", "INVESTIMENTOS"],
+  ["CUSTOS_OBRIGATORIOS", "PRAZERES_E_CONFORTOS", "INVESTIMENTOS"],
   "Classificação inválida."
 );
 
 const allClassificationEnum = z.enum(
-  ["RECEITA", "ESSENCIAIS", "NAO_ESSENCIAIS", "DIVIDAS", "INVESTIMENTOS"],
+  ["RECEITA", "CUSTOS_OBRIGATORIOS", "PRAZERES_E_CONFORTOS", "INVESTIMENTOS"],
   "Classificação inválida."
 );
 
@@ -125,8 +125,17 @@ const categoryNameSchema = z
   .min(1, "Informe o nome da categoria.")
   .max(60, "Nome muito longo.");
 
+// Shown directly under the category name in Orçamento — required so
+// every category (default or user-created) is self-explanatory.
+const categoryDescriptionSchema = z
+  .string()
+  .trim()
+  .min(1, "Informe uma descrição.")
+  .max(160, "Descrição muito longa.");
+
 export const createCategorySchema = z.object({
   name: categoryNameSchema,
+  description: categoryDescriptionSchema,
   type: z.enum(["ENTRADA", "SAIDA"], "Tipo inválido."),
   classification: allClassificationEnum,
 });
@@ -134,6 +143,7 @@ export const createCategorySchema = z.object({
 export const updateCategorySchema = z.object({
   id: z.string().min(1, "Categoria inválida."),
   name: categoryNameSchema,
+  description: categoryDescriptionSchema,
   classification: allClassificationEnum,
 });
 

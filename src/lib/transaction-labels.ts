@@ -7,8 +7,29 @@ export const TYPE_LABELS: Record<TransactionType, string> = {
 
 export const CLASSIFICATION_LABELS: Record<Classification, string> = {
   RECEITA: "Receita",
-  ESSENCIAIS: "Essenciais",
-  NAO_ESSENCIAIS: "Não Essenciais",
-  DIVIDAS: "Dívidas",
+  CUSTOS_OBRIGATORIOS: "Custos Obrigatórios",
+  PRAZERES_E_CONFORTOS: "Prazeres e Confortos",
   INVESTIMENTOS: "Investimentos",
+};
+
+// Shown directly under the classification name in Orçamento (never in a
+// tooltip) — plain language, meant to help decide where a given expense
+// belongs.
+export const CLASSIFICATION_DESCRIPTIONS: Record<Classification, string> = {
+  RECEITA: "Todo o dinheiro que entra: salário, freelance e outras fontes de renda.",
+  CUSTOS_OBRIGATORIOS: "Gastos necessários para manter sua vida funcionando e cumprir seus compromissos.",
+  PRAZERES_E_CONFORTOS: "Gastos que tornam sua vida mais confortável ou prazerosa, mas que podem ser reduzidos, adiados ou ajustados quando necessário.",
+  INVESTIMENTOS: "Dinheiro destinado à construção de patrimônio, investimentos e realização de objetivos futuros.",
+};
+
+// Singular form used only to disambiguate two categories that share the
+// same name across different Classifications (e.g. "Pets — Custo
+// Obrigatório" vs "Pets — Prazer e Conforto") — see
+// src/lib/category-display.ts. CLASSIFICATION_LABELS stays plural for
+// every other use (headings, badges, selects).
+export const CLASSIFICATION_DISAMBIGUATION_LABELS: Record<Classification, string> = {
+  RECEITA: "Receita",
+  CUSTOS_OBRIGATORIOS: "Custo Obrigatório",
+  PRAZERES_E_CONFORTOS: "Prazer e Conforto",
+  INVESTIMENTOS: "Investimento",
 };

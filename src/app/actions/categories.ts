@@ -26,6 +26,7 @@ async function requireUserId() {
 
 export async function createCategoryAction(input: {
   name: string;
+  description: string;
   type: string;
   classification: string;
 }): Promise<CategoryActionState> {
@@ -70,6 +71,7 @@ export async function createCategoryAction(input: {
     data: {
       userId,
       name: parsed.data.name,
+      description: parsed.data.description,
       type: parsed.data.type,
       classification,
       order: (maxOrder._max.order ?? 0) + 1,
@@ -84,6 +86,7 @@ export async function createCategoryAction(input: {
 export async function updateCategoryAction(input: {
   id: string;
   name: string;
+  description: string;
   classification: string;
 }): Promise<CategoryActionState> {
   const userId = await requireUserId();
@@ -126,7 +129,11 @@ export async function updateCategoryAction(input: {
   await prisma.$transaction(async (tx) => {
     await tx.category.update({
       where: { id: category.id },
-      data: { name: parsed.data.name, classification: parsed.data.classification },
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description,
+        classification: parsed.data.classification,
+      },
     });
 
     if (classificationChanged) {
