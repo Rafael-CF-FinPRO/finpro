@@ -83,4 +83,8 @@ select {
   .alert-success {
     @apply rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-3.5 py-2.5 text-sm text-[var(--success)];
   }
+
+  .alert-warning {
+    @apply rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3.5 py-2.5 text-sm text-[var(--warning)];
+  }
 }

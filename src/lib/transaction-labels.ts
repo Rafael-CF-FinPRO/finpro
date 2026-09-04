@@ -37,3 +37,14 @@ export const CLASSIFICATION_DISAMBIGUATION_LABELS: Record<Classification, string
   INVESTIMENTOS: "Investimento",
   NEUTRA: "Neutro",
 };
+
+// How sure the import's AI/history categorization layer (src/lib/import/
+// ai-categorization.ts) is about a suggested category — shown as a badge
+// in the import review table.
+export type SuggestionConfidence = "HIGH" | "MEDIUM" | "LOW";
+
+export const CONFIDENCE_LABELS: Record<SuggestionConfidence, string> = {
+  HIGH: "Alta",
+  MEDIUM: "Média",
+  LOW: "Baixa",
+};

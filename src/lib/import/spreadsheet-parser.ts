@@ -1,6 +1,7 @@
 import * as XLSX from "@e965/xlsx";
 import { parseMoneyToCents } from "@/lib/money";
 import { withCategoryDisplayName } from "@/lib/category-display";
+import { normalizeText } from "./text-normalize";
 import type { ParseResult, ParsedTransactionRow } from "./types";
 import type { Classification, TransactionType } from "@/generated/prisma/enums";
 
@@ -37,14 +38,6 @@ const HEADER_KEYS: Record<string, keyof RawRow> = {
   tag: "tag",
   observacao: "note",
 };
-
-function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
-}
 
 function parseTemplateDate(value: unknown): string | null {
   if (value instanceof Date) {
@@ -186,6 +179,8 @@ export function parseSpreadsheetBuffer(
       type: type ?? "SAIDA",
       rawText: [String(row.date ?? ""), String(row.amount ?? ""), categoryText].filter(Boolean).join(" · "),
       suggestedCategoryId,
+      suggestedCategoryConfidence: null,
+      suggestedCategoryReason: null,
       suggestedPaymentMethodId,
       suggestedPaymentMethodName: paymentMethodText && !suggestedPaymentMethodId ? paymentMethodText : null,
       suggestedTagId,

@@ -7,7 +7,7 @@ import { createPaymentMethodAction } from "@/app/actions/payment-methods";
 import { createTagAction } from "@/app/actions/tags";
 import { formatCentsToBRL, parseMoneyToCents } from "@/lib/money";
 import { parseDateInputValue } from "@/lib/dates";
-import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
+import { CLASSIFICATION_LABELS, CONFIDENCE_LABELS, type SuggestionConfidence } from "@/lib/transaction-labels";
 import { CreatableSelectField, type SimpleOption } from "./CreatableSelectField";
 import type { ParsedTransactionRow } from "@/lib/import/types";
 import type { Classification } from "@/generated/prisma/enums";
@@ -36,6 +36,8 @@ type EditableRow = {
   amountText: string;
   description: string;
   categoryId: string;
+  categoryConfidence: SuggestionConfidence | null;
+  categoryReason: string | null;
   paymentMethodId: string;
   tagId: string;
   parseWarnings: string[];
@@ -55,11 +57,27 @@ function toEditableRow(row: ParsedTransactionRow): EditableRow {
     amountText: formatAmountInput(row.amountCents),
     description: row.description,
     categoryId: row.suggestedCategoryId ?? "",
+    categoryConfidence: row.suggestedCategoryConfidence,
+    categoryReason: row.suggestedCategoryReason,
     paymentMethodId: row.suggestedPaymentMethodId ?? "",
     tagId: row.suggestedTagId ?? "",
     parseWarnings: row.parseWarnings,
     possibleDuplicateOfId: row.possibleDuplicateOfId,
   };
+}
+
+function ConfidenceBadge({ confidence }: { confidence: SuggestionConfidence }) {
+  const badgeClass =
+    confidence === "HIGH"
+      ? "bg-[var(--success-bg)] text-[var(--success)]"
+      : confidence === "MEDIUM"
+        ? "bg-[var(--warning-bg)] text-[var(--warning)]"
+        : "bg-[var(--danger-bg)] text-[var(--danger)]";
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
+      {CONFIDENCE_LABELS[confidence]}
+    </span>
+  );
 }
 
 function rowError(row: EditableRow): string | null {
@@ -166,14 +184,15 @@ export function ImportReviewTable({
       <div className="overflow-x-auto rounded-lg border border-[var(--surface-border)]">
         <table className="w-full table-fixed border-collapse text-sm">
           <colgroup>
-            <col className="w-[6%]" />
-            <col className="w-[11%]" />
-            <col className="w-[9%]" />
+            <col className="w-[5%]" />
             <col className="w-[10%]" />
-            <col className="w-[20%]" />
+            <col className="w-[8%]" />
+            <col className="w-[9%]" />
             <col className="w-[18%]" />
-            <col className="w-[13%]" />
-            <col className="w-[13%]" />
+            <col className="w-[16%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+            <col className="w-[12%]" />
           </colgroup>
           <thead>
             <tr className="border-b border-[var(--surface-border)] bg-stone-50 text-left text-xs font-medium text-[var(--muted)]">
@@ -183,6 +202,7 @@ export function ImportReviewTable({
               <th className="px-2 py-2">Valor</th>
               <th className="px-2 py-2">Descrição</th>
               <th className="px-2 py-2">Categoria</th>
+              <th className="px-2 py-2">Confiança</th>
               <th className="px-2 py-2">Meio de pagamento</th>
               <th className="px-2 py-2">Tag</th>
             </tr>
@@ -229,7 +249,11 @@ export function ImportReviewTable({
                         const stillValid = categories.some(
                           (c) => c.id === row.categoryId && c.type === type
                         );
-                        updateRow(row.rowId, { type, categoryId: stillValid ? row.categoryId : "" });
+                        updateRow(row.rowId, {
+                          type,
+                          categoryId: stillValid ? row.categoryId : "",
+                          ...(stillValid ? {} : { categoryConfidence: null, categoryReason: null }),
+                        });
                       }}
                       className="field-input w-full py-1 text-xs"
                     >
@@ -268,7 +292,13 @@ export function ImportReviewTable({
                   <td className="px-2 py-2">
                     <select
                       value={row.categoryId}
-                      onChange={(e) => updateRow(row.rowId, { categoryId: e.target.value })}
+                      onChange={(e) =>
+                        updateRow(row.rowId, {
+                          categoryId: e.target.value,
+                          categoryConfidence: null,
+                          categoryReason: null,
+                        })
+                      }
                       className="field-input w-full py-1 text-xs"
                     >
                       <option value="" disabled>
@@ -284,6 +314,20 @@ export function ImportReviewTable({
                         </optgroup>
                       ))}
                     </select>
+                  </td>
+                  <td className="px-2 py-2">
+                    {row.categoryConfidence && <ConfidenceBadge confidence={row.categoryConfidence} />}
+                    {!row.categoryId && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-[var(--danger)]">
+                        <AlertTriangle size={12} className="shrink-0" /> Revisar
+                      </p>
+                    )}
+                    {row.categoryConfidence && row.categoryReason && (
+                      <p className="mt-1 text-xs break-words text-[var(--muted)]">{row.categoryReason}</p>
+                    )}
+                    {!row.categoryConfidence && row.categoryId && (
+                      <span className="text-xs text-[var(--muted)]">—</span>
+                    )}
                   </td>
                   <td className="px-2 py-2">
                     <CreatableSelectField

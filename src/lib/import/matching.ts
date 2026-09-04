@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { parseDateInputValue } from "@/lib/dates";
+import { normalizeText } from "./text-normalize";
 import type { ParsedTransactionRow } from "./types";
 import type { Classification, TransactionType } from "@/generated/prisma/enums";
 
@@ -11,14 +12,6 @@ export type MatchCategory = {
   isActive: boolean;
 };
 export type MatchSimpleOption = { id: string; name: string };
-
-function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
-}
 
 // Deliberately weak — this app has no merchant/keyword classification
 // system (src/lib/default-categories.ts is only a starter seed, not a
@@ -49,6 +42,13 @@ function suggestPaymentMethodId(description: string, paymentMethods: MatchSimple
   return match?.id ?? null;
 }
 
+// This substring heuristic is now the LAST-RESORT fallback behind the
+// AI/history categorization layer (src/lib/import/ai-categorization.ts),
+// not the primary source — it only fires for a row when that layer
+// never rendered any opinion at all (suggestedCategoryConfidence still
+// null, meaning it was skipped or the whole call failed). If the AI
+// layer deliberately returned "I don't know" (confidence LOW), that
+// must NOT be overwritten by a weaker guess here.
 export function enrichRowsWithSuggestions(
   rows: ParsedTransactionRow[],
   context: { categories: MatchCategory[]; paymentMethods: MatchSimpleOption[] }
@@ -56,7 +56,10 @@ export function enrichRowsWithSuggestions(
   return rows.map((row) => ({
     ...row,
     suggestedCategoryId:
-      row.suggestedCategoryId ?? suggestCategoryId(row.description, context.categories, row.type),
+      row.suggestedCategoryId ??
+      (row.suggestedCategoryConfidence === null
+        ? suggestCategoryId(row.description, context.categories, row.type)
+        : null),
     suggestedPaymentMethodId:
       row.suggestedPaymentMethodId ?? suggestPaymentMethodId(row.description, context.paymentMethods),
   }));

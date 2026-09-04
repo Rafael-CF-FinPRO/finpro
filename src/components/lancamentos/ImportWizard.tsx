@@ -22,7 +22,7 @@ type SimpleOption = { id: string; name: string };
 
 type Step =
   | { kind: "pick" }
-  | { kind: "review"; rows: ParsedTransactionRow[] }
+  | { kind: "review"; rows: ParsedTransactionRow[]; warning?: string }
   | { kind: "done"; count: number };
 
 const SOURCES = [
@@ -89,7 +89,7 @@ export function ImportWizard({
           setErrors((prev) => ({ ...prev, [sourceKey]: result.error ?? "Não foi possível ler o arquivo." }));
           return;
         }
-        setStep({ kind: "review", rows: result.rows });
+        setStep({ kind: "review", rows: result.rows, warning: result.warning });
       } catch {
         setPendingSource(null);
         setErrors((prev) => ({ ...prev, [sourceKey]: "Não foi possível ler o arquivo." }));
@@ -128,14 +128,17 @@ export function ImportWizard({
 
   if (step.kind === "review") {
     return (
-      <ImportReviewTable
-        initialRows={step.rows}
-        categories={categories}
-        paymentMethods={paymentMethods}
-        tags={tags}
-        onCancel={() => setStep({ kind: "pick" })}
-        onImported={(count) => setStep({ kind: "done", count })}
-      />
+      <div className="space-y-3">
+        {step.warning && <p className="alert-warning">{step.warning}</p>}
+        <ImportReviewTable
+          initialRows={step.rows}
+          categories={categories}
+          paymentMethods={paymentMethods}
+          tags={tags}
+          onCancel={() => setStep({ kind: "pick" })}
+          onImported={(count) => setStep({ kind: "done", count })}
+        />
+      </div>
     );
   }
 

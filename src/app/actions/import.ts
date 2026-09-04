@@ -6,10 +6,14 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { getCategories, getPaymentMethods, getTags } from "@/lib/transactions";
 import { importCommitSchema } from "@/lib/validation";
-import { MAX_IMPORT_FILE_BYTES, type ParseResult } from "@/lib/import/types";
+import { MAX_IMPORT_FILE_BYTES, type ParsedTransactionRow, type ParseResult } from "@/lib/import/types";
 import { parseOfxFile } from "@/lib/import/ofx-parser";
 import { parseSpreadsheetBuffer } from "@/lib/import/spreadsheet-parser";
-import { enrichRowsWithSuggestions, flagPossibleDuplicates } from "@/lib/import/matching";
+import {
+  enrichRowsWithSuggestions,
+  flagPossibleDuplicates,
+  type MatchCategory,
+} from "@/lib/import/matching";
 import type { Classification } from "@/generated/prisma/enums";
 
 async function requireUserId() {
@@ -37,12 +41,38 @@ async function extractFile(formData: FormData): Promise<ExtractedFile> {
   return { buffer: Buffer.from(arrayBuffer) };
 }
 
+// The AI/history categorization module is dynamically imported here —
+// same isolation reasoning as parsePdfImportAction below: this file is
+// shared by every import action, so a top-level import of the OpenAI
+// client would pull it into the whole Lançamentos page's module graph.
+// Any failure (missing key, quota, network, unexpected response) is
+// caught here and degrades to "no suggestion, warn the user" — the
+// import itself must never break because of this layer.
+async function runCategorization(
+  userId: string,
+  rows: ParsedTransactionRow[],
+  categories: MatchCategory[]
+): Promise<{ rows: ParsedTransactionRow[]; warning?: string }> {
+  try {
+    const { categorizeRows } = await import("@/lib/import/ai-categorization");
+    const result = await categorizeRows(rows, { userId, categories });
+    return { rows: result.rows, warning: result.warning ?? undefined };
+  } catch (err) {
+    console.error("[import] categorização automática indisponível:", err);
+    return {
+      rows,
+      warning: "Categorização automática indisponível no momento — revise manualmente.",
+    };
+  }
+}
+
 async function withSuggestionsAndDuplicates(userId: string, result: ParseResult): Promise<ParseResult> {
   if (result.error || !result.rows) return result;
   const [categories, paymentMethods] = await Promise.all([getCategories(userId), getPaymentMethods(userId)]);
-  const enriched = enrichRowsWithSuggestions(result.rows, { categories, paymentMethods });
+  const { rows: categorized, warning } = await runCategorization(userId, result.rows, categories);
+  const enriched = enrichRowsWithSuggestions(categorized, { categories, paymentMethods });
   const rows = await flagPossibleDuplicates(userId, enriched);
-  return { rows };
+  return { rows, warning };
 }
 
 export async function parseOfxImportAction(formData: FormData): Promise<ParseResult> {
@@ -85,8 +115,9 @@ export async function parseSpreadsheetImportAction(formData: FormData): Promise<
   const result = parseSpreadsheetBuffer(file.buffer, { categories, paymentMethods, tags });
   if (result.error || !result.rows) return result;
 
-  const rows = await flagPossibleDuplicates(userId, result.rows);
-  return { rows };
+  const { rows: categorized, warning } = await runCategorization(userId, result.rows, categories);
+  const rows = await flagPossibleDuplicates(userId, categorized);
+  return { rows, warning };
 }
 
 export type ImportCommitState = {

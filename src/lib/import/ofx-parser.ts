@@ -58,6 +58,8 @@ export function parseOfxFile(buffer: Buffer): ParseResult {
       type,
       rawText: block.replace(/\s+/g, " ").trim(),
       suggestedCategoryId: null,
+      suggestedCategoryConfidence: null,
+      suggestedCategoryReason: null,
       suggestedPaymentMethodId: null,
       suggestedPaymentMethodName: null,
       suggestedTagId: null,

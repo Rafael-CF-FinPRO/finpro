@@ -85,6 +85,8 @@ export async function parsePdfBuffer(buffer: Buffer): Promise<ParseResult> {
       type: amount.type,
       rawText: sourceLines.join(" | "),
       suggestedCategoryId: null,
+      suggestedCategoryConfidence: null,
+      suggestedCategoryReason: null,
       suggestedPaymentMethodId: null,
       suggestedPaymentMethodName: null,
       suggestedTagId: null,
