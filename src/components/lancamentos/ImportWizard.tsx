@@ -82,13 +82,18 @@ export function ImportWizard({
     const formData = new FormData();
     formData.set("file", file);
     startTransition(async () => {
-      const result = await action(formData);
-      setPendingSource(null);
-      if (result.error || !result.rows) {
-        setErrors((prev) => ({ ...prev, [sourceKey]: result.error ?? "Não foi possível ler o arquivo." }));
-        return;
+      try {
+        const result = await action(formData);
+        setPendingSource(null);
+        if (result.error || !result.rows) {
+          setErrors((prev) => ({ ...prev, [sourceKey]: result.error ?? "Não foi possível ler o arquivo." }));
+          return;
+        }
+        setStep({ kind: "review", rows: result.rows });
+      } catch {
+        setPendingSource(null);
+        setErrors((prev) => ({ ...prev, [sourceKey]: "Não foi possível ler o arquivo." }));
       }
-      setStep({ kind: "review", rows: result.rows });
     });
   }
 

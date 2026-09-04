@@ -8,7 +8,6 @@ import { getCategories, getPaymentMethods, getTags } from "@/lib/transactions";
 import { importCommitSchema } from "@/lib/validation";
 import { MAX_IMPORT_FILE_BYTES, type ParseResult } from "@/lib/import/types";
 import { parseOfxFile } from "@/lib/import/ofx-parser";
-import { parsePdfBuffer } from "@/lib/import/pdf-parser";
 import { parseSpreadsheetBuffer } from "@/lib/import/spreadsheet-parser";
 import { enrichRowsWithSuggestions, flagPossibleDuplicates } from "@/lib/import/matching";
 import type { Classification } from "@/generated/prisma/enums";
@@ -53,11 +52,24 @@ export async function parseOfxImportAction(formData: FormData): Promise<ParseRes
   return withSuggestionsAndDuplicates(userId, parseOfxFile(file.buffer));
 }
 
+// pdf-parse (pdfjs-dist) is imported dynamically, inside the action, not
+// at module scope — this file is a "use server" module shared by every
+// import action, so a top-level import here would pull pdfjs-dist's
+// worker/font setup into every page that can invoke any of these
+// actions (Lançamentos included) at module-load time instead of only
+// when a PDF is actually uploaded, turning any load-time failure of
+// that dependency into a crash of the whole page rather than just this
+// one action.
 export async function parsePdfImportAction(formData: FormData): Promise<ParseResult> {
   const userId = await requireUserId();
   const file = await extractFile(formData);
   if (!file.buffer) return { error: file.error };
-  return withSuggestionsAndDuplicates(userId, await parsePdfBuffer(file.buffer));
+  try {
+    const { parsePdfBuffer } = await import("@/lib/import/pdf-parser");
+    return withSuggestionsAndDuplicates(userId, await parsePdfBuffer(file.buffer));
+  } catch {
+    return { error: "Não foi possível processar este PDF. Tente novamente ou use OFX/planilha." };
+  }
 }
 
 export async function parseSpreadsheetImportAction(formData: FormData): Promise<ParseResult> {
