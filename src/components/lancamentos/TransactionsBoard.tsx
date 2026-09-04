@@ -89,9 +89,6 @@ function StatusToggle({ id, status }: { id: string; status: TransactionStatus })
         title={isPago ? "Marcar como não pago" : "Marcar como pago"}
         className="inline-flex items-center gap-2"
       >
-        <span className={`text-xs font-medium ${isPago ? "text-[var(--success)]" : "text-[var(--muted)]"}`}>
-          {isPago ? STATUS_LABELS.PAGO : STATUS_LABELS.NAO_PAGO}
-        </span>
         <span
           className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
             isPago ? "bg-[var(--success)]" : "bg-stone-300"
@@ -102,6 +99,9 @@ function StatusToggle({ id, status }: { id: string; status: TransactionStatus })
               isPago ? "translate-x-[18px]" : "translate-x-1"
             }`}
           />
+        </span>
+        <span className={`text-xs font-medium ${isPago ? "text-[var(--success)]" : "text-[var(--muted)]"}`}>
+          {isPago ? STATUS_LABELS.PAGO : STATUS_LABELS.NAO_PAGO}
         </span>
       </button>
     </form>
