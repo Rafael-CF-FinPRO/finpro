@@ -1,13 +1,24 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
-import { AlertTriangle } from "lucide-react";
-import { importTransactionsAction, type ImportCommitRow } from "@/app/actions/import";
+import { Fragment, useRef, useState, useTransition } from "react";
+import { AlertTriangle, Sparkles } from "lucide-react";
+import {
+  importTransactionsAction,
+  categorizeImportRowsAction,
+  type ImportCommitRow,
+  type CategorizeImportRowsResult,
+} from "@/app/actions/import";
 import { createPaymentMethodAction } from "@/app/actions/payment-methods";
 import { createTagAction } from "@/app/actions/tags";
 import { formatCentsToBRL, parseMoneyToCents } from "@/lib/money";
 import { parseDateInputValue } from "@/lib/dates";
-import { CLASSIFICATION_LABELS, CONFIDENCE_LABELS, type SuggestionConfidence } from "@/lib/transaction-labels";
+import {
+  CLASSIFICATION_LABELS,
+  CONFIDENCE_LABELS,
+  SOURCE_LABELS,
+  type SuggestionConfidence,
+  type SuggestionSource,
+} from "@/lib/transaction-labels";
 import { CreatableSelectField, type SimpleOption } from "./CreatableSelectField";
 import type { ParsedTransactionRow } from "@/lib/import/types";
 import type { Classification } from "@/generated/prisma/enums";
@@ -36,7 +47,7 @@ type EditableRow = {
   amountText: string;
   description: string;
   categoryId: string;
-  categoryConfidence: SuggestionConfidence | null;
+  categorySource: SuggestionSource | null;
   categoryReason: string | null;
   paymentMethodId: string;
   tagId: string;
@@ -68,7 +79,7 @@ function toEditableRow(row: ParsedTransactionRow): EditableRow {
     amountText: formatAmountInput(row.amountCents),
     description: row.description,
     categoryId: row.suggestedCategoryId ?? "",
-    categoryConfidence: row.suggestedCategoryConfidence,
+    categorySource: row.suggestedCategorySource,
     categoryReason: row.suggestedCategoryReason,
     paymentMethodId: row.suggestedPaymentMethodId ?? "",
     tagId: row.suggestedTagId ?? "",
@@ -81,6 +92,18 @@ function toEditableRow(row: ParsedTransactionRow): EditableRow {
     matchInstallmentLabel: row.matchInstallmentLabel,
     reconcile: row.matchConfidence === "HIGH",
   };
+}
+
+// One neutral style for every source, deliberately — this is
+// traceability (where did this suggestion come from), not a trust/
+// confidence signal, so it doesn't use the green/amber/red scale
+// ConfidenceBadge does below for the (unrelated) reconciliation match.
+function SourceBadge({ source }: { source: SuggestionSource }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">
+      {SOURCE_LABELS[source]}
+    </span>
+  );
 }
 
 function ConfidenceBadge({ confidence }: { confidence: SuggestionConfidence }) {
@@ -125,9 +148,57 @@ export function ImportReviewTable({
   const [formError, setFormError] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
+  const [categorizing, setCategorizing] = useState(false);
+  const [categorizeResult, setCategorizeResult] = useState<CategorizeImportRowsResult | null>(null);
+  // React state updates from setCategorizing don't flush synchronously,
+  // so two clicks arriving in the same tick (a fast double-click, or a
+  // script) can both read categorizing as still false before either
+  // re-render happens — a ref is mutated immediately, so it's the
+  // actual guard against a duplicate concurrent analysis; the state is
+  // just for the button's visible disabled/label.
+  const categorizingRef = useRef(false);
 
   function updateRow(rowId: string, patch: Partial<EditableRow>) {
     setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)));
+  }
+
+  // Only rows still without a category are ever sent — a manual pick or
+  // a category the spreadsheet already provided is never touched
+  // (requirement 17), and this is also what makes the button correctly
+  // do nothing the second time for rows it already resolved.
+  const uncategorizedCount = rows.filter((r) => r.categoryId === "").length;
+
+  function handleCategorize() {
+    if (categorizingRef.current || uncategorizedCount === 0) return;
+    categorizingRef.current = true;
+    setCategorizing(true);
+    setCategorizeResult(null);
+    const requestRows = rows
+      .filter((r) => r.categoryId === "")
+      .map((r) => ({ rowId: r.rowId, description: r.description, type: r.type }));
+
+    startTransition(async () => {
+      try {
+        const result = await categorizeImportRowsAction({ rows: requestRows });
+        setRows((prev) => {
+          const byRowId = new Map(result.suggestions.map((s) => [s.rowId, s]));
+          return prev.map((r) => {
+            const suggestion = byRowId.get(r.rowId);
+            if (!suggestion) return r;
+            return {
+              ...r,
+              categoryId: suggestion.categoryId,
+              categorySource: suggestion.source,
+              categoryReason: suggestion.reason,
+            };
+          });
+        });
+        setCategorizeResult(result);
+      } finally {
+        categorizingRef.current = false;
+        setCategorizing(false);
+      }
+    });
   }
 
   function categoriesForType(type: "ENTRADA" | "SAIDA" | "NEUTRO") {
@@ -169,6 +240,7 @@ export function ImportReviewTable({
       reconcile: r.reconcile,
       matchedPendingTransactionId: r.matchedPendingTransactionId ?? "",
       externalId: r.externalId ?? "",
+      suggestionSource: r.categorySource ?? undefined,
     }));
 
     startTransition(async () => {
@@ -199,6 +271,34 @@ export function ImportReviewTable({
         </div>
       </div>
 
+      <div className="mb-4 rounded-lg border border-[var(--surface-border)] bg-stone-50 p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={handleCategorize}
+            disabled={categorizing || uncategorizedCount === 0}
+          >
+            <Sparkles size={14} className="mr-1.5 inline" />
+            {categorizing ? "Categorizando..." : "Categorizar com IA"}
+          </button>
+          <p className="text-xs text-[var(--muted)]">
+            A IA analisa os lançamentos sem categoria e sugere com base no histórico, no conhecimento do
+            sistema e, quando necessário, em pesquisa. Totalmente opcional — você sempre pode categorizar
+            manualmente.
+          </p>
+        </div>
+        {categorizeResult && (
+          <p className="mt-2 text-xs text-stone-700">
+            Categorização concluída: {categorizeResult.summary.history} pelo histórico,{" "}
+            {categorizeResult.summary.global} pelo conhecimento existente, {categorizeResult.summary.ai} pela IA,{" "}
+            {categorizeResult.summary.research} pela pesquisa, {categorizeResult.summary.unresolved} para revisão
+            manual.
+          </p>
+        )}
+        {categorizeResult?.warning && <p className="alert-warning mt-2 text-xs">{categorizeResult.warning}</p>}
+      </div>
+
       {formError && <p className="alert-error mb-4">{formError}</p>}
 
       <div className="overflow-x-auto rounded-lg border border-[var(--surface-border)]">
@@ -222,7 +322,7 @@ export function ImportReviewTable({
               <th className="px-2 py-2">Valor</th>
               <th className="px-2 py-2">Descrição</th>
               <th className="px-2 py-2">Categoria</th>
-              <th className="px-2 py-2">Confiança</th>
+              <th className="px-2 py-2">Origem</th>
               <th className="px-2 py-2">Meio de pagamento</th>
               <th className="px-2 py-2">Tag</th>
             </tr>
@@ -272,7 +372,7 @@ export function ImportReviewTable({
                         updateRow(row.rowId, {
                           type,
                           categoryId: stillValid ? row.categoryId : "",
-                          ...(stillValid ? {} : { categoryConfidence: null, categoryReason: null }),
+                          ...(stillValid ? {} : { categorySource: null, categoryReason: null }),
                         });
                       }}
                       className="field-input w-full py-1 text-xs"
@@ -315,7 +415,7 @@ export function ImportReviewTable({
                       onChange={(e) =>
                         updateRow(row.rowId, {
                           categoryId: e.target.value,
-                          categoryConfidence: null,
+                          categorySource: null,
                           categoryReason: null,
                         })
                       }
@@ -336,13 +436,13 @@ export function ImportReviewTable({
                     </select>
                   </td>
                   <td className="px-2 py-2">
-                    {row.categoryConfidence && <ConfidenceBadge confidence={row.categoryConfidence} />}
+                    {row.categorySource && <SourceBadge source={row.categorySource} />}
                     {!row.categoryId && (
                       <p className="mt-1 flex items-center gap-1 text-xs text-[var(--danger)]">
                         <AlertTriangle size={12} className="shrink-0" /> Revisar
                       </p>
                     )}
-                    {!row.categoryConfidence && row.categoryId && (
+                    {!row.categorySource && row.categoryId && (
                       <span className="text-xs text-[var(--muted)]">—</span>
                     )}
                   </td>

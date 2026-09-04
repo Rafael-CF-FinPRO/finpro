@@ -130,6 +130,12 @@ export const importRowSchema = transactionSchema.extend({
   // otherwise every future re-import/reconciliation would have nothing
   // to compare against for a transaction created just now.
   externalId: z.string().optional().or(z.literal("")),
+  // Present only when the row still carries an un-overridden AI/research
+  // category suggestion at confirm time — used to grow the global
+  // merchant knowledge base conservatively (src/lib/import/merchant-resolver.ts).
+  // Any other value (manual pick, spreadsheet-provided, or simply absent)
+  // means "don't touch the global bank for this row".
+  suggestionSource: z.string().optional(),
 });
 
 export const importCommitSchema = z.object({

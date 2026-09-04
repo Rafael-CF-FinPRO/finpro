@@ -179,7 +179,7 @@ export function parseSpreadsheetBuffer(
       type: type ?? "SAIDA",
       rawText: [String(row.date ?? ""), String(row.amount ?? ""), categoryText].filter(Boolean).join(" · "),
       suggestedCategoryId,
-      suggestedCategoryConfidence: null,
+      suggestedCategorySource: suggestedCategoryId ? "USER" : null,
       suggestedCategoryReason: null,
       suggestedPaymentMethodId,
       suggestedPaymentMethodName: paymentMethodText && !suggestedPaymentMethodId ? paymentMethodText : null,

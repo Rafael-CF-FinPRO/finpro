@@ -1,4 +1,4 @@
-import type { SuggestionConfidence } from "@/lib/transaction-labels";
+import type { SuggestionConfidence, SuggestionSource } from "@/lib/transaction-labels";
 
 export type ImportSource = "OFX" | "PDF" | "SPREADSHEET";
 
@@ -14,12 +14,14 @@ export type ParsedTransactionRow = {
   type: "ENTRADA" | "SAIDA" | "NEUTRO";
   rawText: string;
   suggestedCategoryId: string | null;
-  // null until the AI/history categorization layer (src/lib/import/
-  // ai-categorization.ts) has actually run and produced an opinion for
-  // this row — distinct from a deliberate "I don't know" (LOW), which
-  // still sets these. Lets the fallback substring heuristic in
-  // matching.ts tell "AI never ran" apart from "AI declined to guess".
-  suggestedCategoryConfidence: SuggestionConfidence | null;
+  // Set directly by the spreadsheet parser when its own "Categoria"
+  // column resolves ("USER" — the user's own explicit input, not an
+  // inference); left null by OFX/PDF and by the spreadsheet parser when
+  // it has no category column value. Everything else is only ever set
+  // by the on-demand categorizer (src/lib/import/merchant-resolver.ts),
+  // triggered by the "Categorizar com IA" button — never automatically
+  // during parsing. Traceability only; never a stand-in for review.
+  suggestedCategorySource: SuggestionSource | null;
   suggestedCategoryReason: string | null;
   suggestedPaymentMethodId: string | null;
   suggestedPaymentMethodName: string | null;

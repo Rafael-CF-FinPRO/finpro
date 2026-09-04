@@ -1,5 +1,5 @@
-// Shared by matching.ts, spreadsheet-parser.ts, and the AI categorization
-// layer (history.ts / ai-categorization.ts) — a single normalization
+// Shared by matching.ts, spreadsheet-parser.ts, and the categorization
+// layer (history.ts / merchant-resolver.ts) — a single normalization
 // implementation instead of copies drifting apart.
 export function normalizeText(value: string): string {
   return value

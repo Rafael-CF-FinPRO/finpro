@@ -335,3 +335,25 @@ model BudgetCategoryAllocation {
   @@unique([budgetProfileId, categoryId, monthKey])
   @@index([budgetProfileId, monthKey])
 }
+
+// Cross-user knowledge base of merchant -> category mappings, built up
+// as the on-demand import categorizer (src/lib/import/merchant-resolver.ts)
+// identifies genuinely new establishments via AI/research and the user
+// confirms the suggestion without changing it. Deliberately no userId
+// and no categoryId — Category is per-user, so this stores the
+// canonical category identity (name + type + classification, same
+// shape as src/lib/default-categories.ts) and gets resolved against
+// each user's own matching category at lookup time. Grown
+// conservatively (see the plan): one confirmation is enough to write
+// an entry, but a user's own correction never touches this table —
+// only their own history (Transaction rows), never global.
+model MerchantKnowledge {
+  id                     String          @id @default(cuid())
+  normalizedPattern      String          @unique
+  categoryName           String
+  categoryType           TransactionType
+  categoryClassification Classification
+  sampleDescription      String
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+}

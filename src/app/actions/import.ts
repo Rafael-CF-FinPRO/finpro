@@ -6,16 +6,13 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { getCategories, getPaymentMethods, getTags } from "@/lib/transactions";
 import { importCommitSchema } from "@/lib/validation";
-import { MAX_IMPORT_FILE_BYTES, type ParsedTransactionRow, type ParseResult } from "@/lib/import/types";
+import { MAX_IMPORT_FILE_BYTES, type ParseResult } from "@/lib/import/types";
 import { parseOfxFile } from "@/lib/import/ofx-parser";
 import { parseSpreadsheetBuffer } from "@/lib/import/spreadsheet-parser";
-import {
-  enrichRowsWithSuggestions,
-  flagPossibleDuplicates,
-  type MatchCategory,
-} from "@/lib/import/matching";
+import { enrichRowsWithSuggestions, flagPossibleDuplicates, type MatchCategory } from "@/lib/import/matching";
 import { matchPendingOccurrences } from "@/lib/import/reconciliation";
-import type { Classification } from "@/generated/prisma/enums";
+import type { Classification, TransactionType } from "@/generated/prisma/enums";
+import type { SuggestionSource } from "@/lib/transaction-labels";
 
 async function requireUserId() {
   const session = await getSession();
@@ -42,46 +39,27 @@ async function extractFile(formData: FormData): Promise<ExtractedFile> {
   return { buffer: Buffer.from(arrayBuffer) };
 }
 
-// The AI/history categorization module is dynamically imported here —
-// same isolation reasoning as parsePdfImportAction below: this file is
-// shared by every import action, so a top-level import of the OpenAI
-// client would pull it into the whole Lançamentos page's module graph.
-// Any failure (missing key, quota, network, unexpected response) is
-// caught here and degrades to "no suggestion, warn the user" — the
-// import itself must never break because of this layer.
-async function runCategorization(
-  userId: string,
-  rows: ParsedTransactionRow[],
-  categories: MatchCategory[]
-): Promise<{ rows: ParsedTransactionRow[]; warning?: string }> {
-  try {
-    const { categorizeRows } = await import("@/lib/import/ai-categorization");
-    const result = await categorizeRows(rows, { userId, categories });
-    return { rows: result.rows, warning: result.warning ?? undefined };
-  } catch (err) {
-    console.error("[import] categorização automática indisponível:", err);
-    return {
-      rows,
-      warning: "Categorização automática indisponível no momento — revise manualmente.",
-    };
-  }
-}
-
-async function withSuggestionsAndDuplicates(userId: string, result: ParseResult): Promise<ParseResult> {
+// Parsing only ever extracts, normalizes, suggests a payment method,
+// flags duplicates, and flags a possible recurring/installment baixa —
+// none of that is AI. Category suggestion is deliberately NOT run here
+// anymore; it only happens on demand, when the user clicks "Categorizar
+// com IA" in the review table (categorizeImportRowsAction below). This
+// is the one behavioral change requested: import must never call the
+// OpenAI API by itself.
+async function withDuplicateAndReconciliationFlags(userId: string, result: ParseResult): Promise<ParseResult> {
   if (result.error || !result.rows) return result;
-  const [categories, paymentMethods] = await Promise.all([getCategories(userId), getPaymentMethods(userId)]);
-  const { rows: categorized, warning } = await runCategorization(userId, result.rows, categories);
-  const enriched = enrichRowsWithSuggestions(categorized, { categories, paymentMethods });
+  const paymentMethods = await getPaymentMethods(userId);
+  const enriched = enrichRowsWithSuggestions(result.rows, { paymentMethods });
   const deduped = await flagPossibleDuplicates(userId, enriched);
   const rows = await matchPendingOccurrences(userId, deduped);
-  return { rows, warning };
+  return { rows };
 }
 
 export async function parseOfxImportAction(formData: FormData): Promise<ParseResult> {
   const userId = await requireUserId();
   const file = await extractFile(formData);
   if (!file.buffer) return { error: file.error };
-  return withSuggestionsAndDuplicates(userId, parseOfxFile(file.buffer));
+  return withDuplicateAndReconciliationFlags(userId, parseOfxFile(file.buffer));
 }
 
 // pdf-parse (pdfjs-dist) is imported dynamically, inside the action, not
@@ -98,7 +76,7 @@ export async function parsePdfImportAction(formData: FormData): Promise<ParseRes
   if (!file.buffer) return { error: file.error };
   try {
     const { parsePdfBuffer } = await import("@/lib/import/pdf-parser");
-    return withSuggestionsAndDuplicates(userId, await parsePdfBuffer(file.buffer));
+    return withDuplicateAndReconciliationFlags(userId, await parsePdfBuffer(file.buffer));
   } catch {
     return { error: "Não foi possível processar este PDF. Tente novamente ou use OFX/planilha." };
   }
@@ -117,10 +95,64 @@ export async function parseSpreadsheetImportAction(formData: FormData): Promise<
   const result = parseSpreadsheetBuffer(file.buffer, { categories, paymentMethods, tags });
   if (result.error || !result.rows) return result;
 
-  const { rows: categorized, warning } = await runCategorization(userId, result.rows, categories);
-  const deduped = await flagPossibleDuplicates(userId, categorized);
+  const deduped = await flagPossibleDuplicates(userId, result.rows);
   const rows = await matchPendingOccurrences(userId, deduped);
-  return { rows, warning };
+  return { rows };
+}
+
+// ---- On-demand categorization ("Categorizar com IA") --------------------
+
+export type CategorizeRequestRow = {
+  rowId: string;
+  description: string;
+  type: "ENTRADA" | "SAIDA" | "NEUTRO";
+};
+
+export type CategorizeSuggestion = {
+  rowId: string;
+  categoryId: string;
+  source: SuggestionSource;
+  reason: string;
+};
+
+export type CategorizeImportRowsResult = {
+  suggestions: CategorizeSuggestion[];
+  summary: { history: number; global: number; ai: number; research: number; unresolved: number };
+  warning?: string;
+};
+
+// The only entry point that touches the OpenAI API in the whole import
+// flow — called exclusively by the "Categorizar com IA" button
+// (src/components/lancamentos/ImportReviewTable.tsx), never from the
+// parse actions above. The merchant-resolver module is dynamically
+// imported for the same module-isolation reason as pdf-parser above.
+// The caller is expected to only send rows that still need a category
+// (categoryId === "") — rows already set (spreadsheet-provided or
+// manually picked) are simply never included in the request, so they
+// can never be overwritten (requirement 17), no extra logic needed.
+export async function categorizeImportRowsAction(input: {
+  rows: CategorizeRequestRow[];
+}): Promise<CategorizeImportRowsResult> {
+  const userId = await requireUserId();
+  const emptySummary = { history: 0, global: 0, ai: 0, research: 0, unresolved: input.rows.length };
+
+  if (input.rows.length === 0) {
+    return { suggestions: [], summary: emptySummary };
+  }
+
+  try {
+    const categories = await getCategories(userId);
+    const { resolveMerchants } = await import("@/lib/import/merchant-resolver");
+    const result = await resolveMerchants(input.rows, { userId, categories });
+    return { suggestions: result.suggestions, summary: result.summary, warning: result.warning };
+  } catch (err) {
+    console.error("[import] categorização sob demanda indisponível:", err);
+    return {
+      suggestions: [],
+      summary: emptySummary,
+      warning: "Categorização automática indisponível no momento — revise manualmente.",
+    };
+  }
 }
 
 export type ImportCommitState = {
@@ -143,6 +175,11 @@ export type ImportCommitRow = {
   reconcile?: boolean;
   matchedPendingTransactionId?: string;
   externalId?: string;
+  // Set only when this row still carries an un-overridden AI/research
+  // suggestion at confirm time (cleared the moment the user picks a
+  // category by hand — see ImportReviewTable.tsx) — used below to grow
+  // the global knowledge base conservatively (requirements 21-23).
+  suggestionSource?: string;
 };
 
 // Re-validates every row through the same transactionSchema (extended
@@ -191,6 +228,7 @@ export async function importTransactionsAction(input: {
   const rowErrors: Record<string, string> = {};
   type ValidatedRow = {
     reconcileId: string | null;
+    knowledgeEntry: { description: string; type: TransactionType; category: MatchCategory } | null;
     data: {
       userId: string;
       type: "ENTRADA" | "SAIDA" | "NEUTRO";
@@ -230,6 +268,10 @@ export async function importTransactionsAction(input: {
 
     validRows.push({
       reconcileId,
+      knowledgeEntry:
+        (row.suggestionSource === "AI" || row.suggestionSource === "RESEARCH_AI") && row.description
+          ? { description: row.description, type: row.type, category }
+          : null,
       data: {
         userId,
         type: row.type,
@@ -265,6 +307,16 @@ export async function importTransactionsAction(input: {
         : prisma.transaction.create({ data: row.data })
     )
   );
+
+  // Global knowledge base only grows here, at confirm time, and only
+  // for rows whose AI/research suggestion the user left untouched
+  // (requirements 21-23) — never on parse, never on suggestion, never
+  // for a manual pick or a spreadsheet-provided category.
+  const knowledgeEntries = validRows.map((r) => r.knowledgeEntry).filter((e) => e !== null);
+  if (knowledgeEntries.length > 0) {
+    const { recordConfirmedMerchantKnowledge } = await import("@/lib/import/merchant-resolver");
+    await recordConfirmedMerchantKnowledge(knowledgeEntries);
+  }
 
   revalidatePath("/lancamentos");
   return {

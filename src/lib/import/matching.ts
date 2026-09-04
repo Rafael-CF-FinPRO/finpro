@@ -13,24 +13,6 @@ export type MatchCategory = {
 };
 export type MatchSimpleOption = { id: string; name: string };
 
-// Deliberately weak — this app has no merchant/keyword classification
-// system (src/lib/default-categories.ts is only a starter seed, not a
-// mapping table). A substring match against the user's own category
-// names is just a starting point; every row is still reviewed and
-// editable before import (see ImportReviewTable.tsx).
-function suggestCategoryId(
-  description: string,
-  categories: MatchCategory[],
-  type: ParsedTransactionRow["type"]
-): string | null {
-  const normalizedDescription = normalizeText(description);
-  if (!normalizedDescription) return null;
-  const match = categories.find(
-    (c) => c.type === type && c.isActive && normalizedDescription.includes(normalizeText(c.name))
-  );
-  return match?.id ?? null;
-}
-
 // OFX/PDF statements rarely state a payment method per line (it's
 // implicit in which account the statement belongs to) — this only finds
 // a match when the description happens to name one directly, which is
@@ -42,24 +24,18 @@ function suggestPaymentMethodId(description: string, paymentMethods: MatchSimple
   return match?.id ?? null;
 }
 
-// This substring heuristic is now the LAST-RESORT fallback behind the
-// AI/history categorization layer (src/lib/import/ai-categorization.ts),
-// not the primary source — it only fires for a row when that layer
-// never rendered any opinion at all (suggestedCategoryConfidence still
-// null, meaning it was skipped or the whole call failed). If the AI
-// layer deliberately returned "I don't know" (confidence LOW), that
-// must NOT be overwritten by a weaker guess here.
+// Payment method only — category suggestion is no longer decided here.
+// It used to run a weak substring fallback automatically at parse time;
+// now the whole category-suggestion pipeline (history, global
+// knowledge, AI, research) is on-demand only, triggered by the
+// "Categorizar com IA" button (src/lib/import/merchant-resolver.ts),
+// never automatically during import.
 export function enrichRowsWithSuggestions(
   rows: ParsedTransactionRow[],
-  context: { categories: MatchCategory[]; paymentMethods: MatchSimpleOption[] }
+  context: { paymentMethods: MatchSimpleOption[] }
 ): ParsedTransactionRow[] {
   return rows.map((row) => ({
     ...row,
-    suggestedCategoryId:
-      row.suggestedCategoryId ??
-      (row.suggestedCategoryConfidence === null
-        ? suggestCategoryId(row.description, context.categories, row.type)
-        : null),
     suggestedPaymentMethodId:
       row.suggestedPaymentMethodId ?? suggestPaymentMethodId(row.description, context.paymentMethods),
   }));
