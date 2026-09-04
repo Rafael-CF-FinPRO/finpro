@@ -57,6 +57,18 @@ export const transactionSchema = z.object({
     .or(z.literal("")),
 });
 
+// One row of a bulk import (src/app/actions/import.ts) — same rules as
+// transactionSchema, since import must never be allowed to skip a check
+// manual entry enforces, plus a rowId so per-row errors can be reported
+// back to the right line in the review table.
+export const importRowSchema = transactionSchema.extend({
+  rowId: z.string().min(1),
+});
+
+export const importCommitSchema = z.object({
+  rows: z.array(importRowSchema).min(1, "Selecione ao menos um lançamento."),
+});
+
 export const incomeSchema = z.object({
   monthlyIncomeCents: z
     .string()

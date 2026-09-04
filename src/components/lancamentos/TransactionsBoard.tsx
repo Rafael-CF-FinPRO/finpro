@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { Upload, X } from "lucide-react";
 import { formatCentsToBRL } from "@/lib/money";
 import { CLASSIFICATION_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
 import { TransactionModal } from "./TransactionModal";
 import { TransactionForm, type SimpleOption } from "./TransactionForm";
 import { DeleteTransactionButton } from "./DeleteTransactionButton";
+import { ImportWizard } from "./ImportWizard";
 import type { Classification } from "@/generated/prisma/enums";
 
 export type CategoryOption = {
@@ -93,6 +95,7 @@ export function TransactionsBoard({
   transactions: TransactionRow[];
 }) {
   const [modal, setModal] = useState<ModalState>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   return (
     <div>
@@ -111,7 +114,36 @@ export function TransactionsBoard({
         >
           + Registrar Saída
         </button>
+        <button
+          type="button"
+          onClick={() => setImportOpen((v) => !v)}
+          className="btn-secondary flex-1 sm:flex-none"
+        >
+          <Upload size={16} className="mr-1.5 inline" /> Importar
+        </button>
       </div>
+
+      {importOpen && (
+        <div className="mt-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-medium text-stone-700">Importar lançamentos</p>
+            <button
+              type="button"
+              aria-label="Fechar importação"
+              onClick={() => setImportOpen(false)}
+              className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <ImportWizard
+            categories={categories}
+            paymentMethods={paymentMethods}
+            tags={tags}
+            onClose={() => setImportOpen(false)}
+          />
+        </div>
+      )}
 
       <div className="card mt-4 overflow-hidden">
         {transactions.length === 0 ? (
