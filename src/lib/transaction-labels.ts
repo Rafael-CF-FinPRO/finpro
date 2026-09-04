@@ -3,6 +3,7 @@ import type { Classification, TransactionType } from "@/generated/prisma/enums";
 export const TYPE_LABELS: Record<TransactionType, string> = {
   ENTRADA: "Entrada",
   SAIDA: "Saída",
+  NEUTRO: "Neutro",
 };
 
 export const CLASSIFICATION_LABELS: Record<Classification, string> = {
@@ -10,6 +11,7 @@ export const CLASSIFICATION_LABELS: Record<Classification, string> = {
   CUSTOS_OBRIGATORIOS: "Custos Obrigatórios",
   PRAZERES_E_CONFORTOS: "Prazeres e Confortos",
   INVESTIMENTOS: "Investimentos",
+  NEUTRA: "Neutra",
 };
 
 // Shown directly under the classification name in Orçamento (never in a
@@ -20,6 +22,7 @@ export const CLASSIFICATION_DESCRIPTIONS: Record<Classification, string> = {
   CUSTOS_OBRIGATORIOS: "Gastos necessários para manter sua vida funcionando e cumprir seus compromissos.",
   PRAZERES_E_CONFORTOS: "Gastos que tornam sua vida mais confortável ou prazerosa, mas que podem ser reduzidos, adiados ou ajustados quando necessário.",
   INVESTIMENTOS: "Dinheiro destinado à construção de patrimônio, investimentos e realização de objetivos futuros.",
+  NEUTRA: "Movimentações que não são nem receita nem despesa, como pagamento de fatura, reembolso ou transferência entre suas próprias contas.",
 };
 
 // Singular form used only to disambiguate two categories that share the
@@ -32,4 +35,5 @@ export const CLASSIFICATION_DISAMBIGUATION_LABELS: Record<Classification, string
   CUSTOS_OBRIGATORIOS: "Custo Obrigatório",
   PRAZERES_E_CONFORTOS: "Prazer e Conforto",
   INVESTIMENTOS: "Investimento",
+  NEUTRA: "Neutro",
 };

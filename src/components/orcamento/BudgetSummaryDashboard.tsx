@@ -8,7 +8,7 @@ import { SaldoGauge } from "./SaldoGauge";
 import type { ClassificationBudgetRow } from "@/lib/budget";
 import type { Classification } from "@/generated/prisma/enums";
 
-type NonReceita = Exclude<Classification, "RECEITA">;
+type NonReceita = Exclude<Classification, "RECEITA" | "NEUTRA">;
 
 const HEALTH_META: Record<BudgetHealth, { label: string; className: string }> = {
   COM_FOLGA: {

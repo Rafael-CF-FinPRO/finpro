@@ -9,7 +9,7 @@ import type { Classification } from "@/generated/prisma/enums";
 type CategoryOption = {
   id: string;
   name: string;
-  type: "ENTRADA" | "SAIDA";
+  type: "ENTRADA" | "SAIDA" | "NEUTRO";
   classification: Classification;
 };
 
@@ -89,6 +89,7 @@ export function FiltersBar({
         <option value="all">Todos os tipos</option>
         <option value="ENTRADA">{TYPE_LABELS.ENTRADA}s</option>
         <option value="SAIDA">{TYPE_LABELS.SAIDA}s</option>
+        <option value="NEUTRO">{TYPE_LABELS.NEUTRO}s</option>
       </select>
 
       <select

@@ -25,6 +25,8 @@ import {
   TrendingUp,
   Target,
   Tag,
+  Undo2,
+  ArrowLeftRight,
   type LucideIcon,
 } from "lucide-react";
 
@@ -66,6 +68,11 @@ const CATEGORY_ICON_BY_NAME: Record<string, LucideIcon> = {
   "Carteira de Investimentos": Briefcase,
   "Metas e Projetos": Target,
   "Outros Investimentos": TrendingUp,
+
+  // Neutro
+  "Pagamento de Fatura": CreditCard,
+  Reembolso: Undo2,
+  "Transferência entre Contas": ArrowLeftRight,
 };
 
 const FALLBACK_ICON: LucideIcon = Tag;

@@ -8,42 +8,33 @@ import {
   setCategoryActiveAction,
   updateCategoryAction,
 } from "@/app/actions/categories";
-import { computeBudgetPct, computeBudgetStatus, centsFromPercentage } from "@/lib/budget-calc";
-import { formatCentsToBRL } from "@/lib/money";
-import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
-import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
-import { BUDGET_CLASSIFICATIONS } from "@/lib/budget-calc";
-import type { CategoryBudgetRow } from "@/lib/budget";
-import type { Classification } from "@/generated/prisma/enums";
-import { PercentageSlider } from "./PercentageSlider";
-import { StatusBadge } from "./StatusBadge";
-import { IconBadge } from "./IconBadge";
+import { IconBadge } from "@/components/orcamento/IconBadge";
 
-const CLASSIFICATION_OPTIONS = BUDGET_CLASSIFICATIONS;
+// Stone-500 — Neutro categories have no classification color of their
+// own (they never appear in the budget's classification palette, see
+// src/lib/classification-colors.ts), so a neutral gray badge fits.
+const NEUTRO_COLOR = "#78716c";
 
-export function CategoryAllocationEditor({
-  classification,
-  monthlyIncomeCents,
-  categories,
-  pct,
-  onPctChange,
-}: {
-  classification: Classification;
-  monthlyIncomeCents: number;
-  categories: CategoryBudgetRow[];
-  pct: Record<string, number>;
-  onPctChange: (categoryId: string, value: number) => void;
-}) {
+export type NeutroCategory = {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+};
+
+// Mirrors CategoryAllocationEditor's active/inactive/edit UX (the
+// established pattern for Category, which always soft-deletes via
+// isActive rather than hard-deleting like PaymentMethod/Tag) but
+// without any budget fields — Neutro categories are organizational
+// only and never participate in Orçamento.
+export function NeutroCategoriesEditor({ categories }: { categories: NeutroCategory[] }) {
   const router = useRouter();
-  const classificationColor =
-    CLASSIFICATION_COLORS[classification as Exclude<Classification, "RECEITA" | "NEUTRA">];
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [editClassification, setEditClassification] = useState<Classification>(classification);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -55,22 +46,21 @@ export function CategoryAllocationEditor({
     router.refresh();
   }
 
-  function startEdit(cat: CategoryBudgetRow) {
-    setEditingId(cat.categoryId);
+  function startEdit(cat: NeutroCategory) {
+    setEditingId(cat.id);
     setEditName(cat.name);
     setEditDescription(cat.description ?? "");
-    setEditClassification(classification);
     setError(null);
   }
 
-  function handleSaveEdit(categoryId: string) {
+  function handleSaveEdit(id: string) {
     setError(null);
     startTransition(async () => {
       const result = await updateCategoryAction({
-        id: categoryId,
+        id,
         name: editName,
         description: editDescription,
-        classification: editClassification,
+        classification: "NEUTRA",
       });
       if (result.error) {
         setError(result.error);
@@ -81,10 +71,10 @@ export function CategoryAllocationEditor({
     });
   }
 
-  function handleToggleActive(categoryId: string, isActive: boolean) {
+  function handleToggleActive(id: string, isActive: boolean) {
     setError(null);
     startTransition(async () => {
-      const result = await setCategoryActiveAction({ id: categoryId, isActive });
+      const result = await setCategoryActiveAction({ id, isActive });
       if (result.error) {
         setError(result.error);
       } else {
@@ -93,10 +83,10 @@ export function CategoryAllocationEditor({
     });
   }
 
-  function handleDelete(categoryId: string) {
+  function handleDelete(id: string) {
     setError(null);
     startTransition(async () => {
-      const result = await deleteCategoryAction({ id: categoryId });
+      const result = await deleteCategoryAction({ id });
       if (result.error) {
         setError(result.error);
       } else {
@@ -111,8 +101,8 @@ export function CategoryAllocationEditor({
       const result = await createCategoryAction({
         name: newName,
         description: newDescription,
-        type: "SAIDA",
-        classification,
+        type: "NEUTRO",
+        classification: "NEUTRA",
       });
       if (result.error) {
         setError(result.error);
@@ -126,47 +116,24 @@ export function CategoryAllocationEditor({
   }
 
   return (
-    <div className="space-y-3 border-t border-[var(--surface-border)] bg-stone-50/60 p-4">
+    <div className="space-y-2">
       {active.length === 0 && (
-        <p className="text-sm text-[var(--muted)]">
-          Nenhuma categoria ativa vinculada a esta classificação ainda.
-        </p>
+        <p className="text-sm text-[var(--muted)]">Nenhuma categoria neutra ativa ainda.</p>
       )}
 
       {active.map((cat) => {
-        const catPct = pct[cat.categoryId] ?? 0;
-        const liveBudgeted = centsFromPercentage(monthlyIncomeCents, catPct);
-        const livePctGasto = computeBudgetPct(cat.realizedCents, liveBudgeted);
-        const liveStatus = computeBudgetStatus(cat.realizedCents, liveBudgeted);
-        const isEditing = editingId === cat.categoryId;
-
+        const isEditing = editingId === cat.id;
         return (
-          <div
-            key={cat.categoryId}
-            className="card border-l-4 p-3"
-            style={{ borderLeftColor: classificationColor }}
-          >
+          <div key={cat.id} className="rounded-lg border border-[var(--surface-border)] px-3 py-2">
             {isEditing ? (
               <div className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    placeholder="Nome da categoria"
-                    className="field-input w-40"
-                  />
-                  <select
-                    value={editClassification}
-                    onChange={(e) => setEditClassification(e.target.value as Classification)}
-                    className="field-input w-auto"
-                  >
-                    {CLASSIFICATION_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {CLASSIFICATION_LABELS[opt]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Nome da categoria"
+                  className="field-input"
+                  autoFocus
+                />
                 <input
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
@@ -178,7 +145,7 @@ export function CategoryAllocationEditor({
                     type="button"
                     className="btn-primary"
                     disabled={pending || !editName.trim() || !editDescription.trim()}
-                    onClick={() => handleSaveEdit(cat.categoryId)}
+                    onClick={() => handleSaveEdit(cat.id)}
                   >
                     Salvar
                   </button>
@@ -190,23 +157,13 @@ export function CategoryAllocationEditor({
             ) : (
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="flex items-start gap-2">
-                  <IconBadge
-                    icon={getCategoryIcon(cat.name)}
-                    color={classificationColor}
-                    variant="soft"
-                    size="sm"
-                  />
+                  <IconBadge icon={getCategoryIcon(cat.name)} color={NEUTRO_COLOR} variant="soft" size="sm" />
                   <div>
                     <p className="font-medium text-stone-900">{cat.name}</p>
-                    {cat.description && (
-                      <p className="text-xs text-stone-600">{cat.description}</p>
-                    )}
+                    {cat.description && <p className="text-xs text-stone-600">{cat.description}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  {!cat.isConfigured && catPct === 0 && (
-                    <span className="text-xs text-[var(--muted)]">Não configurada</span>
-                  )}
                   <button
                     type="button"
                     className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
@@ -218,41 +175,13 @@ export function CategoryAllocationEditor({
                     type="button"
                     className="text-xs font-medium text-[var(--danger)]"
                     disabled={pending}
-                    onClick={() => handleToggleActive(cat.categoryId, false)}
+                    onClick={() => handleToggleActive(cat.id, false)}
                   >
                     Inativar
                   </button>
                 </div>
               </div>
             )}
-
-            <div className="mt-2">
-              <PercentageSlider
-                label={cat.name}
-                value={catPct}
-                onChange={(v) => onPctChange(cat.categoryId, v)}
-                monthlyIncomeCents={monthlyIncomeCents}
-              />
-            </div>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-              <div>
-                <p className="text-[var(--muted)]">Orçado</p>
-                <p className="font-medium text-stone-900">{formatCentsToBRL(liveBudgeted)}</p>
-              </div>
-              <div>
-                <p className="text-[var(--muted)]">Realizado</p>
-                <p className="font-medium text-stone-900">{formatCentsToBRL(cat.realizedCents)}</p>
-              </div>
-              <div>
-                <p className="text-[var(--muted)]">% Gasto</p>
-                <p className="font-medium text-stone-900">
-                  {livePctGasto === null ? "—" : `${livePctGasto.toLocaleString("pt-BR")}%`}
-                </p>
-              </div>
-            </div>
-            <div className="mt-2">
-              <StatusBadge status={liveStatus} />
-            </div>
           </div>
         );
       })}
@@ -261,14 +190,14 @@ export function CategoryAllocationEditor({
         <div className="space-y-1.5 border-t border-dashed border-[var(--surface-border)] pt-2">
           <p className="text-xs font-medium text-[var(--muted)]">Categorias inativas</p>
           {inactive.map((cat) => (
-            <div key={cat.categoryId} className="flex items-center justify-between text-sm">
+            <div key={cat.id} className="flex items-center justify-between text-sm">
               <span className="text-stone-500">{cat.name}</span>
               <span className="flex items-center gap-3">
                 <button
                   type="button"
                   className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
                   disabled={pending}
-                  onClick={() => handleToggleActive(cat.categoryId, true)}
+                  onClick={() => handleToggleActive(cat.id, true)}
                 >
                   Reativar
                 </button>
@@ -276,7 +205,7 @@ export function CategoryAllocationEditor({
                   type="button"
                   className="text-xs font-medium text-[var(--danger)]"
                   disabled={pending}
-                  onClick={() => handleDelete(cat.categoryId)}
+                  onClick={() => handleDelete(cat.id)}
                 >
                   Excluir
                 </button>
@@ -292,7 +221,7 @@ export function CategoryAllocationEditor({
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Nome da nova categoria"
-            className="field-input w-48"
+            className="field-input"
             autoFocus
           />
           <input

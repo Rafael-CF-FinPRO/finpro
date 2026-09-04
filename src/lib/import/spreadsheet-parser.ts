@@ -72,10 +72,11 @@ function parseTemplateAmount(value: unknown): number | null {
   return null;
 }
 
-function parseTemplateType(value: unknown): "ENTRADA" | "SAIDA" | null {
+function parseTemplateType(value: unknown): "ENTRADA" | "SAIDA" | "NEUTRO" | null {
   const normalized = normalizeText(String(value ?? ""));
   if (normalized === "entrada") return "ENTRADA";
   if (normalized === "saida") return "SAIDA";
+  if (normalized === "neutro") return "NEUTRO";
   return null;
 }
 
@@ -156,7 +157,7 @@ export function parseSpreadsheetBuffer(
     const warnings: string[] = [];
     if (!date) warnings.push("Data não reconhecida.");
     if (amountCents === null) warnings.push("Valor não reconhecido.");
-    if (!type) warnings.push('Tipo não reconhecido — use "Entrada" ou "Saída".');
+    if (!type) warnings.push('Tipo não reconhecido — use "Entrada", "Saída" ou "Neutro".');
 
     const categoryText = String(row.category ?? "").trim();
     let suggestedCategoryId: string | null = null;

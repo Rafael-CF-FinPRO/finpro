@@ -28,7 +28,9 @@ export function parseFilters(
       : "current";
 
   const type =
-    searchParams.type === "ENTRADA" || searchParams.type === "SAIDA"
+    searchParams.type === "ENTRADA" ||
+    searchParams.type === "SAIDA" ||
+    searchParams.type === "NEUTRO"
       ? searchParams.type
       : "all";
 
@@ -98,26 +100,35 @@ export async function getTransactions(userId: string, filters: TransactionFilter
 export type TransactionsSummary = {
   incomeCents: number;
   expenseCents: number;
+  neutroCents: number;
   balanceCents: number;
 };
 
+// Neutro is neither income nor expense (a bill payment, a reimbursement,
+// a transfer between your own accounts) — it's tracked in its own
+// bucket and deliberately left out of balanceCents, otherwise it would
+// misrepresent the actual Entradas/Saídas/Saldo.
 export function summarize(
   transactions: { type: TransactionType; amountCents: number }[]
 ): TransactionsSummary {
   let incomeCents = 0;
   let expenseCents = 0;
+  let neutroCents = 0;
 
   for (const t of transactions) {
     if (t.type === "ENTRADA") {
       incomeCents += t.amountCents;
-    } else {
+    } else if (t.type === "SAIDA") {
       expenseCents += t.amountCents;
+    } else {
+      neutroCents += t.amountCents;
     }
   }
 
   return {
     incomeCents,
     expenseCents,
+    neutroCents,
     balanceCents: incomeCents - expenseCents,
   };
 }

@@ -15,7 +15,7 @@ import type { Classification } from "@/generated/prisma/enums";
 type CategoryOption = {
   id: string;
   name: string;
-  type: "ENTRADA" | "SAIDA";
+  type: "ENTRADA" | "SAIDA" | "NEUTRO";
   classification: Classification;
   isActive: boolean;
 };
@@ -25,19 +25,19 @@ const CLASSIFICATION_ORDER: Classification[] = [
   "CUSTOS_OBRIGATORIOS",
   "PRAZERES_E_CONFORTOS",
   "INVESTIMENTOS",
+  "NEUTRA",
 ];
 
 type EditableRow = {
   rowId: string;
   include: boolean;
-  type: "ENTRADA" | "SAIDA";
+  type: "ENTRADA" | "SAIDA" | "NEUTRO";
   dateValue: string;
   amountText: string;
   description: string;
   categoryId: string;
   paymentMethodId: string;
   tagId: string;
-  rawText: string;
   parseWarnings: string[];
   possibleDuplicateOfId: string | null;
 };
@@ -57,7 +57,6 @@ function toEditableRow(row: ParsedTransactionRow): EditableRow {
     categoryId: row.suggestedCategoryId ?? "",
     paymentMethodId: row.suggestedPaymentMethodId ?? "",
     tagId: row.suggestedTagId ?? "",
-    rawText: row.rawText,
     parseWarnings: row.parseWarnings,
     possibleDuplicateOfId: row.possibleDuplicateOfId,
   };
@@ -96,7 +95,7 @@ export function ImportReviewTable({
     setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)));
   }
 
-  function categoriesForType(type: "ENTRADA" | "SAIDA") {
+  function categoriesForType(type: "ENTRADA" | "SAIDA" | "NEUTRO") {
     return CLASSIFICATION_ORDER.map((classification) => ({
       classification,
       items: categories
@@ -165,17 +164,27 @@ export function ImportReviewTable({
       {formError && <p className="alert-error mb-4">{formError}</p>}
 
       <div className="overflow-x-auto rounded-lg border border-[var(--surface-border)]">
-        <table className="w-full min-w-[900px] border-collapse text-sm">
+        <table className="w-full table-fixed border-collapse text-sm">
+          <colgroup>
+            <col className="w-[6%]" />
+            <col className="w-[11%]" />
+            <col className="w-[9%]" />
+            <col className="w-[10%]" />
+            <col className="w-[20%]" />
+            <col className="w-[18%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+          </colgroup>
           <thead>
             <tr className="border-b border-[var(--surface-border)] bg-stone-50 text-left text-xs font-medium text-[var(--muted)]">
-              <th className="px-3 py-2">Incluir</th>
-              <th className="px-3 py-2">Data</th>
-              <th className="px-3 py-2">Tipo</th>
-              <th className="px-3 py-2">Valor</th>
-              <th className="px-3 py-2">Descrição</th>
-              <th className="px-3 py-2">Categoria</th>
-              <th className="px-3 py-2">Meio de pagamento</th>
-              <th className="px-3 py-2">Tag</th>
+              <th className="px-2 py-2">Incluir</th>
+              <th className="px-2 py-2">Data</th>
+              <th className="px-2 py-2">Tipo</th>
+              <th className="px-2 py-2">Valor</th>
+              <th className="px-2 py-2">Descrição</th>
+              <th className="px-2 py-2">Categoria</th>
+              <th className="px-2 py-2">Meio de pagamento</th>
+              <th className="px-2 py-2">Tag</th>
             </tr>
           </thead>
           <tbody>
@@ -189,7 +198,7 @@ export function ImportReviewTable({
                     row.include ? "" : "opacity-50"
                   }`}
                 >
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     <input
                       type="checkbox"
                       checked={row.include}
@@ -198,36 +207,38 @@ export function ImportReviewTable({
                       aria-label="Incluir este lançamento"
                     />
                     {row.possibleDuplicateOfId && (
-                      <p className="mt-1 flex items-center gap-1 text-xs whitespace-nowrap text-[var(--warning)]">
-                        <AlertTriangle size={12} /> Duplicata?
+                      <p className="mt-1 flex items-center gap-1 text-xs text-[var(--warning)]">
+                        <AlertTriangle size={12} className="shrink-0" /> Duplicata?
                       </p>
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     <input
                       type="date"
                       value={row.dateValue}
                       onChange={(e) => updateRow(row.rowId, { dateValue: e.target.value })}
-                      className="field-input py-1 text-xs"
+                      className="field-input w-full py-1 text-xs"
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     <select
                       value={row.type}
                       onChange={(e) => {
-                        const type = e.target.value === "SAIDA" ? "SAIDA" : "ENTRADA";
+                        const value = e.target.value;
+                        const type = value === "SAIDA" ? "SAIDA" : value === "NEUTRO" ? "NEUTRO" : "ENTRADA";
                         const stillValid = categories.some(
                           (c) => c.id === row.categoryId && c.type === type
                         );
                         updateRow(row.rowId, { type, categoryId: stillValid ? row.categoryId : "" });
                       }}
-                      className="field-input py-1 text-xs"
+                      className="field-input w-full py-1 text-xs"
                     >
                       <option value="ENTRADA">Entrada</option>
                       <option value="SAIDA">Saída</option>
+                      <option value="NEUTRO">Neutro</option>
                     </select>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     <div className="relative">
                       <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-xs text-[var(--muted)]">
                         R$
@@ -237,33 +248,28 @@ export function ImportReviewTable({
                         inputMode="decimal"
                         value={row.amountText}
                         onChange={(e) => updateRow(row.rowId, { amountText: e.target.value })}
-                        className="field-input w-24 py-1 pl-7 text-xs"
+                        className="field-input w-full py-1 pl-7 text-xs"
                       />
                     </div>
                   </td>
-                  <td className="min-w-[12rem] px-3 py-2">
-                    <input
-                      type="text"
+                  <td className="px-2 py-2">
+                    <textarea
                       value={row.description}
                       onChange={(e) => updateRow(row.rowId, { description: e.target.value })}
-                      className="field-input py-1 text-xs"
+                      rows={2}
+                      className="field-input w-full resize-none py-1 text-xs break-words"
                     />
-                    {row.rawText && (
-                      <p className="mt-1 truncate text-xs text-[var(--muted)]" title={row.rawText}>
-                        {row.rawText}
-                      </p>
-                    )}
                     {row.parseWarnings.map((warning) => (
                       <p key={warning} className="mt-1 flex items-start gap-1 text-xs text-[var(--warning)]">
                         <AlertTriangle size={12} className="mt-0.5 shrink-0" /> {warning}
                       </p>
                     ))}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     <select
                       value={row.categoryId}
                       onChange={(e) => updateRow(row.rowId, { categoryId: e.target.value })}
-                      className="field-input py-1 text-xs"
+                      className="field-input w-full py-1 text-xs"
                     >
                       <option value="" disabled>
                         Selecione
@@ -279,7 +285,7 @@ export function ImportReviewTable({
                       ))}
                     </select>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     <CreatableSelectField
                       options={paymentMethodOptions}
                       value={row.paymentMethodId}
@@ -295,7 +301,7 @@ export function ImportReviewTable({
                       }}
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     <CreatableSelectField
                       options={tagOptions}
                       value={row.tagId}

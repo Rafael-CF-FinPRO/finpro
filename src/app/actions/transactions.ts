@@ -17,6 +17,13 @@ function formString(formData: FormData, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
+function formType(formData: FormData): "ENTRADA" | "SAIDA" | "NEUTRO" {
+  const value = formData.get("type");
+  if (value === "SAIDA") return "SAIDA";
+  if (value === "NEUTRO") return "NEUTRO";
+  return "ENTRADA";
+}
+
 async function requireUserId() {
   const session = await getSession();
   if (!session) {
@@ -27,7 +34,7 @@ async function requireUserId() {
 
 async function resolveCategory(
   categoryId: string,
-  type: "ENTRADA" | "SAIDA",
+  type: "ENTRADA" | "SAIDA" | "NEUTRO",
   userId: string
 ) {
   const category = await prisma.category.findUnique({
@@ -64,7 +71,7 @@ export async function createTransactionAction(
 ): Promise<TransactionActionState> {
   const userId = await requireUserId();
 
-  const type = formData.get("type") === "SAIDA" ? "SAIDA" : "ENTRADA";
+  const type = formType(formData);
 
   const parsed = transactionSchema.safeParse({
     type,
@@ -143,7 +150,7 @@ export async function updateTransactionAction(
     return { error: "Lançamento não encontrado." };
   }
 
-  const type = formData.get("type") === "SAIDA" ? "SAIDA" : "ENTRADA";
+  const type = formType(formData);
 
   const parsed = transactionSchema.safeParse({
     type,

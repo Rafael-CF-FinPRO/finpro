@@ -70,6 +70,7 @@ export async function buildTemplateWorkbook(
     (a, b) => a.type.localeCompare(b.type) || a.displayName.localeCompare(b.displayName, "pt-BR")
   );
   const entradaCategories = displayCategories.filter((c) => c.type === "ENTRADA");
+  const neutroCategories = displayCategories.filter((c) => c.type === "NEUTRO");
   const saidaCategories = displayCategories.filter((c) => c.type === "SAIDA");
 
   const paymentMethodNames = paymentMethods.map((p) => p.name).sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -111,11 +112,14 @@ export async function buildTemplateWorkbook(
 
   const baseBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 
-  // Categorias sheet: header on row 1, ENTRADA rows first, then SAIDA —
-  // matches the sort above, so each type's block is contiguous.
+  // Categorias sheet: header on row 1, ENTRADA rows first, then NEUTRO,
+  // then SAIDA — matches the sort above ("ENTRADA" < "NEUTRO" < "SAIDA"),
+  // so each type's block is contiguous.
   const entradaRow = 2;
-  const saidaRow = entradaRow + entradaCategories.length;
+  const neutroRow = entradaRow + entradaCategories.length;
+  const saidaRow = neutroRow + neutroCategories.length;
   const entradaRange = rangeOrEmpty("Categorias", "B", entradaCategories.length, entradaRow);
+  const neutroRange = rangeOrEmpty("Categorias", "B", neutroCategories.length, neutroRow);
   const saidaRange = rangeOrEmpty("Categorias", "B", saidaCategories.length, saidaRow);
 
   const paymentMethodRange = rangeOrEmpty("'Meios de Pagamento'", "A", paymentMethodNames.length, 2);
@@ -124,6 +128,7 @@ export async function buildTemplateWorkbook(
   const definedNamesXml = [
     `<definedNames>`,
     `<definedName name="Entrada">${xmlEscape(entradaRange)}</definedName>`,
+    `<definedName name="Neutro">${xmlEscape(neutroRange)}</definedName>`,
     `<definedName name="Saída">${xmlEscape(saidaRange)}</definedName>`,
     `</definedNames>`,
   ].join("");
@@ -131,8 +136,8 @@ export async function buildTemplateWorkbook(
   const dataValidationsXml = [
     `<dataValidations count="4">`,
     `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" errorStyle="stop" sqref="B2:B${VALIDATION_LAST_ROW}">`,
-    `<formula1>"Entrada,Saída"</formula1>`,
-    `<error>Selecione Entrada ou Saída.</error>`,
+    `<formula1>"Entrada,Saída,Neutro"</formula1>`,
+    `<error>Selecione Entrada, Saída ou Neutro.</error>`,
     `</dataValidation>`,
     `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" errorStyle="stop" sqref="D2:D${VALIDATION_LAST_ROW}">`,
     `<formula1>INDIRECT($B2)</formula1>`,

@@ -17,7 +17,7 @@ export const registerSchema = z
   });
 
 export const transactionSchema = z.object({
-  type: z.enum(["ENTRADA", "SAIDA"], "Tipo inválido."),
+  type: z.enum(["ENTRADA", "SAIDA", "NEUTRO"], "Tipo inválido."),
   amountCents: z
     .string()
     .min(1, "Informe o valor.")
@@ -98,7 +98,7 @@ const budgetClassificationEnum = z.enum(
 );
 
 const allClassificationEnum = z.enum(
-  ["RECEITA", "CUSTOS_OBRIGATORIOS", "PRAZERES_E_CONFORTOS", "INVESTIMENTOS"],
+  ["RECEITA", "CUSTOS_OBRIGATORIOS", "PRAZERES_E_CONFORTOS", "INVESTIMENTOS", "NEUTRA"],
   "Classificação inválida."
 );
 
@@ -148,7 +148,7 @@ const categoryDescriptionSchema = z
 export const createCategorySchema = z.object({
   name: categoryNameSchema,
   description: categoryDescriptionSchema,
-  type: z.enum(["ENTRADA", "SAIDA"], "Tipo inválido."),
+  type: z.enum(["ENTRADA", "SAIDA", "NEUTRO"], "Tipo inválido."),
   classification: allClassificationEnum,
 });
 

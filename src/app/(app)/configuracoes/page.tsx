@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { getPaymentMethods, getTags } from "@/lib/transactions";
+import { getCategories, getPaymentMethods, getTags } from "@/lib/transactions";
 import { PaymentMethodsEditor } from "@/components/configuracoes/PaymentMethodsEditor";
 import { TagsEditor } from "@/components/configuracoes/TagsEditor";
+import { NeutroCategoriesEditor } from "@/components/configuracoes/NeutroCategoriesEditor";
 
 export const metadata: Metadata = {
   title: "Configurações | FinPRO",
@@ -15,10 +16,12 @@ export default async function ConfiguracoesPage() {
     redirect("/login");
   }
 
-  const [paymentMethods, tags] = await Promise.all([
+  const [categories, paymentMethods, tags] = await Promise.all([
+    getCategories(session.userId),
     getPaymentMethods(session.userId),
     getTags(session.userId),
   ]);
+  const neutroCategories = categories.filter((c) => c.type === "NEUTRO");
 
   return (
     <div>
@@ -46,6 +49,24 @@ export default async function ConfiguracoesPage() {
         </p>
         <div className="mt-4">
           <TagsEditor items={tags.map((t) => ({ id: t.id, name: t.name }))} />
+        </div>
+      </div>
+
+      <div className="card mt-4 p-4">
+        <h2 className="font-semibold text-stone-900">Categorias neutras</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Para lançamentos que não são nem receita nem despesa, como pagamento de fatura,
+          reembolso ou transferência entre suas contas. Não entram no orçamento.
+        </p>
+        <div className="mt-4">
+          <NeutroCategoriesEditor
+            categories={neutroCategories.map((c) => ({
+              id: c.id,
+              name: c.name,
+              description: c.description,
+              isActive: c.isActive,
+            }))}
+          />
         </div>
       </div>
     </div>

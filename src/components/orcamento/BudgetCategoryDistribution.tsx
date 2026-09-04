@@ -10,7 +10,7 @@ import type { Classification } from "@/generated/prisma/enums";
 export type CategorySlice = {
   categoryId: string;
   name: string;
-  classification: Exclude<Classification, "RECEITA">;
+  classification: Exclude<Classification, "RECEITA" | "NEUTRA">;
   percentage: number;
   budgetedCents: number;
 };

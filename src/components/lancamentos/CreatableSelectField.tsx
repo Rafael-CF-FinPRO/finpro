@@ -50,12 +50,12 @@ export function CreatableSelectField({
 
   if (adding) {
     return (
-      <div className="flex min-w-[9rem] flex-wrap items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder={placeholder}
-          className="field-input flex-1 py-1 text-xs"
+          className="field-input min-w-0 flex-1 py-1 text-xs"
           autoFocus
         />
         <button
@@ -83,11 +83,11 @@ export function CreatableSelectField({
   }
 
   return (
-    <div className="flex min-w-[9rem] items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1">
       <select
         value={value}
         onChange={(e) => onSelect(e.target.value)}
-        className="field-input py-1 text-xs"
+        className="field-input min-w-0 flex-1 py-1 text-xs"
         aria-label={ariaLabel}
       >
         <option value="">{emptyLabel}</option>

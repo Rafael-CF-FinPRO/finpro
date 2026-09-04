@@ -9,7 +9,7 @@ export type ParsedTransactionRow = {
   date: string;
   description: string;
   amountCents: number;
-  type: "ENTRADA" | "SAIDA";
+  type: "ENTRADA" | "SAIDA" | "NEUTRO";
   rawText: string;
   suggestedCategoryId: string | null;
   suggestedPaymentMethodId: string | null;

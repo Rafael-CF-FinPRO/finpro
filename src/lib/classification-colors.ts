@@ -1,10 +1,10 @@
 import type { Classification } from "@/generated/prisma/enums";
 
 // One distinct color per budget classification, shared by the pie chart
-// and its legend. RECEITA never appears here (it doesn't participate in
-// the budget distribution).
+// and its legend. RECEITA and NEUTRA never appear here — neither
+// participates in the budget distribution.
 export const CLASSIFICATION_COLORS: Record<
-  Exclude<Classification, "RECEITA">,
+  Exclude<Classification, "RECEITA" | "NEUTRA">,
   string
 > = {
   CUSTOS_OBRIGATORIOS: "#4f46e5",

@@ -255,4 +255,29 @@ export const DEFAULT_CATEGORY_TEMPLATE: {
     classification: "INVESTIMENTOS",
     order: 3,
   },
+
+  // Neutro — movimentações que não são nem receita nem despesa real,
+  // apenas para fins de organização do extrato (não participam do
+  // orçamento, ver BUDGET_CLASSIFICATIONS em src/lib/budget-calc.ts).
+  {
+    name: "Pagamento de Fatura",
+    description: "Pagamento da fatura do cartão de crédito — não é um gasto novo, apenas a quitação do que já foi lançado nas compras do cartão.",
+    type: "NEUTRO",
+    classification: "NEUTRA",
+    order: 1,
+  },
+  {
+    name: "Reembolso",
+    description: "Dinheiro devolvido por alguém ou por uma empresa referente a um gasto que você já fez — não é uma nova receita.",
+    type: "NEUTRO",
+    classification: "NEUTRA",
+    order: 2,
+  },
+  {
+    name: "Transferência entre Contas",
+    description: "Movimentações de dinheiro entre suas próprias contas ou carteiras — não representa entrada nem saída real de patrimônio.",
+    type: "NEUTRO",
+    classification: "NEUTRA",
+    order: 3,
+  },
 ];

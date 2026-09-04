@@ -29,7 +29,7 @@ import { ApplyScopeDialog } from "./ApplyScopeDialog";
 import { RestoreDefaultDialog } from "./RestoreDefaultDialog";
 import { IncomeCard } from "./IncomeCard";
 
-type NonReceita = Exclude<Classification, "RECEITA">;
+type NonReceita = Exclude<Classification, "RECEITA" | "NEUTRA">;
 
 // Remembers whether the charts are collapsed across visits — a
 // per-browser UI preference, not user data, so localStorage is the

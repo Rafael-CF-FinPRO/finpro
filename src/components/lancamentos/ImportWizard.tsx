@@ -14,7 +14,7 @@ import type { Classification } from "@/generated/prisma/enums";
 type CategoryOption = {
   id: string;
   name: string;
-  type: "ENTRADA" | "SAIDA";
+  type: "ENTRADA" | "SAIDA" | "NEUTRO";
   classification: Classification;
   isActive: boolean;
 };

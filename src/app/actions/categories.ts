@@ -40,11 +40,20 @@ export async function createCategoryAction(input: {
     };
   }
 
-  // Entrada categories are always Receita — Classification is only
-  // user-choosable for Saida categories, among the six budget areas.
-  const classification = parsed.data.type === "ENTRADA" ? "RECEITA" : parsed.data.classification;
+  // Entrada categories are always Receita, Neutro categories are always
+  // Neutra — Classification is only user-choosable for Saida categories,
+  // among the three budget areas.
+  const classification =
+    parsed.data.type === "ENTRADA"
+      ? "RECEITA"
+      : parsed.data.type === "NEUTRO"
+        ? "NEUTRA"
+        : parsed.data.classification;
   if (parsed.data.type === "ENTRADA" && parsed.data.classification !== "RECEITA") {
     return { error: "Categorias de Entrada usam sempre a classificação Receita." };
+  }
+  if (parsed.data.type === "NEUTRO" && parsed.data.classification !== "NEUTRA") {
+    return { error: "Categorias Neutras usam sempre a classificação Neutra." };
   }
 
   const existing = await prisma.category.findFirst({
@@ -106,6 +115,9 @@ export async function updateCategoryAction(input: {
 
   if (category.type === "ENTRADA" && parsed.data.classification !== "RECEITA") {
     return { error: "Categorias de Entrada usam sempre a classificação Receita." };
+  }
+  if (category.type === "NEUTRO" && parsed.data.classification !== "NEUTRA") {
+    return { error: "Categorias Neutras usam sempre a classificação Neutra." };
   }
 
   const duplicate = await prisma.category.findFirst({

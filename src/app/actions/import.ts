@@ -137,7 +137,7 @@ export async function importTransactionsAction(input: {
   const rowErrors: Record<string, string> = {};
   const validRows: {
     userId: string;
-    type: "ENTRADA" | "SAIDA";
+    type: "ENTRADA" | "SAIDA" | "NEUTRO";
     amountCents: number;
     description: string | null;
     categoryId: string;

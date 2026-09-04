@@ -9,7 +9,7 @@ import { IconBadge } from "./IconBadge";
 import type { Classification } from "@/generated/prisma/enums";
 
 type Slice = {
-  classification: Exclude<Classification, "RECEITA">;
+  classification: Exclude<Classification, "RECEITA" | "NEUTRA">;
   percentage: number;
   budgetedCents: number;
 };

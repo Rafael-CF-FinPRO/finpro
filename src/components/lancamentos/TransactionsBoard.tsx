@@ -13,14 +13,14 @@ import type { Classification } from "@/generated/prisma/enums";
 export type CategoryOption = {
   id: string;
   name: string;
-  type: "ENTRADA" | "SAIDA";
+  type: "ENTRADA" | "SAIDA" | "NEUTRO";
   classification: Classification;
   isActive: boolean;
 };
 
 export type TransactionRow = {
   id: string;
-  type: "ENTRADA" | "SAIDA";
+  type: "ENTRADA" | "SAIDA" | "NEUTRO";
   amountCents: number;
   description: string;
   categoryId: string;
@@ -36,8 +36,8 @@ export type TransactionRow = {
 };
 
 type ModalState =
-  | { mode: "create"; type: "ENTRADA" | "SAIDA" }
-  | { mode: "edit"; type: "ENTRADA" | "SAIDA"; transaction: TransactionRow }
+  | { mode: "create"; type: "ENTRADA" | "SAIDA" | "NEUTRO" }
+  | { mode: "edit"; type: "ENTRADA" | "SAIDA" | "NEUTRO"; transaction: TransactionRow }
   | null;
 
 function EditIcon() {
@@ -54,16 +54,15 @@ function EditIcon() {
   );
 }
 
-function TypeBadge({ type }: { type: "ENTRADA" | "SAIDA" }) {
-  const isIncome = type === "ENTRADA";
+function TypeBadge({ type }: { type: "ENTRADA" | "SAIDA" | "NEUTRO" }) {
+  const badgeClass =
+    type === "ENTRADA"
+      ? "bg-[var(--success-bg)] text-[var(--success)]"
+      : type === "SAIDA"
+        ? "bg-[var(--danger-bg)] text-[var(--danger)]"
+        : "bg-stone-100 text-stone-600";
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-        isIncome
-          ? "bg-[var(--success-bg)] text-[var(--success)]"
-          : "bg-[var(--danger-bg)] text-[var(--danger)]"
-      }`}
-    >
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
       {TYPE_LABELS[type]}
     </span>
   );
@@ -73,6 +72,18 @@ function TypeBadge({ type }: { type: "ENTRADA" | "SAIDA" }) {
 // always has a meaningful title.
 function displayTitle(t: TransactionRow): string {
   return t.description || t.categoryName;
+}
+
+// Neutro is neither income nor expense — no +/- sign and a neutral
+// color, so it never reads as a gain or a loss.
+function amountColorClass(type: "ENTRADA" | "SAIDA" | "NEUTRO"): string {
+  if (type === "ENTRADA") return "text-[var(--success)]";
+  if (type === "SAIDA") return "text-[var(--danger)]";
+  return "text-stone-600";
+}
+
+function amountSign(type: "ENTRADA" | "SAIDA" | "NEUTRO"): string {
+  return type === "SAIDA" ? "-" : "";
 }
 
 function TagBadge({ name }: { name: string }) {
@@ -113,6 +124,13 @@ export function TransactionsBoard({
           className="btn-secondary flex-1 border-[var(--danger-border)] text-[var(--danger)] hover:bg-[var(--danger-bg)]"
         >
           + Registrar Saída
+        </button>
+        <button
+          type="button"
+          onClick={() => setModal({ mode: "create", type: "NEUTRO" })}
+          className="btn-secondary flex-1 sm:flex-none"
+        >
+          + Registrar Neutro
         </button>
         <button
           type="button"
@@ -189,14 +207,8 @@ export function TransactionsBoard({
                         <span className="text-stone-400">—</span>
                       )}
                     </td>
-                    <td
-                      className={`px-4 py-3 text-right font-medium ${
-                        t.type === "ENTRADA"
-                          ? "text-[var(--success)]"
-                          : "text-[var(--danger)]"
-                      }`}
-                    >
-                      {t.type === "SAIDA" ? "-" : ""}
+                    <td className={`px-4 py-3 text-right font-medium ${amountColorClass(t.type)}`}>
+                      {amountSign(t.type)}
                       {formatCentsToBRL(t.amountCents)}
                     </td>
                     <td className="px-4 py-3">
@@ -236,14 +248,8 @@ export function TransactionsBoard({
                         {t.paymentMethodName ? ` · ${t.paymentMethodName}` : ""}
                       </p>
                     </div>
-                    <p
-                      className={`shrink-0 font-semibold ${
-                        t.type === "ENTRADA"
-                          ? "text-[var(--success)]"
-                          : "text-[var(--danger)]"
-                      }`}
-                    >
-                      {t.type === "SAIDA" ? "-" : ""}
+                    <p className={`shrink-0 font-semibold ${amountColorClass(t.type)}`}>
+                      {amountSign(t.type)}
                       {formatCentsToBRL(t.amountCents)}
                     </p>
                   </div>

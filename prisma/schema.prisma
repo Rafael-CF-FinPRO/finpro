@@ -36,9 +36,17 @@ model PasswordResetToken {
   @@index([userId])
 }
 
+// NEUTRO is for money movements that are neither real income nor a real
+// expense — a credit-card bill payment, a reimbursement, a transfer
+// between your own accounts. Purely organizational: it never appears in
+// the budget (see BUDGET_CLASSIFICATIONS in src/lib/budget-calc.ts,
+// which intentionally excludes it the same way it already excludes
+// RECEITA) and is excluded from the Entradas/Saídas/Saldo totals in
+// src/lib/transactions.ts's summarize().
 enum TransactionType {
   ENTRADA
   SAIDA
+  NEUTRO
 }
 
 // RECEITA is used for Entrada (income) categories and doesn't participate
@@ -48,11 +56,14 @@ enum TransactionType {
 // spreadsheet's "Orçamento de Gastos" sheet: Essenciais, Não Essenciais,
 // Dívidas (debt/financing obligations — "Financiamento" is one of its
 // Categories, not a Classification of its own) and Investimentos.
+// NEUTRA (paired with TransactionType.NEUTRO above) is likewise excluded
+// from the budget — organizational only.
 enum Classification {
   RECEITA
   CUSTOS_OBRIGATORIOS
   PRAZERES_E_CONFORTOS
   INVESTIMENTOS
+  NEUTRA
 }
 
 // Categories belong to a single user and are fully editable by them

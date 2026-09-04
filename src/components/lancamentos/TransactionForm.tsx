@@ -14,18 +14,20 @@ import type { Classification } from "@/generated/prisma/enums";
 
 // Fixed display order for classification groups — RECEITA first (the
 // only classification ENTRADA categories use), then the SAIDA ones in
-// the same order used throughout Orçamento.
+// the same order used throughout Orçamento, then NEUTRA (the only
+// classification NEUTRO categories use).
 const CLASSIFICATION_ORDER: Classification[] = [
   "RECEITA",
   "CUSTOS_OBRIGATORIOS",
   "PRAZERES_E_CONFORTOS",
   "INVESTIMENTOS",
+  "NEUTRA",
 ];
 
 type CategoryOption = {
   id: string;
   name: string;
-  type: "ENTRADA" | "SAIDA";
+  type: "ENTRADA" | "SAIDA" | "NEUTRO";
   classification: Classification;
   isActive: boolean;
 };
@@ -158,7 +160,7 @@ export function TransactionForm({
   initialData,
   onSaved,
 }: {
-  type: "ENTRADA" | "SAIDA";
+  type: "ENTRADA" | "SAIDA" | "NEUTRO";
   categories: CategoryOption[];
   paymentMethods: SimpleOption[];
   tags: SimpleOption[];
@@ -271,7 +273,13 @@ export function TransactionForm({
           name="description"
           type="text"
           defaultValue={initialData?.description}
-          placeholder={type === "ENTRADA" ? "Ex: Salário de agosto" : "Ex: Compras do mês"}
+          placeholder={
+            type === "ENTRADA"
+              ? "Ex: Salário de agosto"
+              : type === "NEUTRO"
+                ? "Ex: Pagamento da fatura do cartão"
+                : "Ex: Compras do mês"
+          }
           className="field-input"
         />
         {state.fieldErrors?.description && (
