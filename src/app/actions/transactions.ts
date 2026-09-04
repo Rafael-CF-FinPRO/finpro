@@ -192,14 +192,14 @@ export async function deleteTransactionAction(formData: FormData) {
   revalidatePath("/lancamentos");
 }
 
-export async function markTransactionPaidStatusAction(formData: FormData) {
+// Plain-object input (not FormData) — called directly from the client
+// (src/components/lancamentos/TransactionsBoard.tsx's StatusToggle)
+// inside a useTransition, so the switch can flip instantly and only
+// reconcile with the server in the background, instead of waiting on a
+// full form-submission round trip.
+export async function markTransactionPaidStatusAction(input: { id: string; status: "PAGO" | "NAO_PAGO" }) {
   const userId = await requireUserId();
-
-  const id = formData.get("id");
-  const status = formData.get("status");
-  if (typeof id !== "string" || !id || (status !== "PAGO" && status !== "NAO_PAGO")) {
-    return;
-  }
+  const { id, status } = input;
 
   await prisma.transaction.updateMany({
     where: { id, userId },

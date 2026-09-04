@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Upload, X, Repeat, Layers } from "lucide-react";
 import { formatCentsToBRL } from "@/lib/money";
 import { CLASSIFICATION_LABELS, STATUS_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
@@ -73,38 +73,59 @@ function TypeBadge({ type }: { type: "ENTRADA" | "SAIDA" | "NEUTRO" }) {
   );
 }
 
-// A switch showing the current status by name (Pago/Não pago) plus the
-// selector itself — clicking it submits the opposite status right from
-// the table, no need to open the edit form. Selected/colored = Pago,
-// unselected/gray = Não pago.
+// A switch showing the selector plus the current status by name
+// (Pago/Não pago) — clicking it flips right from the table, no need to
+// open the edit form. Selected/colored = Pago, unselected/gray = Não
+// pago. Two things keep this from feeling janky:
+// - The label has a fixed width (`w-14`) so "Pago" and "Não pago"
+//   occupy the same footprint — without it, the column (and every
+//   column after it) reflows sideways on every toggle.
+// - The switch flips immediately on click (local optimistic state)
+//   instead of waiting for the server round trip; the actual mutation
+//   happens in the background via useTransition, and reverts only if
+//   it fails.
 function StatusToggle({ id, status }: { id: string; status: TransactionStatus }) {
-  const isPago = status === "PAGO";
+  const [optimisticStatus, setOptimisticStatus] = useState(status);
+  const [, startTransition] = useTransition();
+  const isPago = optimisticStatus === "PAGO";
+
+  function handleClick() {
+    const next = isPago ? "NAO_PAGO" : "PAGO";
+    setOptimisticStatus(next);
+    startTransition(async () => {
+      try {
+        await markTransactionPaidStatusAction({ id, status: next });
+      } catch {
+        setOptimisticStatus(isPago ? "PAGO" : "NAO_PAGO");
+      }
+    });
+  }
+
   return (
-    <form action={markTransactionPaidStatusAction}>
-      <input type="hidden" name="id" value={id} />
-      <input type="hidden" name="status" value={isPago ? "NAO_PAGO" : "PAGO"} />
-      <button
-        type="submit"
-        aria-pressed={isPago}
-        title={isPago ? "Marcar como não pago" : "Marcar como pago"}
-        className="inline-flex items-center gap-2"
+    <button
+      type="button"
+      onClick={handleClick}
+      aria-pressed={isPago}
+      title={isPago ? "Marcar como não pago" : "Marcar como pago"}
+      className="inline-flex items-center gap-2"
+    >
+      <span
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+          isPago ? "bg-[var(--success)]" : "bg-stone-300"
+        }`}
       >
         <span
-          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-            isPago ? "bg-[var(--success)]" : "bg-stone-300"
+          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+            isPago ? "translate-x-[18px]" : "translate-x-1"
           }`}
-        >
-          <span
-            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-              isPago ? "translate-x-[18px]" : "translate-x-1"
-            }`}
-          />
-        </span>
-        <span className={`text-xs font-medium ${isPago ? "text-[var(--success)]" : "text-[var(--muted)]"}`}>
-          {isPago ? STATUS_LABELS.PAGO : STATUS_LABELS.NAO_PAGO}
-        </span>
-      </button>
-    </form>
+        />
+      </span>
+      <span
+        className={`w-14 shrink-0 text-left text-xs font-medium ${isPago ? "text-[var(--success)]" : "text-[var(--muted)]"}`}
+      >
+        {isPago ? STATUS_LABELS.PAGO : STATUS_LABELS.NAO_PAGO}
+      </span>
+    </button>
   );
 }
 
