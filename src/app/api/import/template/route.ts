@@ -1,21 +1,26 @@
 import { NextResponse } from "next/server";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { getCategories } from "@/lib/transactions";
+import { getCategories, getPaymentMethods, getTags } from "@/lib/transactions";
 import { buildTemplateWorkbook } from "@/lib/import/spreadsheet-template";
 
-// The template lists each user's own active categories (src/lib/import/
-// spreadsheet-template.ts), so it can't be a static file — a GET Route
-// Handler is what returns a binary download with the right
-// Content-Disposition behind a plain <a href>, unlike a Server Action.
+// The template lists each user's own active categories/payment methods/
+// tags (src/lib/import/spreadsheet-template.ts), so it can't be a
+// static file — a GET Route Handler is what returns a binary download
+// with the right Content-Disposition behind a plain <a href>, unlike a
+// Server Action.
 export async function GET() {
   const session = await getSession();
   if (!session) {
     redirect("/login");
   }
 
-  const categories = await getCategories(session.userId);
-  const buffer = buildTemplateWorkbook(categories);
+  const [categories, paymentMethods, tags] = await Promise.all([
+    getCategories(session.userId),
+    getPaymentMethods(session.userId),
+    getTags(session.userId),
+  ]);
+  const buffer = await buildTemplateWorkbook(categories, paymentMethods, tags);
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
