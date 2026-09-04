@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { CLASSIFICATION_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
+import { CLASSIFICATION_LABELS, STATUS_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
 import { withCategoryDisplayName } from "@/lib/category-display";
 import type { TransactionFilters } from "@/lib/transactions";
 import type { Classification } from "@/generated/prisma/enums";
@@ -118,6 +118,17 @@ export function FiltersBar({
             {label}
           </option>
         ))}
+      </select>
+
+      <select
+        aria-label="Status de pagamento"
+        className="field-input w-auto py-2"
+        value={filters.status}
+        onChange={(e) => updateParams({ status: e.target.value })}
+      >
+        <option value="all">Pago e não pago</option>
+        <option value="PAGO">{STATUS_LABELS.PAGO}</option>
+        <option value="NAO_PAGO">{STATUS_LABELS.NAO_PAGO}</option>
       </select>
     </div>
   );

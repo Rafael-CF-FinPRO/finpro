@@ -1,4 +1,10 @@
-import type { Classification, TransactionType } from "@/generated/prisma/enums";
+import type {
+  Classification,
+  RecurrencePeriodicity,
+  SeriesType,
+  TransactionStatus,
+  TransactionType,
+} from "@/generated/prisma/enums";
 
 export const TYPE_LABELS: Record<TransactionType, string> = {
   ENTRADA: "Entrada",
@@ -48,3 +54,22 @@ export const CONFIDENCE_LABELS: Record<SuggestionConfidence, string> = {
   MEDIUM: "Média",
   LOW: "Baixa",
 };
+
+export const STATUS_LABELS: Record<TransactionStatus, string> = {
+  PAGO: "Pago",
+  NAO_PAGO: "Não pago",
+};
+
+export const SERIES_TYPE_LABELS: Record<SeriesType, string> = {
+  RECORRENTE: "Recorrente",
+  PARCELADO: "Parcelado",
+};
+
+export const PERIODICITY_LABELS: Record<RecurrencePeriodicity, string> = {
+  MENSAL: "Mensal",
+};
+
+// "Alterar/excluir só esta ocorrência" vs "esta e as próximas ainda não
+// pagas" — the choice presented whenever editing/deleting a transaction
+// that belongs to a series (src/components/lancamentos/TransactionsBoard.tsx).
+export type SeriesEditScope = "this" | "this_and_future";

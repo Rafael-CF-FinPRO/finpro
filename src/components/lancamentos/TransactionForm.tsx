@@ -6,11 +6,22 @@ import {
   updateTransactionAction,
   type TransactionActionState,
 } from "@/app/actions/transactions";
+import {
+  createRecurringSeriesAction,
+  createInstallmentSeriesAction,
+  updateSeriesOccurrenceAction,
+} from "@/app/actions/series";
 import { createPaymentMethodAction } from "@/app/actions/payment-methods";
 import { createTagAction } from "@/app/actions/tags";
-import { CLASSIFICATION_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
+import {
+  CLASSIFICATION_LABELS,
+  PERIODICITY_LABELS,
+  TYPE_LABELS,
+  type SeriesEditScope,
+} from "@/lib/transaction-labels";
 import { todayLocalDateInputValue } from "@/lib/dates";
-import type { Classification } from "@/generated/prisma/enums";
+import { formatCentsToBRL, parseMoneyToCents } from "@/lib/money";
+import type { Classification, SeriesType } from "@/generated/prisma/enums";
 
 // Fixed display order for classification groups — RECEITA first (the
 // only classification ENTRADA categories use), then the SAIDA ones in
@@ -34,6 +45,10 @@ type CategoryOption = {
 
 export type SimpleOption = { id: string; name: string };
 
+// A transaction that belongs to a series carries its seriesType so the
+// form knows to show the "somente este / este e os próximos" choice
+// and — for a PARCELADO series — to keep amount edits scoped to
+// "somente este" only (see updateSeriesOccurrenceAction).
 export type TransactionFormInitialData = {
   id: string;
   amountLabel: string;
@@ -43,6 +58,8 @@ export type TransactionFormInitialData = {
   tagId: string;
   dateValue: string;
   note: string;
+  seriesId: string | null;
+  seriesType: SeriesType | null;
 };
 
 const initialState: TransactionActionState = {};
@@ -152,6 +169,8 @@ function InlineCreatableSelect({
   );
 }
 
+type SeriesMode = "normal" | "recorrente" | "parcelado";
+
 export function TransactionForm({
   type,
   categories,
@@ -168,7 +187,25 @@ export function TransactionForm({
   onSaved: () => void;
 }) {
   const isEdit = Boolean(initialData);
-  const action = isEdit ? updateTransactionAction : createTransactionAction;
+  const belongsToSeries = Boolean(initialData?.seriesId);
+
+  // Only relevant when creating — an existing transaction never
+  // switches series membership through this form (normal stays
+  // normal, a series occurrence stays in its series).
+  const [seriesMode, setSeriesMode] = useState<SeriesMode>("normal");
+  const [showSeriesOptions, setShowSeriesOptions] = useState(false);
+  const [editScope, setEditScope] = useState<SeriesEditScope>("this");
+
+  const action = isEdit
+    ? belongsToSeries
+      ? updateSeriesOccurrenceAction
+      : updateTransactionAction
+    : seriesMode === "recorrente"
+      ? createRecurringSeriesAction
+      : seriesMode === "parcelado"
+        ? createInstallmentSeriesAction
+        : createTransactionAction;
+
   const [state, formAction, pending] = useActionState(action, initialState);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     initialData?.categoryId ?? ""
@@ -179,6 +216,8 @@ export function TransactionForm({
   const [selectedTagId, setSelectedTagId] = useState(initialData?.tagId ?? "");
   const [paymentMethodOptions, setPaymentMethodOptions] = useState(paymentMethods);
   const [tagOptions, setTagOptions] = useState(tags);
+  const [amountText, setAmountText] = useState(initialData?.amountLabel ?? "");
+  const [installmentCountText, setInstallmentCountText] = useState("2");
 
   // Inactive categories aren't offered for new selections, but an
   // existing transaction that already points at one must keep showing
@@ -230,16 +269,66 @@ export function TransactionForm({
     );
   }
 
+  const installmentCount = Math.max(2, Math.round(Number(installmentCountText)) || 2);
+  const amountCentsPreview = parseMoneyToCents(amountText, { allowZero: true });
+  const totalPreview =
+    seriesMode === "parcelado" && amountCentsPreview !== null
+      ? formatCentsToBRL(amountCentsPreview * installmentCount)
+      : null;
+
+  const dateLabel =
+    seriesMode === "recorrente"
+      ? "Data da primeira ocorrência"
+      : seriesMode === "parcelado"
+        ? "Data da primeira parcela"
+        : "Data";
+
   return (
     <form action={formAction} className="space-y-4" noValidate>
       {isEdit && <input type="hidden" name="id" value={initialData!.id} />}
       <input type="hidden" name="type" value={type} />
+      {belongsToSeries && <input type="hidden" name="scope" value={editScope} />}
 
       {state.error && <p className="alert-error">{state.error}</p>}
 
+      {belongsToSeries && (
+        <div>
+          <p className="field-label">Esta alteração vale para</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={
+                editScope === "this"
+                  ? "btn-primary flex-1 !py-2 text-sm"
+                  : "btn-secondary flex-1 !py-2 text-sm"
+              }
+              onClick={() => setEditScope("this")}
+            >
+              Somente este
+            </button>
+            <button
+              type="button"
+              className={
+                editScope === "this_and_future"
+                  ? "btn-primary flex-1 !py-2 text-sm"
+                  : "btn-secondary flex-1 !py-2 text-sm"
+              }
+              onClick={() => setEditScope("this_and_future")}
+            >
+              Este e os próximos
+            </button>
+          </div>
+          {editScope === "this_and_future" && initialData?.seriesType === "PARCELADO" && (
+            <p className="mt-1.5 text-xs text-[var(--muted)]">
+              O valor da parcela é alterado somente nesta ocorrência — as demais mantêm o valor original.
+            </p>
+          )}
+        </div>
+      )}
+
       <div>
         <label htmlFor="amountCents" className="field-label">
-          Valor
+          Valor {seriesMode === "parcelado" && <span className="font-normal text-[var(--muted)]">(da parcela)</span>}
         </label>
         <div className="relative">
           <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-sm text-[var(--muted)]">
@@ -252,7 +341,8 @@ export function TransactionForm({
             inputMode="decimal"
             autoFocus
             required
-            defaultValue={initialData?.amountLabel}
+            value={amountText}
+            onChange={(e) => setAmountText(e.target.value)}
             placeholder="0,00"
             className="field-input pl-9"
           />
@@ -363,7 +453,7 @@ export function TransactionForm({
 
       <div>
         <label htmlFor="date" className="field-label">
-          Data
+          {dateLabel}
         </label>
         <input
           id="date"
@@ -392,6 +482,115 @@ export function TransactionForm({
           className="field-input resize-none"
         />
       </div>
+
+      {!isEdit && (
+        <div>
+          {!showSeriesOptions ? (
+            <button
+              type="button"
+              className="text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
+              onClick={() => setShowSeriesOptions(true)}
+            >
+              É um lançamento recorrente ou parcelado?
+            </button>
+          ) : (
+            <div className="space-y-3 rounded-lg border border-[var(--surface-border)] p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-stone-700">Recorrente ou parcelado?</p>
+                <button
+                  type="button"
+                  className="text-xs text-[var(--muted)] hover:text-stone-700"
+                  onClick={() => {
+                    setShowSeriesOptions(false);
+                    setSeriesMode("normal");
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+
+              <div className="flex gap-4 text-sm">
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="seriesModeChoice"
+                    checked={seriesMode === "recorrente"}
+                    onChange={() => setSeriesMode("recorrente")}
+                  />
+                  Recorrente
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="seriesModeChoice"
+                    checked={seriesMode === "parcelado"}
+                    onChange={() => setSeriesMode("parcelado")}
+                  />
+                  Parcelado
+                </label>
+              </div>
+
+              {seriesMode === "recorrente" && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="periodicity" className="field-label">
+                      Periodicidade
+                    </label>
+                    <select id="periodicity" name="periodicity" defaultValue="MENSAL" className="field-input">
+                      {Object.entries(PERIODICITY_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="endDate" className="field-label">
+                      Repetir até <span className="font-normal text-[var(--muted)]">(opcional)</span>
+                    </label>
+                    <input id="endDate" name="endDate" type="date" className="field-input" />
+                    {state.fieldErrors?.endDate && (
+                      <p className="mt-1.5 text-sm text-[var(--danger)]">
+                        {state.fieldErrors.endDate[0]}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {seriesMode === "parcelado" && (
+                <div>
+                  <label htmlFor="installmentCount" className="field-label">
+                    Quantidade de parcelas
+                  </label>
+                  <input
+                    id="installmentCount"
+                    name="installmentCount"
+                    type="number"
+                    min={2}
+                    max={360}
+                    required
+                    value={installmentCountText}
+                    onChange={(e) => setInstallmentCountText(e.target.value)}
+                    className="field-input"
+                  />
+                  {state.fieldErrors?.installmentCount && (
+                    <p className="mt-1.5 text-sm text-[var(--danger)]">
+                      {state.fieldErrors.installmentCount[0]}
+                    </p>
+                  )}
+                  {totalPreview && (
+                    <p className="mt-1.5 text-sm text-[var(--muted)]">
+                      Total da compra:{" "}
+                      <span className="font-medium text-stone-700">{totalPreview}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <button type="submit" className="btn-primary w-full" disabled={pending}>
         {pending ? "Salvando..." : "Salvar"}

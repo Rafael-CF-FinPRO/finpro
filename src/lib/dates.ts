@@ -37,6 +37,22 @@ export function parseDateInputValue(value: string): Date | null {
   return date;
 }
 
+/** Adds `months` whole months to a UTC date, clamping the day to the
+ * last valid day of the target month (e.g. 31/01 + 1 month -> 28 or
+ * 29/02, never rolling over into March). Used to step recurring and
+ * installment occurrence dates — see src/lib/series.ts. */
+export function addMonthsClamped(date: Date, months: number): Date {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const targetMonthIndex = month + months;
+  const daysInTargetMonth = new Date(
+    Date.UTC(year, targetMonthIndex + 1, 0)
+  ).getUTCDate();
+  const clampedDay = Math.min(day, daysInTargetMonth);
+  return new Date(Date.UTC(year, targetMonthIndex, clampedDay, 12));
+}
+
 export type MonthRange = { from: Date; to: Date };
 
 function monthRange(yearOffsetMonths: number): MonthRange {

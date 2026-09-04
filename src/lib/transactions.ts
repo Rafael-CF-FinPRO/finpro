@@ -4,11 +4,16 @@ import {
   parseDateInputValue,
   previousMonthRange,
 } from "@/lib/dates";
-import { Classification, type TransactionType } from "@/generated/prisma/enums";
+import {
+  Classification,
+  type TransactionStatus,
+  type TransactionType,
+} from "@/generated/prisma/enums";
 
 export type PeriodFilter = "current" | "previous" | "custom";
 export type TypeFilter = "all" | TransactionType;
 export type ClassificationFilter = "all" | Classification;
+export type StatusFilter = "all" | TransactionStatus;
 
 export type TransactionFilters = {
   period: PeriodFilter;
@@ -17,6 +22,7 @@ export type TransactionFilters = {
   type: TypeFilter;
   categoryId?: string;
   classification: ClassificationFilter;
+  status: StatusFilter;
 };
 
 export function parseFilters(
@@ -48,7 +54,12 @@ export function parseFilters(
   const from = typeof searchParams.from === "string" ? searchParams.from : undefined;
   const to = typeof searchParams.to === "string" ? searchParams.to : undefined;
 
-  return { period, from, to, type, categoryId, classification };
+  const status =
+    searchParams.status === "PAGO" || searchParams.status === "NAO_PAGO"
+      ? searchParams.status
+      : "all";
+
+  return { period, from, to, type, categoryId, classification, status };
 }
 
 function resolveDateRange(filters: TransactionFilters): { from: Date; to: Date } {
@@ -87,11 +98,13 @@ export async function getTransactions(userId: string, filters: TransactionFilter
       ...(filters.classification !== "all"
         ? { classification: filters.classification }
         : {}),
+      ...(filters.status !== "all" ? { status: filters.status } : {}),
     },
     include: {
       category: { select: { name: true } },
       paymentMethod: { select: { name: true } },
       tag: { select: { name: true } },
+      series: { select: { seriesType: true, installmentCount: true } },
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
   });

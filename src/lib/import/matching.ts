@@ -65,11 +65,16 @@ export function enrichRowsWithSuggestions(
   }));
 }
 
-// Flags a row as a likely duplicate when an existing transaction shares
-// the exact same date + amount + type — a heuristic, not a guarantee
-// (no dedup/external-id field exists on Transaction). Flagged rows
-// default to unchecked in the review table but stay fully includable,
-// since two genuinely identical same-day transactions are possible.
+// Flags a row as a likely duplicate of an already-realized transaction
+// — either the same externalId (an exact re-import of the same bank
+// movement, when the source provides one) or, failing that, the same
+// date + amount + type. Only compares against status: "PAGO" rows —
+// a NAO_PAGO one is a pending prediction, not a duplicate; matching a
+// row against those is matchPendingOccurrences's job (src/lib/import/
+// reconciliation.ts), a different outcome (baixa, not "skip as dupe").
+// Flagged rows default to unchecked in the review table but stay fully
+// includable, since two genuinely identical same-day transactions are
+// possible.
 export async function flagPossibleDuplicates(
   userId: string,
   rows: ParsedTransactionRow[]
@@ -81,19 +86,21 @@ export async function flagPossibleDuplicates(
   const maxDate = new Date(Math.max(...validDates.map((d) => d.getTime())));
 
   const existing = await prisma.transaction.findMany({
-    where: { userId, date: { gte: minDate, lte: maxDate } },
-    select: { id: true, date: true, amountCents: true, type: true },
+    where: { userId, status: "PAGO", date: { gte: minDate, lte: maxDate } },
+    select: { id: true, date: true, amountCents: true, type: true, externalId: true },
   });
 
   return rows.map((row) => {
     const rowDate = parseDateInputValue(row.date);
     if (!rowDate) return row;
-    const duplicate = existing.find(
-      (t) =>
-        t.type === row.type &&
-        t.amountCents === row.amountCents &&
-        t.date.getTime() === rowDate.getTime()
-    );
+    const duplicate =
+      (row.externalId ? existing.find((t) => t.externalId === row.externalId) : undefined) ??
+      existing.find(
+        (t) =>
+          t.type === row.type &&
+          t.amountCents === row.amountCents &&
+          t.date.getTime() === rowDate.getTime()
+      );
     return duplicate ? { ...row, possibleDuplicateOfId: duplicate.id } : row;
   });
 }

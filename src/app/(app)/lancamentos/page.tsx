@@ -13,6 +13,7 @@ import {
 import { SummaryCards } from "@/components/lancamentos/SummaryCards";
 import { FiltersBar } from "@/components/lancamentos/FiltersBar";
 import { TransactionsBoard } from "@/components/lancamentos/TransactionsBoard";
+import { ensureRecurringOccurrences } from "@/lib/series";
 
 export const metadata: Metadata = {
   title: "Lançamentos | FinPRO",
@@ -30,6 +31,11 @@ export default async function LancamentosPage({
 
   const params = await searchParams;
   const filters = parseFilters(params);
+
+  // Keeps every active recurring series topped up to the rolling
+  // horizon (src/lib/series.ts) before the list is fetched, so newly
+  // due occurrences always show up without a background job.
+  await ensureRecurringOccurrences(session.userId);
 
   const [categories, paymentMethods, tags, transactions] = await Promise.all([
     getCategories(session.userId),
@@ -55,6 +61,15 @@ export default async function LancamentosPage({
     dateValue: toDateInputValue(t.date),
     dateLabel: formatDateBR(t.date),
     note: t.note ?? "",
+    status: t.status,
+    seriesId: t.seriesId,
+    seriesType: t.series?.seriesType ?? null,
+    installmentLabel:
+      t.series?.seriesType === "PARCELADO" &&
+      t.installmentNumber !== null &&
+      t.series.installmentCount
+        ? `Parcela ${t.installmentNumber}/${t.series.installmentCount}`
+        : null,
   }));
 
   const categoryOptions = categories.map((c) => ({

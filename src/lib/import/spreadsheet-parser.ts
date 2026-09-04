@@ -186,6 +186,11 @@ export function parseSpreadsheetBuffer(
       suggestedTagId,
       possibleDuplicateOfId: null,
       parseWarnings: warnings,
+      externalId: null,
+      matchedPendingTransactionId: null,
+      matchConfidence: null,
+      matchReason: null,
+      matchInstallmentLabel: null,
     });
   }
 

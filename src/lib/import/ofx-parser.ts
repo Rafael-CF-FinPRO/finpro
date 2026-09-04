@@ -65,6 +65,11 @@ export function parseOfxFile(buffer: Buffer): ParseResult {
       suggestedTagId: null,
       possibleDuplicateOfId: null,
       parseWarnings: [],
+      externalId: fitId,
+      matchedPendingTransactionId: null,
+      matchConfidence: null,
+      matchReason: null,
+      matchInstallmentLabel: null,
     });
   }
 

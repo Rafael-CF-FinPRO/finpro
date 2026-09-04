@@ -17,6 +17,7 @@ model User {
 
   passwordResetTokens PasswordResetToken[]
   transactions        Transaction[]
+  transactionSeries   TransactionSeries[]
   budgetProfile       BudgetProfile?
   categories          Category[]
   paymentMethods      PaymentMethod[]
@@ -47,6 +48,36 @@ enum TransactionType {
   ENTRADA
   SAIDA
   NEUTRO
+}
+
+// Whether a Transaction represents money that has actually moved (PAGO)
+// or a predicted future occurrence of a recurring/installment series
+// that hasn't happened yet (NAO_PAGO). Every manually-entered or
+// imported transaction is PAGO by definition — it only becomes NAO_PAGO
+// when generated ahead of time by a TransactionSeries (see below) for a
+// date that hasn't arrived yet.
+enum TransactionStatus {
+  PAGO
+  NAO_PAGO
+}
+
+// RECORRENTE: open-ended (or bounded by TransactionSeries.endDate),
+// same amount each occurrence — rent, a subscription, a utility bill.
+// PARCELADO: a fixed, known-up-front number of installments of a
+// purchase, all generated at once at creation time.
+// A single Transaction can belong to at most one series, and a series
+// is always exactly one of these two — never both at once.
+enum SeriesType {
+  RECORRENTE
+  PARCELADO
+}
+
+// Only MENSAL exists today; the enum (rather than a free-text field)
+// is what makes adding SEMANAL/ANUAL later a pure additive change, no
+// redesign of TransactionSeries or the generation logic in
+// src/lib/series.ts.
+enum RecurrencePeriodicity {
+  MENSAL
 }
 
 // RECEITA is used for Entrada (income) categories and doesn't participate
@@ -96,6 +127,7 @@ model Category {
 
   user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions      Transaction[]
+  transactionSeries TransactionSeries[]
   budgetAllocations BudgetCategoryAllocation[]
 
   @@unique([userId, name, type, classification])
@@ -115,8 +147,9 @@ model Tag {
   name      String
   createdAt DateTime @default(now())
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  transactionSeries TransactionSeries[]
 
   @@unique([userId, name])
   @@index([userId])
@@ -136,34 +169,111 @@ model PaymentMethod {
   order     Int      @default(0)
   createdAt DateTime @default(now())
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  transactionSeries TransactionSeries[]
 
   @@unique([userId, name])
   @@index([userId])
 }
 
 model Transaction {
-  id              String          @id @default(cuid())
-  userId          String
-  type            TransactionType
-  amountCents     Int
-  description     String?
-  categoryId      String
-  classification  Classification
-  date            DateTime
-  note            String?
-  paymentMethodId String?
-  tagId           String?
-  createdAt       DateTime        @default(now())
+  id                String            @id @default(cuid())
+  userId            String
+  type              TransactionType
+  amountCents       Int
+  description       String?
+  categoryId        String
+  classification    Classification
+  date              DateTime
+  note              String?
+  paymentMethodId   String?
+  tagId             String?
+  status            TransactionStatus @default(PAGO)
+  seriesId          String?
+  // Only set when seriesId points to a PARCELADO series — the "4" in
+  // "4/12" (the total, 12, lives on the series itself). Always null for
+  // a RECORRENTE series or a normal, series-less transaction.
+  installmentNumber Int?
+  // The bank/source's own unique id for this movement (OFX FITID today
+  // — PDF and spreadsheet imports never have one, so this stays null
+  // for them). Used to recognize an exact re-import of the same
+  // statement and, when present, as the strongest signal when matching
+  // an import row against a pending series occurrence — see
+  // src/lib/import/reconciliation.ts.
+  externalId        String?
+  createdAt         DateTime          @default(now())
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      Category           @relation(fields: [categoryId], references: [id])
+  paymentMethod PaymentMethod?     @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  tag           Tag?               @relation(fields: [tagId], references: [id], onDelete: SetNull)
+  series        TransactionSeries? @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, externalId])
+  // At most one occurrence per series per date — both generators
+  // (buildInstallmentRows, buildRecurringRows) only ever produce one
+  // row per date within a series, so this is a correctness invariant,
+  // not just incidental; it also lets ensureRecurringOccurrences'
+  // createMany use skipDuplicates as a safety net against concurrent
+  // page loads racing the same top-up (NULL seriesId rows never
+  // conflict with each other, so normal transactions are unaffected).
+  @@unique([seriesId, date])
+  @@index([userId])
+  @@index([userId, date])
+  @@index([seriesId])
+}
+
+// The shared definition behind a recurring or installment series — see
+// SeriesType. Never written to directly by the user beyond creation;
+// its own transactions (below) are what actually show up in
+// Lançamentos. `classification` is copied from `category.classification`
+// at creation, same denormalization pattern Transaction already uses —
+// never derived independently. `amountCents` is the value of EACH
+// occurrence/installment (never a total) — see src/lib/series.ts.
+// `isActive: false` means the series stopped generating new occurrences
+// (cancelled, or cut short via "excluir este e os próximos") but its
+// past transactions and this row are kept for history/context.
+model TransactionSeries {
+  id               String                 @id @default(cuid())
+  userId           String
+  seriesType       SeriesType
+  type             TransactionType
+  categoryId       String
+  classification   Classification
+  description      String?
+  paymentMethodId  String?
+  tagId            String?
+  note             String?
+  amountCents      Int
+  // PARCELADO only — total number of installments (null for RECORRENTE).
+  installmentCount Int?
+  // RECORRENTE only — null for PARCELADO.
+  periodicity      RecurrencePeriodicity?
+  startDate        DateTime
+  // RECORRENTE only, optional — an open-ended series has no endDate and
+  // relies on the rolling top-up in src/lib/series.ts instead.
+  endDate          DateTime?
+  // RECORRENTE only — the date up to which occurrences have actually
+  // been generated (initial creation, then advanced by each top-up).
+  // Deliberately separate from MAX(Transaction.date): if it were
+  // derived from existing rows instead, deleting the single latest
+  // occurrence ("somente este") would make the top-up regenerate it on
+  // the very next page load, since nothing would then exist past that
+  // point. This field is the source of truth for "how far generation
+  // has gotten," independent of which of those rows the user later
+  // deleted.
+  generatedUntil   DateTime?
+  isActive         Boolean                @default(true)
+  createdAt        DateTime               @default(now())
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   category      Category       @relation(fields: [categoryId], references: [id])
   paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
   tag           Tag?           @relation(fields: [tagId], references: [id], onDelete: SetNull)
+  transactions  Transaction[]
 
   @@index([userId])
-  @@index([userId, date])
 }
 
 // One profile per user, holding their monthly reference income (manually

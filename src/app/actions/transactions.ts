@@ -1,69 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
 import { transactionSchema } from "@/lib/validation";
+import {
+  formString,
+  formType,
+  requireUserId,
+  resolveCategory,
+  resolvePaymentMethodId,
+  resolveTagId,
+} from "@/lib/transaction-resolvers";
 
 export type TransactionActionState = {
   error?: string;
   fieldErrors?: Record<string, string[]>;
   success?: boolean;
 };
-
-function formString(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value : "";
-}
-
-function formType(formData: FormData): "ENTRADA" | "SAIDA" | "NEUTRO" {
-  const value = formData.get("type");
-  if (value === "SAIDA") return "SAIDA";
-  if (value === "NEUTRO") return "NEUTRO";
-  return "ENTRADA";
-}
-
-async function requireUserId() {
-  const session = await getSession();
-  if (!session) {
-    redirect("/login");
-  }
-  return session.userId;
-}
-
-async function resolveCategory(
-  categoryId: string,
-  type: "ENTRADA" | "SAIDA" | "NEUTRO",
-  userId: string
-) {
-  const category = await prisma.category.findUnique({
-    where: { id: categoryId },
-  });
-  if (!category || category.type !== type || category.userId !== userId) {
-    return null;
-  }
-  return category;
-}
-
-// Both Meio de Pagamento and Tag are optional — an empty id just means
-// "none selected", never trusted blindly: a non-empty id must resolve
-// to a record this user actually owns, or the field is rejected.
-type OptionalRefResult = { ok: true; id: string | null } | { ok: false };
-
-async function resolvePaymentMethodId(id: string, userId: string): Promise<OptionalRefResult> {
-  if (!id) return { ok: true, id: null };
-  const paymentMethod = await prisma.paymentMethod.findUnique({ where: { id } });
-  if (!paymentMethod || paymentMethod.userId !== userId) return { ok: false };
-  return { ok: true, id: paymentMethod.id };
-}
-
-async function resolveTagId(id: string, userId: string): Promise<OptionalRefResult> {
-  if (!id) return { ok: true, id: null };
-  const tag = await prisma.tag.findUnique({ where: { id } });
-  if (!tag || tag.userId !== userId) return { ok: false };
-  return { ok: true, id: tag.id };
-}
 
 export async function createTransactionAction(
   _prevState: TransactionActionState,
@@ -127,6 +80,11 @@ export async function createTransactionAction(
       tagId: tag.id,
       date: parsed.data.date,
       note: parsed.data.note || null,
+      // A manually-entered transaction always represents something the
+      // user is registering as a fact, regardless of its date — never
+      // a prediction. Only series-generated occurrences (src/lib/
+      // series.ts) are ever created as NAO_PAGO.
+      status: "PAGO",
     },
   });
 
@@ -194,6 +152,12 @@ export async function updateTransactionAction(
     };
   }
 
+  // A plain edit of a normal (series-less) transaction never touches
+  // status/seriesId — those only change through the series-aware
+  // actions in src/app/actions/series.ts. Editing a series occurrence
+  // "somente esta" also lands here (same shape as a normal edit), so
+  // status/seriesId/installmentNumber are simply left untouched by
+  // omitting them from `data` below.
   await prisma.transaction.update({
     where: { id },
     data: {
@@ -223,6 +187,23 @@ export async function deleteTransactionAction(formData: FormData) {
 
   await prisma.transaction.deleteMany({
     where: { id, userId },
+  });
+
+  revalidatePath("/lancamentos");
+}
+
+export async function markTransactionPaidStatusAction(formData: FormData) {
+  const userId = await requireUserId();
+
+  const id = formData.get("id");
+  const status = formData.get("status");
+  if (typeof id !== "string" || !id || (status !== "PAGO" && status !== "NAO_PAGO")) {
+    return;
+  }
+
+  await prisma.transaction.updateMany({
+    where: { id, userId },
+    data: { status },
   });
 
   revalidatePath("/lancamentos");

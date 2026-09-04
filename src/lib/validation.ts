@@ -57,12 +57,79 @@ export const transactionSchema = z.object({
     .or(z.literal("")),
 });
 
+// A recurring series reuses every field transactionSchema already
+// validates (the "date" field becomes the first occurrence's date) and
+// adds only what's specific to recurrence — periodicity, and an
+// optional end date. An empty endDate means open-ended (see
+// src/lib/series.ts's rolling top-up).
+export const recurringSeriesSchema = z
+  .object({
+    ...transactionSchema.shape,
+    periodicity: z.enum(["MENSAL"], "Periodicidade inválida."),
+    endDate: z
+      .string()
+      .optional()
+      .or(z.literal(""))
+      .transform((value, ctx) => {
+        if (!value) return null;
+        const date = parseDateInputValue(value);
+        if (!date) {
+          ctx.addIssue({ code: "custom", message: "Informe uma data final válida." });
+          return z.NEVER;
+        }
+        return date;
+      }),
+  })
+  .refine((data) => !data.endDate || data.endDate >= data.date, {
+    message: "A data final deve ser igual ou posterior à data inicial.",
+    path: ["endDate"],
+  });
+
+// A parcelado series reuses the same base fields — "amountCents" is
+// the value of EACH installment (confirmed with the user: parcela
+// value drives the total, not the other way around), "date" becomes
+// the first installment's date.
+export const installmentSeriesSchema = z.object({
+  ...transactionSchema.shape,
+  installmentCount: z
+    .string()
+    .min(1, "Informe a quantidade de parcelas.")
+    .transform((value, ctx) => {
+      const n = Number(value);
+      if (!Number.isInteger(n) || n < 2 || n > 360) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Informe uma quantidade de parcelas válida (entre 2 e 360).",
+        });
+        return z.NEVER;
+      }
+      return n;
+    }),
+});
+
+// "Alterar/excluir só esta ocorrência" vs "esta e as próximas ainda
+// não pagas" — see src/lib/transaction-labels.ts's SeriesEditScope.
+export const seriesEditScopeSchema = z.enum(["this", "this_and_future"], "Escolha inválida.");
+
 // One row of a bulk import (src/app/actions/import.ts) — same rules as
 // transactionSchema, since import must never be allowed to skip a check
 // manual entry enforces, plus a rowId so per-row errors can be reported
 // back to the right line in the review table.
 export const importRowSchema = transactionSchema.extend({
   rowId: z.string().min(1),
+  // Set when the row matched a pending recurring/installment occurrence
+  // (src/lib/import/reconciliation.ts) and the user kept that match
+  // checked at confirm time — the commit action then updates that
+  // existing transaction (status -> PAGO) instead of inserting a new
+  // one. Re-validated server-side against the actual pending row, never
+  // trusted blindly.
+  reconcile: z.boolean().optional().default(false),
+  matchedPendingTransactionId: z.string().optional().or(z.literal("")),
+  // OFX FITID, threaded through from ParsedTransactionRow so it's
+  // actually persisted to Transaction.externalId at commit time —
+  // otherwise every future re-import/reconciliation would have nothing
+  // to compare against for a transaction created just now.
+  externalId: z.string().optional().or(z.literal("")),
 });
 
 export const importCommitSchema = z.object({

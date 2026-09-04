@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Repeat, Layers, Check } from "lucide-react";
 import { formatCentsToBRL } from "@/lib/money";
-import { CLASSIFICATION_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
+import { CLASSIFICATION_LABELS, STATUS_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
+import { markTransactionPaidStatusAction } from "@/app/actions/transactions";
 import { TransactionModal } from "./TransactionModal";
 import { TransactionForm, type SimpleOption } from "./TransactionForm";
 import { DeleteTransactionButton } from "./DeleteTransactionButton";
 import { ImportWizard } from "./ImportWizard";
-import type { Classification } from "@/generated/prisma/enums";
+import type { Classification, SeriesType, TransactionStatus } from "@/generated/prisma/enums";
 
 export type CategoryOption = {
   id: string;
@@ -33,6 +34,10 @@ export type TransactionRow = {
   dateValue: string;
   dateLabel: string;
   note: string;
+  status: TransactionStatus;
+  seriesId: string | null;
+  seriesType: SeriesType | null;
+  installmentLabel: string | null;
 };
 
 type ModalState =
@@ -65,6 +70,62 @@ function TypeBadge({ type }: { type: "ENTRADA" | "SAIDA" | "NEUTRO" }) {
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
       {TYPE_LABELS[type]}
     </span>
+  );
+}
+
+// Only ever rendered for NAO_PAGO — PAGO is the default, unmarked state
+// (nothing extra shown), matching the "don't visually clutter the
+// table" instruction.
+function StatusBadge({ status }: { status: TransactionStatus }) {
+  if (status === "PAGO") return null;
+  return (
+    <span className="inline-flex items-center rounded-full bg-[var(--warning-bg)] px-2 py-0.5 text-xs font-medium text-[var(--warning)]">
+      {STATUS_LABELS.NAO_PAGO}
+    </span>
+  );
+}
+
+// Discreet icon + label under the description — same visual language
+// as the "Duplicata?"/"Revisar" hints in the import review table
+// (AlertTriangle + text-xs), deliberately not a colored pill like
+// TypeBadge/StatusBadge so it reads as a caption, not an alert.
+function SeriesAnnotation({ t }: { t: TransactionRow }) {
+  if (t.seriesType === "RECORRENTE") {
+    return (
+      <p className="mt-0.5 flex items-center gap-1 text-xs text-[var(--muted)]">
+        <Repeat size={12} className="shrink-0" /> Recorrente
+      </p>
+    );
+  }
+  if (t.seriesType === "PARCELADO" && t.installmentLabel) {
+    return (
+      <p className="mt-0.5 flex items-center gap-1 text-xs text-[var(--muted)]">
+        <Layers size={12} className="shrink-0" /> {t.installmentLabel}
+      </p>
+    );
+  }
+  return null;
+}
+
+// Quick one-click way to settle a NAO_PAGO occurrence that will never
+// show up in an imported statement (cash, a transfer outside any
+// tracked account) — the only manual path to PAGO besides import
+// reconciliation. Not rendered for already-PAGO rows.
+function MarkPaidButton({ id, status }: { id: string; status: TransactionStatus }) {
+  if (status === "PAGO") return null;
+  return (
+    <form action={markTransactionPaidStatusAction}>
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="status" value="PAGO" />
+      <button
+        type="submit"
+        aria-label="Marcar como pago"
+        title="Marcar como pago"
+        className="rounded-lg p-1.5 text-stone-400 hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
+      >
+        <Check size={16} />
+      </button>
+    </form>
   );
 }
 
@@ -190,10 +251,14 @@ export function TransactionsBoard({
                   <tr key={t.id}>
                     <td className="px-4 py-3 text-stone-600">{t.dateLabel}</td>
                     <td className="px-4 py-3">
-                      <TypeBadge type={t.type} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <TypeBadge type={t.type} />
+                        <StatusBadge status={t.status} />
+                      </div>
                     </td>
                     <td className="px-4 py-3 font-medium text-stone-900">
                       {displayTitle(t)}
+                      <SeriesAnnotation t={t} />
                     </td>
                     <td className="px-4 py-3 text-stone-600">{t.categoryName}</td>
                     <td className="px-4 py-3 text-stone-600">
@@ -213,6 +278,7 @@ export function TransactionsBoard({
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        <MarkPaidButton id={t.id} status={t.status} />
                         <button
                           type="button"
                           aria-label="Editar"
@@ -223,7 +289,11 @@ export function TransactionsBoard({
                         >
                           <EditIcon />
                         </button>
-                        <DeleteTransactionButton id={t.id} description={displayTitle(t)} />
+                        <DeleteTransactionButton
+                          id={t.id}
+                          description={displayTitle(t)}
+                          seriesId={t.seriesId}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -247,6 +317,7 @@ export function TransactionsBoard({
                         {t.description ? ` · ${t.categoryName}` : ""}
                         {t.paymentMethodName ? ` · ${t.paymentMethodName}` : ""}
                       </p>
+                      <SeriesAnnotation t={t} />
                     </div>
                     <p className={`shrink-0 font-semibold ${amountColorClass(t.type)}`}>
                       {amountSign(t.type)}
@@ -256,12 +327,14 @@ export function TransactionsBoard({
                   <div className="mt-2 flex items-center justify-between">
                     <div className="flex flex-wrap items-center gap-2">
                       <TypeBadge type={t.type} />
+                      <StatusBadge status={t.status} />
                       <span className="text-xs text-[var(--muted)]">
                         {CLASSIFICATION_LABELS[t.classification]}
                       </span>
                       {t.tagName && <TagBadge name={t.tagName} />}
                     </div>
                     <div className="flex items-center gap-1">
+                      <MarkPaidButton id={t.id} status={t.status} />
                       <button
                         type="button"
                         aria-label="Editar"
@@ -272,7 +345,11 @@ export function TransactionsBoard({
                       >
                         <EditIcon />
                       </button>
-                      <DeleteTransactionButton id={t.id} description={displayTitle(t)} />
+                      <DeleteTransactionButton
+                        id={t.id}
+                        description={displayTitle(t)}
+                        seriesId={t.seriesId}
+                      />
                     </div>
                   </div>
                 </li>
@@ -316,6 +393,8 @@ export function TransactionsBoard({
                     tagId: modal.transaction.tagId ?? "",
                     dateValue: modal.transaction.dateValue,
                     note: modal.transaction.note,
+                    seriesId: modal.transaction.seriesId,
+                    seriesType: modal.transaction.seriesType,
                   }
                 : undefined
             }

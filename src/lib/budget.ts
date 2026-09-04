@@ -98,9 +98,13 @@ export async function getBudgetOverview(
       prisma.budgetCategoryAllocation.findMany({
         where: { budgetProfileId: profile.id, monthKey: scopeKey },
       }),
+      // status: "PAGO" excludes not-yet-paid recurring/installment
+      // occurrences from Realizado — a predicted bill due later this
+      // month must not count as money already spent, the same way
+      // type: "SAIDA" already excludes NEUTRO.
       prisma.transaction.groupBy({
         by: ["categoryId"],
-        where: { userId, type: "SAIDA", date: { gte: from, lt: to } },
+        where: { userId, type: "SAIDA", status: "PAGO", date: { gte: from, lt: to } },
         _sum: { amountCents: true },
       }),
     ]);

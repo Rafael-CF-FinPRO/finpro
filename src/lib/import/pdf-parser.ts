@@ -92,6 +92,11 @@ export async function parsePdfBuffer(buffer: Buffer): Promise<ParseResult> {
       suggestedTagId: null,
       possibleDuplicateOfId: null,
       parseWarnings: ["Extraído automaticamente de PDF — confira os dados antes de importar."],
+      externalId: null,
+      matchedPendingTransactionId: null,
+      matchConfidence: null,
+      matchReason: null,
+      matchInstallmentLabel: null,
     });
   }
 

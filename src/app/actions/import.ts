@@ -14,6 +14,7 @@ import {
   flagPossibleDuplicates,
   type MatchCategory,
 } from "@/lib/import/matching";
+import { matchPendingOccurrences } from "@/lib/import/reconciliation";
 import type { Classification } from "@/generated/prisma/enums";
 
 async function requireUserId() {
@@ -71,7 +72,8 @@ async function withSuggestionsAndDuplicates(userId: string, result: ParseResult)
   const [categories, paymentMethods] = await Promise.all([getCategories(userId), getPaymentMethods(userId)]);
   const { rows: categorized, warning } = await runCategorization(userId, result.rows, categories);
   const enriched = enrichRowsWithSuggestions(categorized, { categories, paymentMethods });
-  const rows = await flagPossibleDuplicates(userId, enriched);
+  const deduped = await flagPossibleDuplicates(userId, enriched);
+  const rows = await matchPendingOccurrences(userId, deduped);
   return { rows, warning };
 }
 
@@ -116,7 +118,8 @@ export async function parseSpreadsheetImportAction(formData: FormData): Promise<
   if (result.error || !result.rows) return result;
 
   const { rows: categorized, warning } = await runCategorization(userId, result.rows, categories);
-  const rows = await flagPossibleDuplicates(userId, categorized);
+  const deduped = await flagPossibleDuplicates(userId, categorized);
+  const rows = await matchPendingOccurrences(userId, deduped);
   return { rows, warning };
 }
 
@@ -137,6 +140,9 @@ export type ImportCommitRow = {
   tagId: string;
   date: string;
   note: string;
+  reconcile?: boolean;
+  matchedPendingTransactionId?: string;
+  externalId?: string;
 };
 
 // Re-validates every row through the same transactionSchema (extended
@@ -165,19 +171,42 @@ export async function importTransactionsAction(input: {
   const paymentMethodIds = new Set(paymentMethods.map((pm) => pm.id));
   const tagIds = new Set(tags.map((t) => t.id));
 
+  // Rows marked "reconcile" are checked against the user's own pending
+  // occurrences in one query, rather than one lookup per row — only
+  // an id that's actually NAO_PAGO and owned by this user is honored;
+  // anything else silently falls back to a normal insert below (never
+  // trusts the client's matchedPendingTransactionId blindly).
+  const claimedPendingIds = parsed.data.rows
+    .filter((r) => r.reconcile && r.matchedPendingTransactionId)
+    .map((r) => r.matchedPendingTransactionId!);
+  const pendingTargets =
+    claimedPendingIds.length > 0
+      ? await prisma.transaction.findMany({
+          where: { userId, status: "NAO_PAGO", id: { in: claimedPendingIds } },
+          select: { id: true },
+        })
+      : [];
+  const pendingTargetIds = new Set(pendingTargets.map((t) => t.id));
+
   const rowErrors: Record<string, string> = {};
-  const validRows: {
-    userId: string;
-    type: "ENTRADA" | "SAIDA" | "NEUTRO";
-    amountCents: number;
-    description: string | null;
-    categoryId: string;
-    classification: Classification;
-    paymentMethodId: string | null;
-    tagId: string | null;
-    date: Date;
-    note: string | null;
-  }[] = [];
+  type ValidatedRow = {
+    reconcileId: string | null;
+    data: {
+      userId: string;
+      type: "ENTRADA" | "SAIDA" | "NEUTRO";
+      amountCents: number;
+      description: string | null;
+      categoryId: string;
+      classification: Classification;
+      paymentMethodId: string | null;
+      tagId: string | null;
+      date: Date;
+      note: string | null;
+      status: "PAGO";
+      externalId: string | null;
+    };
+  };
+  const validRows: ValidatedRow[] = [];
 
   for (const row of parsed.data.rows) {
     const category = categoryMap.get(row.categoryId);
@@ -194,17 +223,31 @@ export async function importTransactionsAction(input: {
       continue;
     }
 
+    const reconcileId =
+      row.reconcile && row.matchedPendingTransactionId && pendingTargetIds.has(row.matchedPendingTransactionId)
+        ? row.matchedPendingTransactionId
+        : null;
+
     validRows.push({
-      userId,
-      type: row.type,
-      amountCents: row.amountCents,
-      description: row.description || null,
-      categoryId: category.id,
-      classification: category.classification,
-      paymentMethodId: row.paymentMethodId || null,
-      tagId: row.tagId || null,
-      date: row.date,
-      note: row.note || null,
+      reconcileId,
+      data: {
+        userId,
+        type: row.type,
+        amountCents: row.amountCents,
+        description: row.description || null,
+        categoryId: category.id,
+        classification: category.classification,
+        paymentMethodId: row.paymentMethodId || null,
+        tagId: row.tagId || null,
+        date: row.date,
+        note: row.note || null,
+        // Every imported row represents a movement actually present in
+        // the statement/spreadsheet — always PAGO, whether it's a brand
+        // new transaction or the fulfillment of a pending prediction
+        // (reconcileId below just changes create vs update, never this).
+        status: "PAGO",
+        externalId: row.externalId || null,
+      },
     });
   }
 
@@ -212,7 +255,16 @@ export async function importTransactionsAction(input: {
     return { error: "Nenhum lançamento válido para importar.", rowErrors };
   }
 
-  await prisma.transaction.createMany({ data: validRows });
+  // A single atomic transaction because this batch mixes inserts (new
+  // transactions) and updates (reconciling a pending occurrence) —
+  // createMany alone can't express the update half.
+  await prisma.$transaction(
+    validRows.map((row) =>
+      row.reconcileId
+        ? prisma.transaction.update({ where: { id: row.reconcileId }, data: row.data })
+        : prisma.transaction.create({ data: row.data })
+    )
+  );
 
   revalidatePath("/lancamentos");
   return {

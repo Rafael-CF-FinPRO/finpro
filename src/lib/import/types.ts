@@ -26,6 +26,21 @@ export type ParsedTransactionRow = {
   suggestedTagId: string | null;
   possibleDuplicateOfId: string | null;
   parseWarnings: string[];
+  // The source's own unique id for this movement — OFX FITID today,
+  // always null for PDF/spreadsheet. Persisted onto Transaction.externalId
+  // when the row is committed; used both to recognize an exact re-import
+  // and, more importantly, as the strongest signal when matching against
+  // a pending series occurrence (see src/lib/import/reconciliation.ts).
+  externalId: string | null;
+  // Set by matchPendingOccurrences when this row appears to correspond
+  // to a NAO_PAGO recurring/installment occurrence already on record —
+  // "dar baixa" instead of creating a new transaction. null means no
+  // candidate cleared even the loose thresholds (import as new, as
+  // usual). Independent of suggestedCategoryId/possibleDuplicateOfId.
+  matchedPendingTransactionId: string | null;
+  matchConfidence: SuggestionConfidence | null;
+  matchReason: string | null;
+  matchInstallmentLabel: string | null;
 };
 
 export type ParseResult =

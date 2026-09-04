@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { AlertTriangle } from "lucide-react";
 import { importTransactionsAction, type ImportCommitRow } from "@/app/actions/import";
 import { createPaymentMethodAction } from "@/app/actions/payment-methods";
@@ -42,6 +42,17 @@ type EditableRow = {
   tagId: string;
   parseWarnings: string[];
   possibleDuplicateOfId: string | null;
+  externalId: string | null;
+  matchedPendingTransactionId: string | null;
+  matchConfidence: SuggestionConfidence | null;
+  matchReason: string | null;
+  matchInstallmentLabel: string | null;
+  // Whether to actually apply the suggested match at commit time (mark
+  // the pending occurrence paid) instead of importing this row as a
+  // brand new transaction. Pre-checked for HIGH confidence, left for
+  // the user to opt into for MEDIUM (spec section 16) — always
+  // overridable regardless of the suggested confidence.
+  reconcile: boolean;
 };
 
 function formatAmountInput(cents: number): string {
@@ -63,6 +74,12 @@ function toEditableRow(row: ParsedTransactionRow): EditableRow {
     tagId: row.suggestedTagId ?? "",
     parseWarnings: row.parseWarnings,
     possibleDuplicateOfId: row.possibleDuplicateOfId,
+    externalId: row.externalId,
+    matchedPendingTransactionId: row.matchedPendingTransactionId,
+    matchConfidence: row.matchConfidence,
+    matchReason: row.matchReason,
+    matchInstallmentLabel: row.matchInstallmentLabel,
+    reconcile: row.matchConfidence === "HIGH",
   };
 }
 
@@ -149,6 +166,9 @@ export function ImportReviewTable({
       tagId: r.tagId,
       date: r.dateValue,
       note: "",
+      reconcile: r.reconcile,
+      matchedPendingTransactionId: r.matchedPendingTransactionId ?? "",
+      externalId: r.externalId ?? "",
     }));
 
     startTransition(async () => {
@@ -212,11 +232,11 @@ export function ImportReviewTable({
               const error = rowError(row);
               const commitError = rowErrors[row.rowId];
               return (
+                <Fragment key={row.rowId}>
                 <tr
-                  key={row.rowId}
-                  className={`border-b border-[var(--surface-border)] align-top last:border-b-0 ${
-                    row.include ? "" : "opacity-50"
-                  }`}
+                  className={`border-b border-[var(--surface-border)] align-top ${
+                    row.matchedPendingTransactionId ? "" : "last:border-b-0"
+                  } ${row.include ? "" : "opacity-50"}`}
                 >
                   <td className="px-2 py-2">
                     <input
@@ -367,6 +387,35 @@ export function ImportReviewTable({
                     )}
                   </td>
                 </tr>
+                {row.matchedPendingTransactionId && row.matchConfidence && (
+                  <tr className={`border-b border-[var(--surface-border)] last:border-b-0 ${row.include ? "" : "opacity-50"}`}>
+                    <td colSpan={9} className="bg-stone-50 px-2 py-2">
+                      <label className="flex items-start gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={row.reconcile}
+                          onChange={(e) => updateRow(row.rowId, { reconcile: e.target.checked })}
+                          className="mt-0.5 h-3.5 w-3.5"
+                          aria-label="Dar baixa no lançamento previsto"
+                        />
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <ConfidenceBadge confidence={row.matchConfidence} />
+                          <span className="text-stone-700">
+                            Corresponde a um lançamento previsto
+                            {row.matchInstallmentLabel ? ` (${row.matchInstallmentLabel})` : ""} —{" "}
+                            {row.matchReason}
+                          </span>
+                          <span className="text-[var(--muted)]">
+                            {row.reconcile
+                              ? "Será marcado como pago em vez de criar um novo lançamento."
+                              : "Desmarcado — será importado como um novo lançamento."}
+                          </span>
+                        </span>
+                      </label>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>
