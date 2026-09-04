@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, X, Repeat, Layers, Check } from "lucide-react";
+import { Upload, X, Repeat, Layers } from "lucide-react";
 import { formatCentsToBRL } from "@/lib/money";
 import { CLASSIFICATION_LABELS, STATUS_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
 import { markTransactionPaidStatusAction } from "@/app/actions/transactions";
@@ -73,15 +73,38 @@ function TypeBadge({ type }: { type: "ENTRADA" | "SAIDA" | "NEUTRO" }) {
   );
 }
 
-// Only ever rendered for NAO_PAGO — PAGO is the default, unmarked state
-// (nothing extra shown), matching the "don't visually clutter the
-// table" instruction.
-function StatusBadge({ status }: { status: TransactionStatus }) {
-  if (status === "PAGO") return null;
+// A switch showing the current status by name (Pago/Não pago) plus the
+// selector itself — clicking it submits the opposite status right from
+// the table, no need to open the edit form. Selected/colored = Pago,
+// unselected/gray = Não pago.
+function StatusToggle({ id, status }: { id: string; status: TransactionStatus }) {
+  const isPago = status === "PAGO";
   return (
-    <span className="inline-flex items-center rounded-full bg-[var(--warning-bg)] px-2 py-0.5 text-xs font-medium text-[var(--warning)]">
-      {STATUS_LABELS.NAO_PAGO}
-    </span>
+    <form action={markTransactionPaidStatusAction}>
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="status" value={isPago ? "NAO_PAGO" : "PAGO"} />
+      <button
+        type="submit"
+        aria-pressed={isPago}
+        title={isPago ? "Marcar como não pago" : "Marcar como pago"}
+        className="inline-flex items-center gap-2"
+      >
+        <span className={`text-xs font-medium ${isPago ? "text-[var(--success)]" : "text-[var(--muted)]"}`}>
+          {isPago ? STATUS_LABELS.PAGO : STATUS_LABELS.NAO_PAGO}
+        </span>
+        <span
+          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+            isPago ? "bg-[var(--success)]" : "bg-stone-300"
+          }`}
+        >
+          <span
+            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+              isPago ? "translate-x-[18px]" : "translate-x-1"
+            }`}
+          />
+        </span>
+      </button>
+    </form>
   );
 }
 
@@ -105,28 +128,6 @@ function SeriesAnnotation({ t }: { t: TransactionRow }) {
     );
   }
   return null;
-}
-
-// Quick one-click way to settle a NAO_PAGO occurrence that will never
-// show up in an imported statement (cash, a transfer outside any
-// tracked account) — the only manual path to PAGO besides import
-// reconciliation. Not rendered for already-PAGO rows.
-function MarkPaidButton({ id, status }: { id: string; status: TransactionStatus }) {
-  if (status === "PAGO") return null;
-  return (
-    <form action={markTransactionPaidStatusAction}>
-      <input type="hidden" name="id" value={id} />
-      <input type="hidden" name="status" value="PAGO" />
-      <button
-        type="submit"
-        aria-label="Marcar como pago"
-        title="Marcar como pago"
-        className="rounded-lg p-1.5 text-stone-400 hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
-      >
-        <Check size={16} />
-      </button>
-    </form>
-  );
 }
 
 // Descrição is optional — fall back to the category name so the row
@@ -237,6 +238,7 @@ export function TransactionsBoard({
                 <tr>
                   <th className="px-4 py-3 font-medium">Data</th>
                   <th className="px-4 py-3 font-medium">Tipo</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Descrição</th>
                   <th className="px-4 py-3 font-medium">Categoria</th>
                   <th className="px-4 py-3 font-medium">Classificação</th>
@@ -251,10 +253,10 @@ export function TransactionsBoard({
                   <tr key={t.id}>
                     <td className="px-4 py-3 text-stone-600">{t.dateLabel}</td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <TypeBadge type={t.type} />
-                        <StatusBadge status={t.status} />
-                      </div>
+                      <TypeBadge type={t.type} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusToggle id={t.id} status={t.status} />
                     </td>
                     <td className="px-4 py-3 font-medium text-stone-900">
                       {displayTitle(t)}
@@ -278,7 +280,6 @@ export function TransactionsBoard({
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <MarkPaidButton id={t.id} status={t.status} />
                         <button
                           type="button"
                           aria-label="Editar"
@@ -327,14 +328,15 @@ export function TransactionsBoard({
                   <div className="mt-2 flex items-center justify-between">
                     <div className="flex flex-wrap items-center gap-2">
                       <TypeBadge type={t.type} />
-                      <StatusBadge status={t.status} />
                       <span className="text-xs text-[var(--muted)]">
                         {CLASSIFICATION_LABELS[t.classification]}
                       </span>
                       {t.tagName && <TagBadge name={t.tagName} />}
                     </div>
+                    <StatusToggle id={t.id} status={t.status} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-end">
                     <div className="flex items-center gap-1">
-                      <MarkPaidButton id={t.id} status={t.status} />
                       <button
                         type="button"
                         aria-label="Editar"

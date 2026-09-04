@@ -342,9 +342,6 @@ export function ImportReviewTable({
                         <AlertTriangle size={12} className="shrink-0" /> Revisar
                       </p>
                     )}
-                    {row.categoryConfidence && row.categoryReason && (
-                      <p className="mt-1 text-xs break-words text-[var(--muted)]">{row.categoryReason}</p>
-                    )}
                     {!row.categoryConfidence && row.categoryId && (
                       <span className="text-xs text-[var(--muted)]">—</span>
                     )}

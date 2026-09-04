@@ -485,30 +485,22 @@ export function TransactionForm({
 
       {!isEdit && (
         <div>
-          {!showSeriesOptions ? (
-            <button
-              type="button"
-              className="text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
-              onClick={() => setShowSeriesOptions(true)}
-            >
-              É um lançamento recorrente ou parcelado?
-            </button>
-          ) : (
-            <div className="space-y-3 rounded-lg border border-[var(--surface-border)] p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-stone-700">Recorrente ou parcelado?</p>
-                <button
-                  type="button"
-                  className="text-xs text-[var(--muted)] hover:text-stone-700"
-                  onClick={() => {
-                    setShowSeriesOptions(false);
-                    setSeriesMode("normal");
-                  }}
-                >
-                  Cancelar
-                </button>
-              </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={showSeriesOptions}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setShowSeriesOptions(checked);
+                if (!checked) setSeriesMode("normal");
+              }}
+            />
+            É um lançamento recorrente ou parcelado?
+          </label>
 
+          {showSeriesOptions && (
+            <div className="mt-3 space-y-3 rounded-lg border border-[var(--surface-border)] p-3">
               <div className="flex gap-4 text-sm">
                 <label className="flex items-center gap-1.5">
                   <input
