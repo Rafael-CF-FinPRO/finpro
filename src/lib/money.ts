@@ -1,4 +1,7 @@
-export function parseMoneyToCents(raw: string): number | null {
+export function parseMoneyToCents(
+  raw: string,
+  options?: { allowZero?: boolean }
+): number | null {
   let s = raw.trim().replace(/[^\d.,]/g, "");
   if (!s) return null;
 
@@ -17,7 +20,8 @@ export function parseMoneyToCents(raw: string): number | null {
   }
 
   const value = Number(s);
-  if (!Number.isFinite(value) || value <= 0) return null;
+  const minValue = options?.allowZero ? 0 : Number.EPSILON;
+  if (!Number.isFinite(value) || value < minValue) return null;
 
   return Math.round(value * 100);
 }

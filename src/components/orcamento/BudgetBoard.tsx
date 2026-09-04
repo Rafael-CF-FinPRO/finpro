@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { saveBudgetDistributionAction, removeMonthOverrideAction } from "@/app/actions/budget";
 import {
   computeBudgetPct,
@@ -22,11 +23,18 @@ import { StatusBadge } from "./StatusBadge";
 import { IconBadge } from "./IconBadge";
 import { CategoryAllocationEditor } from "./CategoryAllocationEditor";
 import { BudgetPieChart } from "./BudgetPieChart";
+import { BudgetCategoryDistribution } from "./BudgetCategoryDistribution";
+import { BudgetHealthIndicators } from "./BudgetHealthIndicators";
 import { ApplyScopeDialog } from "./ApplyScopeDialog";
 import { RestoreDefaultDialog } from "./RestoreDefaultDialog";
 import { IncomeCard } from "./IncomeCard";
 
 type NonReceita = Exclude<Classification, "RECEITA">;
+
+// Remembers whether the charts are collapsed across visits — a
+// per-browser UI preference, not user data, so localStorage is the
+// right place for it (same pattern as the sidebar's own collapse state).
+const CHARTS_COLLAPSE_KEY = "finpro:orcamento-charts-collapsed";
 
 function buildClassificationPctMap(classifications: ClassificationBudgetRow[]) {
   return Object.fromEntries(classifications.map((c) => [c.classification, c.percentage]));
@@ -36,6 +44,26 @@ function buildCategoryPctMap(classifications: ClassificationBudgetRow[]) {
   return Object.fromEntries(
     classifications.flatMap((c) => c.categories.map((cat) => [cat.categoryId, cat.percentage]))
   );
+}
+
+// Looks a category up by its exact canonical name across every
+// classification (Seguros and Financiamentos e Compromissos
+// Financeiros both live under Custos Obrigatórios today, but this
+// doesn't assume that) — returns 0 if the user renamed or doesn't have
+// it, rather than throwing.
+function findCategoryPercentage(
+  classifications: ClassificationBudgetRow[],
+  categoryName: string,
+  pctByCategory: Record<string, number>,
+  mode: "view" | "edit"
+): number {
+  for (const cls of classifications) {
+    const category = cls.categories.find((c) => c.name === categoryName);
+    if (category) {
+      return mode === "edit" ? pctByCategory[category.categoryId] ?? 0 : category.percentage;
+    }
+  }
+  return 0;
 }
 
 export function BudgetBoard({
@@ -63,6 +91,35 @@ export function BudgetBoard({
   const [removing, startRemoveTransition] = useTransition();
   const [showApplyScope, setShowApplyScope] = useState(false);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  const [chartsCollapsed, setChartsCollapsed] = useState(false);
+  const [distributionView, setDistributionView] = useState<"classificacoes" | "categorias">(
+    "classificacoes"
+  );
+
+  useEffect(() => {
+    // Deferred rather than called synchronously in the effect body, to
+    // avoid cascading renders during mount.
+    const timeout = setTimeout(() => {
+      try {
+        setChartsCollapsed(localStorage.getItem(CHARTS_COLLAPSE_KEY) === "1");
+      } catch {
+        // localStorage unavailable (private mode, etc.) — default to expanded.
+      }
+    }, 0);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  function toggleChartsCollapsed() {
+    setChartsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(CHARTS_COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        // Ignore — the toggle still works for this session either way.
+      }
+      return next;
+    });
+  }
 
   const classificationTotal = sumPercentages(Object.values(pctByClassification));
   const isValidClassificationTotal = classificationTotal === 100;
@@ -160,11 +217,116 @@ export function BudgetBoard({
     };
   });
 
+  // Same "Distribuição do orçamento" data as pieSlices, one row per
+  // Category instead of per Classification — the alternate view
+  // toggled in the same panel.
+  const categorySlices = classifications.flatMap((cls) =>
+    cls.categories
+      .filter((cat) => cat.isActive)
+      .map((cat) => {
+        const percentage = mode === "edit" ? pctByCategory[cat.categoryId] ?? 0 : cat.percentage;
+        return {
+          categoryId: cat.categoryId,
+          name: cat.name,
+          classification: cls.classification as NonReceita,
+          percentage,
+          budgetedCents:
+            mode === "edit" ? centsFromPercentage(monthlyIncomeCents, percentage) : cat.budgetedCents,
+        };
+      })
+  );
+
+  function classificationPercentage(classification: Classification): number {
+    if (mode === "edit") return pctByClassification[classification] ?? 0;
+    return classifications.find((c) => c.classification === classification)?.percentage ?? 0;
+  }
+
+  const custosObrigatoriosPct = classificationPercentage("CUSTOS_OBRIGATORIOS");
+  const prazeresConfortosPct = classificationPercentage("PRAZERES_E_CONFORTOS");
+  const investimentosPct = classificationPercentage("INVESTIMENTOS");
+  const segurosPct = findCategoryPercentage(classifications, "Seguros", pctByCategory, mode);
+  const dividasPct = findCategoryPercentage(
+    classifications,
+    "Financiamentos e Compromissos Financeiros",
+    pctByCategory,
+    mode
+  );
+
   return (
     <div className="space-y-4">
-      <div className="card sticky top-2 z-20 p-4 shadow-md sm:top-4">
-        <p className="mb-3 text-sm font-medium text-stone-700">Distribuição do orçamento</p>
-        <BudgetPieChart slices={pieSlices} />
+      <div className="sticky top-2 z-20 sm:top-4">
+        {!chartsCollapsed && (
+          <div className="card p-4 shadow-md">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-stone-700">Distribuição do orçamento</p>
+                  <div className="inline-flex rounded-lg border border-[var(--surface-border)] p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setDistributionView("classificacoes")}
+                      className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+                        distributionView === "classificacoes"
+                          ? "bg-[var(--primary)] text-white"
+                          : "text-stone-500 hover:bg-stone-100"
+                      }`}
+                    >
+                      Classificações
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDistributionView("categorias")}
+                      className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+                        distributionView === "categorias"
+                          ? "bg-[var(--primary)] text-white"
+                          : "text-stone-500 hover:bg-stone-100"
+                      }`}
+                    >
+                      Categorias
+                    </button>
+                  </div>
+                </div>
+                {distributionView === "classificacoes" ? (
+                  <BudgetPieChart slices={pieSlices} />
+                ) : (
+                  <BudgetCategoryDistribution categories={categorySlices} />
+                )}
+              </div>
+              <div className="lg:border-l lg:border-[var(--surface-border)] lg:pl-6">
+                <p className="mb-3 text-center text-sm font-medium text-stone-700 lg:text-left">
+                  Indicadores de Saúde Orçamentária
+                </p>
+                <BudgetHealthIndicators
+                  values={{
+                    despesasEssenciais: custosObrigatoriosPct,
+                    naoEssenciais: prazeresConfortosPct,
+                    seguros: segurosPct,
+                    dividas: dividasPct,
+                    despesasVsReceita: custosObrigatoriosPct + prazeresConfortosPct,
+                    investida: investimentosPct,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={toggleChartsCollapsed}
+          className={`flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] py-1.5 text-xs font-medium text-stone-500 shadow-sm hover:bg-stone-50 hover:text-stone-700 ${
+            chartsCollapsed ? "" : "mt-2"
+          }`}
+        >
+          {chartsCollapsed ? (
+            <>
+              Mostrar gráficos <ChevronDown size={14} />
+            </>
+          ) : (
+            <>
+              Ocultar gráficos <ChevronUp size={14} />
+            </>
+          )}
+        </button>
       </div>
 
       <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
@@ -255,6 +417,7 @@ export function BudgetBoard({
                       onChange={(v) =>
                         setPctByClassification((prev) => ({ ...prev, [cls.classification]: v }))
                       }
+                      monthlyIncomeCents={monthlyIncomeCents}
                     />
                   </div>
                 ) : (

@@ -230,6 +230,7 @@ export function CategoryAllocationEditor({
                 label={cat.name}
                 value={catPct}
                 onChange={(v) => onPctChange(cat.categoryId, v)}
+                monthlyIncomeCents={monthlyIncomeCents}
               />
             </div>
             <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
