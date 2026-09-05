@@ -45,6 +45,36 @@ export function computeBudgetPct(realizedCents: number, budgetedCents: number): 
   return Math.round((realizedCents / budgetedCents) * 1000) / 10;
 }
 
+/** Investimentos isn't a spend to cap — it's a savings goal to reach.
+ * Every other classification (Custos Obrigatórios, Prazeres e
+ * Confortos) keeps the "limite máximo" logic above (computeBudgetStatus/
+ * computeBudgetHealth): exceeding the budgeted amount is bad. For
+ * Investimentos, exceeding the target is the best possible outcome, so
+ * it gets its own status/health concept below instead of reusing
+ * BudgetStatus/BudgetHealth with a flipped meaning — DENTRO/FORA and
+ * ESTOURADA always read as "this is bad" and would be misleading here
+ * even recolored. Callers must check this and branch to
+ * computeGoalStatus instead of computeBudgetStatus/computeBudgetHealth. */
+export function isGoalClassification(classification: Classification): boolean {
+  return classification === "INVESTIMENTOS";
+}
+
+export type GoalStatus = "EM_PROGRESSO" | "QUASE_LA" | "META_ATINGIDA";
+
+const GOAL_CLOSE_THRESHOLD_PCT = 80;
+
+/** Same three-tier granularity as computeBudgetHealth, but inverted:
+ * the goal (`goalCents`) is a floor, not a ceiling, so reaching or
+ * passing it is the good outcome, never "estourada". A goal of 0 (not
+ * configured) is trivially reached by any amount actually invested. */
+export function computeGoalStatus(realizedCents: number, goalCents: number): GoalStatus {
+  if (goalCents <= 0) return realizedCents > 0 ? "META_ATINGIDA" : "EM_PROGRESSO";
+  const pct = (realizedCents / goalCents) * 100;
+  if (pct >= 100) return "META_ATINGIDA";
+  if (pct >= GOAL_CLOSE_THRESHOLD_PCT) return "QUASE_LA";
+  return "EM_PROGRESSO";
+}
+
 export function centsFromPercentage(baseCents: number, percentage: number): number {
   return Math.round((baseCents * percentage) / 100);
 }

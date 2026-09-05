@@ -1,5 +1,5 @@
 import { formatCentsToBRL } from "@/lib/money";
-import type { BudgetHealth } from "@/lib/budget-calc";
+import { computeGoalStatus, isGoalClassification, type BudgetHealth } from "@/lib/budget-calc";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
@@ -25,6 +25,14 @@ const HEALTH_META: Record<BudgetHealth, { label: string; className: string }> = 
   },
 };
 
+// Same goal-vs-ceiling split as BudgetSummaryDashboard (the monthly
+// view) — see isGoalClassification in src/lib/budget-calc.ts.
+const GOAL_HEALTH_META = {
+  EM_PROGRESSO: { label: "Em progresso", className: "bg-stone-100 text-stone-600" },
+  QUASE_LA: { label: "Quase lá", className: "bg-[var(--warning-bg)] text-[var(--warning)]" },
+  META_ATINGIDA: { label: "Meta atingida", className: "bg-[var(--success-bg)] text-[var(--success)]" },
+};
+
 /** Same visual language as BudgetSummaryDashboard (the monthly view),
  * but for totals aggregated across a date range instead of one month —
  * each card adds "Realizado médio/mês" since "Orçado" here is a sum
@@ -36,9 +44,12 @@ export function BudgetHistorySummary({ history }: { history: BudgetHistory }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {history.classifications.map((cls) => {
           const color = CLASSIFICATION_COLORS[cls.classification as NonReceita];
-          const isOverBudget = cls.pctGasto !== null && cls.pctGasto > 100;
+          const isGoal = isGoalClassification(cls.classification);
+          const isOverBudget = !isGoal && cls.pctGasto !== null && cls.pctGasto > 100;
           const barWidth = cls.pctGasto === null ? 0 : Math.min(cls.pctGasto, 100);
-          const health = HEALTH_META[cls.health];
+          const health = isGoal
+            ? GOAL_HEALTH_META[computeGoalStatus(cls.realizedCents, cls.budgetedCents)]
+            : HEALTH_META[cls.health];
 
           return (
             <div key={cls.classification} className="card p-4">
@@ -59,11 +70,13 @@ export function BudgetHistorySummary({ history }: { history: BudgetHistory }) {
                   {health.label}
                 </span>
               </div>
-              <p className="mt-2 text-sm text-[var(--muted)]">Orçado no período</p>
+              <p className="mt-2 text-sm text-[var(--muted)]">{isGoal ? "Meta no período" : "Orçado no período"}</p>
               <p className="text-lg font-semibold text-stone-900">
                 {formatCentsToBRL(cls.budgetedCents)}
               </p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Realizado no período</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                {isGoal ? "Investido no período" : "Realizado no período"}
+              </p>
               <p className="text-lg font-semibold text-stone-900">
                 {formatCentsToBRL(cls.realizedCents)}
               </p>
@@ -86,7 +99,13 @@ export function BudgetHistorySummary({ history }: { history: BudgetHistory }) {
                     isOverBudget ? "text-[var(--danger)]" : "text-[var(--muted)]"
                   }`}
                 >
-                  {cls.pctGasto === null ? "— gasto" : `${cls.pctGasto.toLocaleString("pt-BR")}% gasto`}
+                  {cls.pctGasto === null
+                    ? isGoal
+                      ? "— da meta"
+                      : "— gasto"
+                    : isGoal
+                      ? `${cls.pctGasto.toLocaleString("pt-BR")}% da meta`
+                      : `${cls.pctGasto.toLocaleString("pt-BR")}% gasto`}
                 </p>
               </div>
             </div>

@@ -1,5 +1,11 @@
 import { formatCentsToBRL } from "@/lib/money";
-import { computeBudgetPct, computeBudgetHealth, type BudgetHealth } from "@/lib/budget-calc";
+import {
+  computeBudgetPct,
+  computeBudgetHealth,
+  computeGoalStatus,
+  isGoalClassification,
+  type BudgetHealth,
+} from "@/lib/budget-calc";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
@@ -25,6 +31,16 @@ const HEALTH_META: Record<BudgetHealth, { label: string; className: string }> = 
   },
 };
 
+// Investimentos is a goal, not a spend with a ceiling — see
+// isGoalClassification in src/lib/budget-calc.ts. Reusing HEALTH_META's
+// wording here would misread as a warning even recolored ("Estourada"
+// always sounds bad), so goal classifications get their own labels.
+const GOAL_HEALTH_META = {
+  EM_PROGRESSO: { label: "Em progresso", className: "bg-stone-100 text-stone-600" },
+  QUASE_LA: { label: "Quase lá", className: "bg-[var(--warning-bg)] text-[var(--warning)]" },
+  META_ATINGIDA: { label: "Meta atingida", className: "bg-[var(--success-bg)] text-[var(--success)]" },
+};
+
 export function BudgetSummaryDashboard({
   monthlyIncomeCents,
   classifications,
@@ -40,9 +56,12 @@ export function BudgetSummaryDashboard({
         {classifications.map((cls) => {
           const color = CLASSIFICATION_COLORS[cls.classification as NonReceita];
           const pctGasto = computeBudgetPct(cls.realizedCents, cls.budgetedCents);
-          const isOverBudget = pctGasto !== null && pctGasto > 100;
+          const isGoal = isGoalClassification(cls.classification);
+          const isOverBudget = !isGoal && pctGasto !== null && pctGasto > 100;
           const barWidth = pctGasto === null ? 0 : Math.min(pctGasto, 100);
-          const health = HEALTH_META[computeBudgetHealth(cls.realizedCents, cls.budgetedCents)];
+          const health = isGoal
+            ? GOAL_HEALTH_META[computeGoalStatus(cls.realizedCents, cls.budgetedCents)]
+            : HEALTH_META[computeBudgetHealth(cls.realizedCents, cls.budgetedCents)];
 
           return (
             <div key={cls.classification} className="card p-4">
@@ -63,11 +82,11 @@ export function BudgetSummaryDashboard({
                   {health.label}
                 </span>
               </div>
-              <p className="mt-2 text-sm text-[var(--muted)]">Orçado</p>
+              <p className="mt-2 text-sm text-[var(--muted)]">{isGoal ? "Meta" : "Orçado"}</p>
               <p className="text-lg font-semibold text-stone-900">
                 {formatCentsToBRL(cls.budgetedCents)}
               </p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Realizado</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">{isGoal ? "Investido" : "Realizado"}</p>
               <p className="text-lg font-semibold text-stone-900">
                 {formatCentsToBRL(cls.realizedCents)}
               </p>
@@ -87,7 +106,13 @@ export function BudgetSummaryDashboard({
                     isOverBudget ? "text-[var(--danger)]" : "text-[var(--muted)]"
                   }`}
                 >
-                  {pctGasto === null ? "— gasto" : `${pctGasto.toLocaleString("pt-BR")}% gasto`}
+                  {pctGasto === null
+                    ? isGoal
+                      ? "— da meta"
+                      : "— gasto"
+                    : isGoal
+                      ? `${pctGasto.toLocaleString("pt-BR")}% da meta`
+                      : `${pctGasto.toLocaleString("pt-BR")}% gasto`}
                 </p>
               </div>
             </div>

@@ -8,7 +8,13 @@ import {
   setCategoryActiveAction,
   updateCategoryAction,
 } from "@/app/actions/categories";
-import { computeBudgetPct, computeBudgetStatus, centsFromPercentage } from "@/lib/budget-calc";
+import {
+  computeBudgetPct,
+  computeBudgetStatus,
+  computeGoalStatus,
+  isGoalClassification,
+  centsFromPercentage,
+} from "@/lib/budget-calc";
 import { formatCentsToBRL } from "@/lib/money";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
@@ -50,6 +56,7 @@ export function CategoryAllocationEditor({
 
   const active = categories.filter((c) => c.isActive);
   const inactive = categories.filter((c) => !c.isActive);
+  const isGoal = isGoalClassification(classification);
 
   function refresh() {
     router.refresh();
@@ -137,7 +144,8 @@ export function CategoryAllocationEditor({
         const catPct = pct[cat.categoryId] ?? 0;
         const liveBudgeted = centsFromPercentage(monthlyIncomeCents, catPct);
         const livePctGasto = computeBudgetPct(cat.realizedCents, liveBudgeted);
-        const liveStatus = computeBudgetStatus(cat.realizedCents, liveBudgeted);
+        const liveStatus = isGoal ? undefined : computeBudgetStatus(cat.realizedCents, liveBudgeted);
+        const liveGoalStatus = isGoal ? computeGoalStatus(cat.realizedCents, liveBudgeted) : undefined;
         const isEditing = editingId === cat.categoryId;
 
         return (
@@ -236,22 +244,22 @@ export function CategoryAllocationEditor({
             </div>
             <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
               <div>
-                <p className="text-[var(--muted)]">Orçado</p>
+                <p className="text-[var(--muted)]">{isGoal ? "Meta" : "Orçado"}</p>
                 <p className="font-medium text-stone-900">{formatCentsToBRL(liveBudgeted)}</p>
               </div>
               <div>
-                <p className="text-[var(--muted)]">Realizado</p>
+                <p className="text-[var(--muted)]">{isGoal ? "Investido" : "Realizado"}</p>
                 <p className="font-medium text-stone-900">{formatCentsToBRL(cat.realizedCents)}</p>
               </div>
               <div>
-                <p className="text-[var(--muted)]">% Gasto</p>
+                <p className="text-[var(--muted)]">{isGoal ? "% da meta" : "% Gasto"}</p>
                 <p className="font-medium text-stone-900">
                   {livePctGasto === null ? "—" : `${livePctGasto.toLocaleString("pt-BR")}%`}
                 </p>
               </div>
             </div>
             <div className="mt-2">
-              <StatusBadge status={liveStatus} />
+              <StatusBadge status={liveStatus} goalStatus={liveGoalStatus} />
             </div>
           </div>
         );

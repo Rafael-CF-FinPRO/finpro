@@ -7,6 +7,8 @@ import { saveBudgetDistributionAction, removeMonthOverrideAction } from "@/app/a
 import {
   computeBudgetPct,
   computeBudgetStatus,
+  computeGoalStatus,
+  isGoalClassification,
   centsFromPercentage,
   sumPercentages,
 } from "@/lib/budget-calc";
@@ -377,9 +379,11 @@ export function BudgetBoard({
           const clsPct =
             mode === "edit" ? pctByClassification[cls.classification] ?? 0 : cls.percentage;
           const liveBudgeted = centsFromPercentage(monthlyIncomeCents, clsPct);
+          const isGoal = isGoalClassification(cls.classification);
           const liveDiferenca = liveBudgeted - cls.realizedCents;
           const livePctGasto = computeBudgetPct(cls.realizedCents, liveBudgeted);
-          const liveStatus = computeBudgetStatus(cls.realizedCents, liveBudgeted);
+          const liveStatus = isGoal ? undefined : computeBudgetStatus(cls.realizedCents, liveBudgeted);
+          const liveGoalStatus = isGoal ? computeGoalStatus(cls.realizedCents, liveBudgeted) : undefined;
           const isExpanded = Boolean(expanded[cls.classification]);
           const activeCategories = cls.categories.filter((c) => c.isActive);
           const distributed =
@@ -406,7 +410,7 @@ export function BudgetBoard({
                       </p>
                     </div>
                   </div>
-                  <StatusBadge status={liveStatus} />
+                  <StatusBadge status={liveStatus} goalStatus={liveGoalStatus} />
                 </div>
 
                 {mode === "edit" ? (
@@ -426,27 +430,29 @@ export function BudgetBoard({
 
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                   <div>
-                    <p className="text-[var(--muted)]">Orçado</p>
+                    <p className="text-[var(--muted)]">{isGoal ? "Meta" : "Orçado"}</p>
                     <p className="font-medium text-stone-900">{formatCentsToBRL(liveBudgeted)}</p>
                   </div>
                   <div>
-                    <p className="text-[var(--muted)]">Realizado</p>
+                    <p className="text-[var(--muted)]">{isGoal ? "Investido" : "Realizado"}</p>
                     <p className="font-medium text-stone-900">
                       {formatCentsToBRL(cls.realizedCents)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[var(--muted)]">Diferença</p>
+                    <p className="text-[var(--muted)]">
+                      {isGoal ? (liveDiferenca <= 0 ? "Meta superada em" : "Falta para a meta") : "Diferença"}
+                    </p>
                     <p
                       className={`font-medium ${
-                        liveDiferenca < 0 ? "text-[var(--danger)]" : "text-stone-900"
+                        !isGoal && liveDiferenca < 0 ? "text-[var(--danger)]" : "text-stone-900"
                       }`}
                     >
-                      {formatCentsToBRL(liveDiferenca)}
+                      {formatCentsToBRL(isGoal ? Math.abs(liveDiferenca) : liveDiferenca)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[var(--muted)]">% Utilizado</p>
+                    <p className="text-[var(--muted)]">{isGoal ? "% da meta" : "% Utilizado"}</p>
                     <p className="font-medium text-stone-900">
                       {livePctGasto === null ? "—" : `${livePctGasto.toLocaleString("pt-BR")}%`}
                     </p>
@@ -531,23 +537,29 @@ export function BudgetBoard({
                                   )}
                                 </div>
                               </div>
-                              <StatusBadge status={cat.status} />
+                              {isGoal ? (
+                                <StatusBadge
+                                  goalStatus={computeGoalStatus(cat.realizedCents, cat.budgetedCents)}
+                                />
+                              ) : (
+                                <StatusBadge status={cat.status} />
+                              )}
                             </div>
                             <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
                               <div>
-                                <p className="text-[var(--muted)]">Orçado</p>
+                                <p className="text-[var(--muted)]">{isGoal ? "Meta" : "Orçado"}</p>
                                 <p className="font-medium text-stone-900">
                                   {formatCentsToBRL(cat.budgetedCents)}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-[var(--muted)]">Realizado</p>
+                                <p className="text-[var(--muted)]">{isGoal ? "Investido" : "Realizado"}</p>
                                 <p className="font-medium text-stone-900">
                                   {formatCentsToBRL(cat.realizedCents)}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-[var(--muted)]">% Utilizado</p>
+                                <p className="text-[var(--muted)]">{isGoal ? "% da meta" : "% Utilizado"}</p>
                                 <p className="font-medium text-stone-900">
                                   {catPctGasto === null
                                     ? "—"
