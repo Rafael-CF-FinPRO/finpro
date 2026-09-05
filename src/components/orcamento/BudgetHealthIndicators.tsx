@@ -6,7 +6,7 @@ const MAXIMO_COLOR = "#f97316";
 const ACEITAVEL_COLOR = "#16a34a";
 const IDEAL_COLOR = "#38bdf8";
 
-/** Which of the 3 reference zones `value` currently falls in, so the
+/** Which of the reference zones `value` currently falls in, so the
  * bar itself is colored the same as whichever threshold it's closest
  * to having reached — e.g. a value at/better than Ideal is colored
  * with the Ideal color, one only within the Aceitável range gets the
@@ -14,19 +14,24 @@ const IDEAL_COLOR = "#38bdf8";
  * Aceitável) gets the Máximo color. Mirrors the direction flip already
  * used for the reference numbers themselves: for a "less is better"
  * indicator the zones run low-to-high (ideal < aceitavel < maximo);
- * for Investimentos ("more is better") they run high-to-low instead. */
+ * for Investimentos ("more is better") they run high-to-low instead.
+ * `minimo` is an optional floor (only Seguros sets it): below it is
+ * just as unhealthy as being past Máximo, since having no insurance at
+ * all isn't "ideal" the way having little Prazeres e Confortos is. */
 function zoneColorFor(
   value: number,
   maximo: number,
   aceitavel: number,
   ideal: number,
-  higherIsBetter: boolean
+  higherIsBetter: boolean,
+  minimo?: number
 ): string {
   if (higherIsBetter) {
     if (value >= ideal) return IDEAL_COLOR;
     if (value >= aceitavel) return ACEITAVEL_COLOR;
     return MAXIMO_COLOR;
   }
+  if (minimo !== undefined && value < minimo) return MAXIMO_COLOR;
   if (value <= ideal) return IDEAL_COLOR;
   if (value <= aceitavel) return ACEITAVEL_COLOR;
   return MAXIMO_COLOR;
@@ -53,6 +58,8 @@ const INDICATORS: {
   maximo: number;
   aceitavel: number;
   ideal: number;
+  // Optional floor — only Seguros sets it (see zoneColorFor above).
+  minimo?: number;
   higherIsBetter: boolean;
   description: string;
 }[] = [
@@ -82,9 +89,10 @@ const INDICATORS: {
     maximo: 10,
     aceitavel: 5,
     ideal: 3,
+    minimo: 1,
     higherIsBetter: false,
     description:
-      "Mostra quanto da sua renda mensal de referência está comprometido com a categoria Seguros.",
+      "Mostra quanto da sua renda mensal de referência está comprometido com a categoria Seguros. O ideal é ter seguros, então há também um mínimo de referência: ficar abaixo dele deixa você exposto a riscos.",
   },
   {
     key: "dividas",
@@ -162,6 +170,7 @@ function IndicatorBar({
   maximo,
   aceitavel,
   ideal,
+  minimo,
   tooltipOpen,
   onTooltipEnter,
   onTooltipLeave,
@@ -174,6 +183,7 @@ function IndicatorBar({
   maximo: number;
   aceitavel: number;
   ideal: number;
+  minimo?: number;
   tooltipOpen: boolean;
   onTooltipEnter: () => void;
   onTooltipLeave: () => void;
@@ -183,8 +193,11 @@ function IndicatorBar({
     { key: "maximo", refLabel: "Máximo", value: maximo, color: MAXIMO_COLOR },
     { key: "aceitavel", refLabel: "Aceitável", value: aceitavel, color: ACEITAVEL_COLOR },
     { key: "ideal", refLabel: "Ideal", value: ideal, color: IDEAL_COLOR },
+    ...(minimo !== undefined
+      ? [{ key: "minimo", refLabel: "Mínimo", value: minimo, color: MAXIMO_COLOR }]
+      : []),
   ];
-  const barColor = zoneColorFor(userValue, maximo, aceitavel, ideal, higherIsBetter);
+  const barColor = zoneColorFor(userValue, maximo, aceitavel, ideal, higherIsBetter, minimo);
 
   return (
     <div>
@@ -276,6 +289,7 @@ export function BudgetHealthIndicators({
             maximo={indicator.maximo}
             aceitavel={indicator.aceitavel}
             ideal={indicator.ideal}
+            minimo={indicator.minimo}
             tooltipOpen={openTooltip === indicator.key}
             onTooltipEnter={() => setOpenTooltip(indicator.key)}
             onTooltipLeave={() => setOpenTooltip((cur) => (cur === indicator.key ? null : cur))}
