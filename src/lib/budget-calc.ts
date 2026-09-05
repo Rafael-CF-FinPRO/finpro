@@ -82,3 +82,25 @@ export function centsFromPercentage(baseCents: number, percentage: number): numb
 export function sumPercentages(values: number[]): number {
   return values.reduce((sum, v) => sum + v, 0);
 }
+
+/** How well a limit classification (Custos Obrigatórios, Prazeres e
+ * Confortos) respected its ceiling, as a 0-100 score — 100 while at or
+ * under budget, degrading as it's exceeded. Never negative and never
+ * above 100: being well under budget isn't "extra compliant". Used by
+ * the Dashboard's "Cumprimento do Orçamento" index. */
+export function computeLimitCompliancePct(realizedCents: number, budgetedCents: number): number {
+  if (budgetedCents <= 0) return realizedCents > 0 ? 0 : 100;
+  if (realizedCents <= 0) return 100;
+  return Math.min(100, Math.round((budgetedCents / realizedCents) * 100));
+}
+
+/** How well Investimentos reached its goal, as a 0-100 score — this is
+ * the goal-classification counterpart to computeLimitCompliancePct.
+ * Capped at 100 once the goal is reached: exceeding it is the best
+ * outcome but never scores above full marks, so the overall index
+ * (an average of all three) stays bounded. A goal of 0 (not
+ * configured) is trivially fully compliant, same as computeGoalStatus. */
+export function computeGoalCompliancePct(realizedCents: number, goalCents: number): number {
+  if (goalCents <= 0) return 100;
+  return Math.min(100, Math.round((realizedCents / goalCents) * 100));
+}

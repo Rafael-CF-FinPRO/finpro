@@ -4,11 +4,14 @@ import { getSession } from "@/lib/session";
 import { getBudgetOverview, getBudgetHistory } from "@/lib/budget";
 import { currentMonthKey, isValidMonthKey, shiftMonthKey } from "@/lib/dates";
 import { MonthNavigator } from "@/components/orcamento/MonthNavigator";
-import { BudgetSummaryDashboard } from "@/components/orcamento/BudgetSummaryDashboard";
 import { DashboardViewTabs } from "@/components/dashboard/DashboardViewTabs";
 import { HistoricalPeriodPicker } from "@/components/dashboard/HistoricalPeriodPicker";
 import { BudgetHistorySummary } from "@/components/dashboard/BudgetHistorySummary";
 import { BudgetEvolutionChart } from "@/components/dashboard/BudgetEvolutionChart";
+import { IncomeFlowFunnel } from "@/components/dashboard/IncomeFlowFunnel";
+import { BudgetVsRealizedPanel } from "@/components/dashboard/BudgetVsRealizedPanel";
+import { BudgetComplianceScore } from "@/components/dashboard/BudgetComplianceScore";
+import { TopCategoriesRanking } from "@/components/dashboard/TopCategoriesRanking";
 
 export const metadata: Metadata = {
   title: "Dashboard | FinPRO",
@@ -78,11 +81,14 @@ async function DashboardMonthlyView({
       <div className="mt-4">
         <MonthNavigator monthKey={monthKey} />
       </div>
-      <div className="mt-4">
-        <BudgetSummaryDashboard
+      <div className="mt-4 space-y-4">
+        <IncomeFlowFunnel
           monthlyIncomeCents={overview.monthlyIncomeCents}
           classifications={overview.classifications}
         />
+        <BudgetVsRealizedPanel classifications={overview.classifications} />
+        <BudgetComplianceScore classifications={overview.classifications} />
+        <TopCategoriesRanking classifications={overview.classifications} />
       </div>
     </>
   );

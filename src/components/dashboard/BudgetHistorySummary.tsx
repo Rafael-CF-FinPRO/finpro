@@ -25,7 +25,7 @@ const HEALTH_META: Record<BudgetHealth, { label: string; className: string }> = 
   },
 };
 
-// Same goal-vs-ceiling split as BudgetSummaryDashboard (the monthly
+// Same goal-vs-ceiling split as BudgetVsRealizedPanel (the monthly
 // view) — see isGoalClassification in src/lib/budget-calc.ts.
 const GOAL_HEALTH_META = {
   EM_PROGRESSO: { label: "Em progresso", className: "bg-stone-100 text-stone-600" },
@@ -33,8 +33,8 @@ const GOAL_HEALTH_META = {
   META_ATINGIDA: { label: "Meta atingida", className: "bg-[var(--success-bg)] text-[var(--success)]" },
 };
 
-/** Same visual language as BudgetSummaryDashboard (the monthly view),
- * but for totals aggregated across a date range instead of one month —
+/** Same card visual language as the monthly Dashboard, but for totals
+ * aggregated across a date range instead of one month —
  * each card adds "Realizado médio/mês" since "Orçado" here is a sum
  * across several months, not a single figure to compare a lançamento
  * against. */
