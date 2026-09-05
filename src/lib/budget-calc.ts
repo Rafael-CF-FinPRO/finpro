@@ -104,3 +104,20 @@ export function computeGoalCompliancePct(realizedCents: number, goalCents: numbe
   if (goalCents <= 0) return 100;
   return Math.min(100, Math.round((realizedCents / goalCents) * 100));
 }
+
+/** Combines several already-computed compliance percentages (each from
+ * computeLimitCompliancePct/computeGoalCompliancePct) into one overall
+ * score, weighted by each row's own orçado — a bigger orçamento moves
+ * the index more than a small one. Used twice by the Dashboard's
+ * "Cumprimento do Orçamento": once to roll a classification's
+ * categories up into that classification's score, and again to roll
+ * the 3 classifications up into the overall index. A row with nothing
+ * budgeted carries no weight; if NONE of the rows have anything
+ * budgeted there's nothing to weigh, so this is trivially fully
+ * compliant, same convention as the per-row functions above. */
+export function computeWeightedCompliancePct(rows: { pct: number; budgetedCents: number }[]): number {
+  const totalWeight = rows.reduce((sum, r) => sum + Math.max(r.budgetedCents, 0), 0);
+  if (totalWeight <= 0) return 100;
+  const weightedSum = rows.reduce((sum, r) => sum + r.pct * Math.max(r.budgetedCents, 0), 0);
+  return Math.round(weightedSum / totalWeight);
+}
