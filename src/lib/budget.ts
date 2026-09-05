@@ -39,6 +39,13 @@ export type ClassificationBudgetRow = {
 export type BudgetOverview = {
   hasProfile: boolean;
   monthlyIncomeCents: number;
+  /** Actual money that came in this month (sum of ENTRADA transactions,
+   * status PAGO) — distinct from monthlyIncomeCents, which is the fixed
+   * reference income the user configured for budgeting purposes. Used
+   * by the Dashboard's monthly view as the real starting point of the
+   * month ("Receita"), never for anything that derives Orçado/Meta
+   * figures — those stay tied to monthlyIncomeCents, unchanged. */
+  realizedIncomeCents: number;
   monthKey: string;
   isCustomMonth: boolean;
   classifications: ClassificationBudgetRow[];
@@ -64,6 +71,7 @@ export async function getBudgetOverview(
     return {
       hasProfile: false,
       monthlyIncomeCents: 0,
+      realizedIncomeCents: 0,
       monthKey,
       isCustomMonth: false,
       classifications: [],
@@ -90,7 +98,7 @@ export async function getBudgetOverview(
   const scopeKey = isCustomMonth ? monthKey : "default";
   const { from, to } = monthRangeForKey(monthKey);
 
-  const [classificationAllocations, categoryAllocations, realizedByCategory] =
+  const [classificationAllocations, categoryAllocations, realizedByCategory, realizedIncomeAgg] =
     await Promise.all([
       prisma.budgetClassificationAllocation.findMany({
         where: { budgetProfileId: profile.id, monthKey: scopeKey },
@@ -105,6 +113,12 @@ export async function getBudgetOverview(
       prisma.transaction.groupBy({
         by: ["categoryId"],
         where: { userId, type: "SAIDA", status: "PAGO", date: { gte: from, lt: to } },
+        _sum: { amountCents: true },
+      }),
+      // Real money in this month, for the Dashboard's "Receita" — same
+      // PAGO/date-range convention as realizedByCategory above.
+      prisma.transaction.aggregate({
+        where: { userId, type: "ENTRADA", status: "PAGO", date: { gte: from, lt: to } },
         _sum: { amountCents: true },
       }),
     ]);
@@ -172,6 +186,7 @@ export async function getBudgetOverview(
   return {
     hasProfile: true,
     monthlyIncomeCents: profile.monthlyIncomeCents,
+    realizedIncomeCents: realizedIncomeAgg._sum.amountCents ?? 0,
     monthKey,
     isCustomMonth,
     classifications,

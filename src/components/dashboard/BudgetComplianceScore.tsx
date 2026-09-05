@@ -95,7 +95,10 @@ function classificationCompliancePct(cls: ClassificationBudgetRow): number {
  * never needs to "make up" for anything, see computeGoalCompliancePct in
  * src/lib/budget-calc.ts. Rendered as a speedometer: fixed
  * Crítico/Atenção/Bom color zones on the dial, and a small discreet
- * triangle (not a full needle) marking the current score. */
+ * triangle (not a full needle) marking the current score. Deliberately
+ * not its own card — it's a sub-section nested inside Orçamento ×
+ * Realizado (BudgetVsRealizedPanel), not a separate "Saúde
+ * Orçamentária" panel. */
 export function BudgetComplianceScore({
   classifications,
 }: {
@@ -134,7 +137,7 @@ export function BudgetComplianceScore({
     .join(" ");
 
   return (
-    <div className="card p-4 sm:p-5">
+    <div className="mt-6 border-t border-[var(--surface-border)] pt-4">
       <p className="text-sm font-medium text-stone-700">Cumprimento do Orçamento</p>
 
       <div className="flex flex-col items-center">

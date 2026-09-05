@@ -8,9 +8,9 @@ import { DashboardViewTabs } from "@/components/dashboard/DashboardViewTabs";
 import { HistoricalPeriodPicker } from "@/components/dashboard/HistoricalPeriodPicker";
 import { BudgetHistorySummary } from "@/components/dashboard/BudgetHistorySummary";
 import { BudgetEvolutionChart } from "@/components/dashboard/BudgetEvolutionChart";
-import { BudgetOverviewCards } from "@/components/dashboard/BudgetOverviewCards";
+import { MonthSummaryStrip } from "@/components/dashboard/MonthSummaryStrip";
+import { IncomeFlowFunnel } from "@/components/dashboard/IncomeFlowFunnel";
 import { BudgetVsRealizedPanel } from "@/components/dashboard/BudgetVsRealizedPanel";
-import { BudgetComplianceScore } from "@/components/dashboard/BudgetComplianceScore";
 import { TopCategoriesRanking } from "@/components/dashboard/TopCategoriesRanking";
 
 export const metadata: Metadata = {
@@ -82,17 +82,16 @@ async function DashboardMonthlyView({
         <MonthNavigator monthKey={monthKey} />
       </div>
       <div className="mt-4 space-y-4">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <BudgetOverviewCards
-            monthlyIncomeCents={overview.monthlyIncomeCents}
-            classifications={overview.classifications}
-          />
-          <BudgetComplianceScore classifications={overview.classifications} />
-        </div>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <BudgetVsRealizedPanel classifications={overview.classifications} />
-          <TopCategoriesRanking classifications={overview.classifications} />
-        </div>
+        <MonthSummaryStrip
+          realizedIncomeCents={overview.realizedIncomeCents}
+          classifications={overview.classifications}
+        />
+        <IncomeFlowFunnel
+          receitaCents={overview.realizedIncomeCents}
+          classifications={overview.classifications}
+        />
+        <BudgetVsRealizedPanel classifications={overview.classifications} />
+        <TopCategoriesRanking classifications={overview.classifications} />
       </div>
     </>
   );

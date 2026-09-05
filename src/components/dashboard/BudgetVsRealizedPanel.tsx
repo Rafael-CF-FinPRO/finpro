@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import {
   computeBudgetPct,
   computeBudgetStatus,
@@ -5,11 +8,14 @@ import {
   isGoalClassification,
 } from "@/lib/budget-calc";
 import { formatCentsToBRL } from "@/lib/money";
+import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
+import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { withCategoryDisplayName } from "@/lib/category-display";
 import { IconBadge } from "@/components/orcamento/IconBadge";
 import { StatusBadge } from "@/components/orcamento/StatusBadge";
+import { BudgetComplianceScore } from "./BudgetComplianceScore";
 import type { ClassificationBudgetRow } from "@/lib/budget";
 import type { Classification } from "@/generated/prisma/enums";
 
@@ -21,6 +27,7 @@ type Row = {
   classification: Classification;
   icon: ReturnType<typeof getCategoryIcon>;
   color: string;
+  variant: "solid" | "soft";
   budgetedCents: number;
   realizedCents: number;
 };
@@ -59,23 +66,35 @@ function StatusCell({ row }: { row: Row }) {
   return <StatusBadge status={computeBudgetStatus(row.realizedCents, row.budgetedCents)} />;
 }
 
-/** "Orçamento × Realizado por Categoria" — one row per active category
- * that's actually part of this month's budget picture (has a defined
- * Orçamento/Meta or has real spending) — an unconfigured, untouched
- * category is just noise here. The classification-level totals (that
- * this panel used to also show via a toggle) now live in the Visão
- * Geral funnel above, so this panel is categories-only. Reuses the
- * exact goal-vs-limit rules already established in Orçamento
- * (src/components/orcamento/BudgetBoard.tsx): Custos Obrigatórios and
- * Prazeres e Confortos have a ceiling, Investimentos has a floor. Reads
- * only from the BudgetOverview already fetched by the Dashboard page —
- * no new data, no changes to the budget's own structure. */
+/** "Orçamento × Realizado" — toggles between one row per classification
+ * and one row per category (only categories with a defined Meta and/or
+ * real spending — an untouched, unconfigured category is just noise),
+ * plus "Cumprimento do Orçamento" nested below the table (not a
+ * separate "Saúde Orçamentária" section). Reuses the exact goal-vs-limit
+ * rules already established in Orçamento (src/components/orcamento/
+ * BudgetBoard.tsx): Custos Obrigatórios and Prazeres e Confortos have a
+ * ceiling, Investimentos has a floor. Reads only from the BudgetOverview
+ * already fetched by the Dashboard page — no new data, no changes to
+ * the budget's own structure. */
 export function BudgetVsRealizedPanel({
   classifications,
 }: {
   classifications: ClassificationBudgetRow[];
 }) {
-  const rows: Row[] = withCategoryDisplayName(
+  const [view, setView] = useState<"classificacoes" | "categorias">("classificacoes");
+
+  const classificationRows: Row[] = classifications.map((cls) => ({
+    key: cls.classification,
+    name: CLASSIFICATION_LABELS[cls.classification],
+    classification: cls.classification,
+    icon: CLASSIFICATION_ICONS[cls.classification as NonReceita],
+    color: CLASSIFICATION_COLORS[cls.classification as NonReceita],
+    variant: "solid",
+    budgetedCents: cls.budgetedCents,
+    realizedCents: cls.realizedCents,
+  }));
+
+  const categoryRows: Row[] = withCategoryDisplayName(
     classifications.flatMap((cls) =>
       cls.categories
         .filter((cat) => cat.isActive && (cat.budgetedCents > 0 || cat.realizedCents > 0))
@@ -87,20 +106,49 @@ export function BudgetVsRealizedPanel({
     classification: cat.classification,
     icon: getCategoryIcon(cat.name),
     color: CLASSIFICATION_COLORS[cat.classification as NonReceita],
+    variant: "soft",
     budgetedCents: cat.budgetedCents,
     realizedCents: cat.realizedCents,
   }));
 
+  const rows = view === "classificacoes" ? classificationRows : categoryRows;
+
   return (
     <div className="card p-4 sm:p-5">
-      <p className="text-sm font-medium text-stone-700">Orçamento × Realizado por Categoria</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-stone-700">Orçamento × Realizado</p>
+        <div className="inline-flex rounded-lg border border-[var(--surface-border)] p-0.5 text-xs">
+          <button
+            type="button"
+            onClick={() => setView("classificacoes")}
+            className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+              view === "classificacoes"
+                ? "bg-[var(--primary)] text-white"
+                : "text-stone-500 hover:bg-stone-100"
+            }`}
+          >
+            Classificações
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("categorias")}
+            className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+              view === "categorias"
+                ? "bg-[var(--primary)] text-white"
+                : "text-stone-500 hover:bg-stone-100"
+            }`}
+          >
+            Categorias
+          </button>
+        </div>
+      </div>
 
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b border-[var(--surface-border)] text-left text-xs text-[var(--muted)]">
-              <th className="pb-2 font-medium">Categoria</th>
-              <th className="pb-2 font-medium">Meta</th>
+              <th className="pb-2 font-medium">{view === "classificacoes" ? "Classificação" : "Categoria"}</th>
+              <th className="pb-2 font-medium">{view === "classificacoes" ? "Orçamento" : "Meta"}</th>
               <th className="pb-2 font-medium">Realizado</th>
               <th className="pb-2 font-medium">Diferença</th>
               <th className="pb-2 font-medium">%</th>
@@ -121,7 +169,7 @@ export function BudgetVsRealizedPanel({
                   <tr key={row.key} className="border-b border-[var(--surface-border)] last:border-0">
                     <td className="py-2.5 pr-2">
                       <span className="flex items-center gap-2 font-medium text-stone-900">
-                        <IconBadge icon={row.icon} color={row.color} variant="soft" size="sm" />
+                        <IconBadge icon={row.icon} color={row.color} variant={row.variant} size="sm" />
                         {row.name}
                       </span>
                     </td>
@@ -143,6 +191,8 @@ export function BudgetVsRealizedPanel({
           </tbody>
         </table>
       </div>
+
+      <BudgetComplianceScore classifications={classifications} />
     </div>
   );
 }
