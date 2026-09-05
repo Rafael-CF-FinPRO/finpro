@@ -12,6 +12,9 @@ type Stage = {
   icon?: LucideIcon;
   color: string;
   valueCents: number;
+  /** Present only for the 3 classification stages — Receita Total and
+   * Saldo Atual have no "orçado" figure of their own. */
+  budgetedCents?: number;
   /** Running remainder of income after this stage — drives the bar's
    * width, so the funnel narrows monotonically top to bottom. */
   remainderCents: number;
@@ -24,7 +27,10 @@ type Stage = {
  * the real negative Saldo). Purely a cash-flow view — unlike the
  * Orçamento × Realizado panel below, it doesn't distinguish limits from
  * goals: money invested still leaves the checking account like any
- * other outflow, same reasoning as SaldoGauge. */
+ * other outflow, same reasoning as SaldoGauge. Each classification
+ * stage also carries its Orçado (value + %) alongside Realizado, so the
+ * plan-vs-actual comparison is visible right here instead of only in
+ * the table below. */
 export function IncomeFlowFunnel({
   monthlyIncomeCents,
   classifications,
@@ -32,12 +38,12 @@ export function IncomeFlowFunnel({
   monthlyIncomeCents: number;
   classifications: ClassificationBudgetRow[];
 }) {
-  const realizedFor = (classification: ClassificationBudgetRow["classification"]) =>
-    classifications.find((c) => c.classification === classification)?.realizedCents ?? 0;
+  const rowFor = (classification: ClassificationBudgetRow["classification"]) =>
+    classifications.find((c) => c.classification === classification);
 
-  const custos = realizedFor("CUSTOS_OBRIGATORIOS");
-  const prazeres = realizedFor("PRAZERES_E_CONFORTOS");
-  const investido = realizedFor("INVESTIMENTOS");
+  const custos = rowFor("CUSTOS_OBRIGATORIOS")?.realizedCents ?? 0;
+  const prazeres = rowFor("PRAZERES_E_CONFORTOS")?.realizedCents ?? 0;
+  const investido = rowFor("INVESTIMENTOS")?.realizedCents ?? 0;
   const saldo = monthlyIncomeCents - custos - prazeres - investido;
 
   let remainder = monthlyIncomeCents;
@@ -63,6 +69,7 @@ export function IncomeFlowFunnel({
         icon: CLASSIFICATION_ICONS[classification],
         color: CLASSIFICATION_COLORS[classification],
         valueCents: value,
+        budgetedCents: rowFor(classification)?.budgetedCents ?? 0,
         remainderCents: remainder,
       };
     }),
@@ -92,15 +99,24 @@ export function IncomeFlowFunnel({
                   <ChevronDown size={14} />
                 </div>
               )}
-              <div className="flex items-center justify-between gap-2 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-sm">
                 <span className="flex items-center gap-1.5 font-medium text-stone-700">
                   {stage.icon && <IconBadge icon={stage.icon} color={stage.color} size="sm" />}
                   {stage.label}
                 </span>
-                <span className="font-semibold text-stone-900">
-                  {formatCentsToBRL(stage.valueCents)}{" "}
-                  <span className="font-normal text-[var(--muted)]">
-                    ({pctValue.toLocaleString("pt-BR")}% da receita)
+                <span className="text-right">
+                  {stage.budgetedCents !== undefined && (
+                    <span className="block text-xs text-[var(--muted)]">
+                      Orçado: {formatCentsToBRL(stage.budgetedCents)} (
+                      {pctOf(stage.budgetedCents).toLocaleString("pt-BR")}% da receita)
+                    </span>
+                  )}
+                  <span className="font-semibold text-stone-900">
+                    {stage.budgetedCents !== undefined ? "Realizado: " : ""}
+                    {formatCentsToBRL(stage.valueCents)}{" "}
+                    <span className="font-normal text-[var(--muted)]">
+                      ({pctValue.toLocaleString("pt-BR")}% da receita)
+                    </span>
                   </span>
                 </span>
               </div>

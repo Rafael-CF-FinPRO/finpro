@@ -86,8 +86,8 @@ async function DashboardMonthlyView({
           monthlyIncomeCents={overview.monthlyIncomeCents}
           classifications={overview.classifications}
         />
-        <BudgetVsRealizedPanel classifications={overview.classifications} />
         <BudgetComplianceScore classifications={overview.classifications} />
+        <BudgetVsRealizedPanel classifications={overview.classifications} />
         <TopCategoriesRanking classifications={overview.classifications} />
       </div>
     </>
