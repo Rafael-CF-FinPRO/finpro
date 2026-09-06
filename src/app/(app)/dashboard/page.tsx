@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { getBudgetOverview, getBudgetHistory } from "@/lib/budget";
-import { currentMonthKey, isValidMonthKey, shiftMonthKey } from "@/lib/dates";
+import {
+  currentMonthKey,
+  isValidMonthKey,
+  isValidDateInputValue,
+  parseDateInputValue,
+  addMonthsClamped,
+} from "@/lib/dates";
 import { MonthNavigator } from "@/components/orcamento/MonthNavigator";
 import { DashboardViewTabs } from "@/components/dashboard/DashboardViewTabs";
 import { HistoricalPeriodPicker } from "@/components/dashboard/HistoricalPeriodPicker";
@@ -118,12 +124,12 @@ async function DashboardHistoricalView({
   requestedTo: string;
   userId: string;
 }) {
-  const to = isValidMonthKey(requestedTo) ? requestedTo : currentMonthKey();
-  const from = isValidMonthKey(requestedFrom)
-    ? requestedFrom
-    : shiftMonthKey(to, -(DEFAULT_HISTORY_MONTHS - 1));
+  const toDate = isValidDateInputValue(requestedTo) ? parseDateInputValue(requestedTo)! : new Date();
+  const fromDate = isValidDateInputValue(requestedFrom)
+    ? parseDateInputValue(requestedFrom)!
+    : addMonthsClamped(toDate, -DEFAULT_HISTORY_MONTHS);
 
-  const history = await getBudgetHistory(userId, from, to);
+  const history = await getBudgetHistory(userId, fromDate, toDate);
 
   if (!history.hasProfile) {
     return <NoProfileMessage />;
@@ -132,7 +138,7 @@ async function DashboardHistoricalView({
   return (
     <>
       <div className="mt-4">
-        <HistoricalPeriodPicker from={from} to={to} />
+        <HistoricalPeriodPicker from={history.fromDate} to={history.toDate} />
       </div>
       <div className="mt-4 space-y-4">
         <HistoricalSummaryStrip history={history} />

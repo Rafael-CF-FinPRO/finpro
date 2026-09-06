@@ -37,6 +37,10 @@ export function parseDateInputValue(value: string): Date | null {
   return date;
 }
 
+export function isValidDateInputValue(value: string): boolean {
+  return parseDateInputValue(value) !== null;
+}
+
 /** Adds `months` whole months to a UTC date, clamping the day to the
  * last valid day of the target month (e.g. 31/01 + 1 month -> 28 or
  * 29/02, never rolling over into March). Used to step recurring and
@@ -160,23 +164,51 @@ export function formatMonthKeyShortLabel(monthKey: string): string {
   return `${MONTH_LABELS_SHORT[month]}/${String(year).slice(-2)}`;
 }
 
-/** Every "YYYY-MM" key from `fromMonthKey` to `toMonthKey`, inclusive,
- * in chronological order. Swaps the two if given in reverse. Clamped to
- * 24 months so a mistyped or manipulated URL can't trigger an
- * unbounded number of budget-overview queries. */
-export function enumerateMonthKeys(fromMonthKey: string, toMonthKey: string): string[] {
-  let from = fromMonthKey;
-  let to = toMonthKey;
-  if (from > to) {
-    [from, to] = [to, from];
+export type MonthBucket = { monthKey: string; from: Date; to: Date };
+
+const MAX_HISTORY_MONTHS = 24;
+
+/** Every calendar month touched by [fromDate, toDate] (both inclusive),
+ * each clipped to those exact boundaries — the first and/or last bucket
+ * is a partial month whenever the range doesn't start/end on a month
+ * boundary (e.g. 01/05 to 17/08 gives a partial August bucket covering
+ * only the 1st through the 17th). Swaps the two dates if given in
+ * reverse. Clamped to 24 months, same safety limit the old whole-month
+ * enumeration used, so a manipulated URL can't trigger an unbounded
+ * number of budget-overview queries. */
+export function enumerateMonthBucketsForDateRange(fromDate: Date, toDate: Date): MonthBucket[] {
+  let start = fromDate;
+  let end = toDate;
+  if (start > end) {
+    [start, end] = [end, start];
   }
 
-  const keys: string[] = [];
-  let cursor = from;
-  const MAX_MONTHS = 24;
-  while (cursor <= to && keys.length < MAX_MONTHS) {
-    keys.push(cursor);
-    cursor = shiftMonthKey(cursor, 1);
+  const rangeFrom = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const rangeToExclusive = new Date(
+    Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1)
+  );
+
+  const buckets: MonthBucket[] = [];
+  let cursorYear = rangeFrom.getUTCFullYear();
+  let cursorMonth = rangeFrom.getUTCMonth();
+
+  while (buckets.length < MAX_HISTORY_MONTHS) {
+    const monthStart = new Date(Date.UTC(cursorYear, cursorMonth, 1));
+    const monthEnd = new Date(Date.UTC(cursorYear, cursorMonth + 1, 1));
+    if (monthStart >= rangeToExclusive) break;
+
+    buckets.push({
+      monthKey: `${cursorYear}-${String(cursorMonth + 1).padStart(2, "0")}`,
+      from: monthStart > rangeFrom ? monthStart : rangeFrom,
+      to: monthEnd < rangeToExclusive ? monthEnd : rangeToExclusive,
+    });
+
+    cursorMonth += 1;
+    if (cursorMonth > 11) {
+      cursorMonth = 0;
+      cursorYear += 1;
+    }
   }
-  return keys;
+
+  return buckets;
 }

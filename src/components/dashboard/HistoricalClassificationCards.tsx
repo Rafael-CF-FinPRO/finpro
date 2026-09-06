@@ -1,5 +1,6 @@
 import { formatCentsToBRL } from "@/lib/money";
 import { computeBudgetStatus, computeGoalStatus, isGoalClassification } from "@/lib/budget-calc";
+import { countMonthsWithData } from "@/lib/budget";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
@@ -26,9 +27,13 @@ const ROWS: {
  * Investimentos has a floor, never penalized for exceeding it). Values
  * are period averages (Orçado/Meta Médio, Realizado Médio), derived
  * here from the already-computed per-month rows — no new data, no
- * change to how any of those figures are calculated. */
+ * change to how any of those figures are calculated. Averaged over
+ * months that actually had activity (countMonthsWithData), not the raw
+ * length of the selected period, so a wide period with little real
+ * history isn't diluted by empty months — same rule the backend uses
+ * for the summary strip above. */
 export function HistoricalClassificationCards({ months }: { months: BudgetHistoryMonthRow[] }) {
-  const monthCount = Math.max(months.length, 1);
+  const monthCount = countMonthsWithData(months);
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

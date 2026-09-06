@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { monthRangeForKey, enumerateMonthKeys, formatMonthKeyShortLabel } from "@/lib/dates";
+import {
+  monthRangeForKey,
+  enumerateMonthBucketsForDateRange,
+  formatMonthKeyShortLabel,
+  toDateInputValue,
+} from "@/lib/dates";
 import {
   BUDGET_CLASSIFICATIONS,
   computeBudgetPct,
@@ -72,9 +77,16 @@ export async function getBudgetProfile(userId: string) {
  * trip instead of three. */
 export async function getBudgetOverview(
   userId: string,
-  monthKey: string
+  monthKey: string,
+  /** Overrides the [from, to) date range queried for Realizado, while
+   * `monthKey` still decides which month's Orçado/Meta allocation
+   * applies — used by getBudgetHistory's Visão Histórica to fetch a
+   * partial month (a custom date range that starts or ends mid-month)
+   * without duplicating any of this function's logic. Omitted, this
+   * behaves exactly as before: the full calendar month. */
+  rangeOverride?: { from: Date; to: Date }
 ): Promise<BudgetOverview> {
-  const { from, to } = monthRangeForKey(monthKey);
+  const { from, to } = rangeOverride ?? monthRangeForKey(monthKey);
 
   const [
     profile,
@@ -260,9 +272,26 @@ export type BudgetHistoryCategoryRow = {
 
 export type BudgetHistory = {
   hasProfile: boolean;
-  fromMonthKey: string;
-  toMonthKey: string;
+  /** The exact requested boundaries ("YYYY-MM-DD"), both inclusive —
+   * not month keys: Visão Histórica's "Personalizado" period can start
+   * or end mid-month. */
+  fromDate: string;
+  toDate: string;
+  /** How many calendar-month buckets the range spans (the first/last
+   * can be partial months) — informational only, never the averaging
+   * denominator; see monthsWithDataCount for that. */
   monthCount: number;
+  /** How many of those buckets actually had any realized activity
+   * (receita, custos, prazeres or investimentos) — the real
+   * denominator for every average below and for Top 10's "Média
+   * mensal". A month before the user had any data still comes back
+   * from getBudgetOverview with a non-zero Orçado (the reference
+   * budget applies to any month key) but always zero Realizado, so
+   * "any realized activity" is exactly what distinguishes real usage
+   * history from an empty month outside it — dividing by the full
+   * monthCount instead would silently treat those as R$0 months and
+   * drag every average down. */
+  monthsWithDataCount: number;
   months: BudgetHistoryMonthRow[];
   categories: BudgetHistoryCategoryRow[];
   totals: {
@@ -281,6 +310,26 @@ export type BudgetHistory = {
   };
 };
 
+/** Whether a month (or any object exposing these 4 realized totals) had
+ * any real activity at all — see monthsWithDataCount above for why this
+ * is the averaging denominator instead of the raw number of months in
+ * the selected period. Exported so components that derive their own
+ * averages from `months` (e.g. the classification cards) use the exact
+ * same rule instead of re-deriving it. */
+export function countMonthsWithData(
+  months: {
+    receitaCents: number;
+    custosCents: number;
+    prazeresCents: number;
+    investimentosCents: number;
+  }[]
+): number {
+  const withData = months.filter(
+    (m) => m.receitaCents > 0 || m.custosCents > 0 || m.prazeresCents > 0 || m.investimentosCents > 0
+  ).length;
+  return Math.max(withData, 1);
+}
+
 const EMPTY_BUDGET_HISTORY_TOTALS = {
   receitaCents: 0,
   despesasCents: 0,
@@ -290,25 +339,31 @@ const EMPTY_BUDGET_HISTORY_TOTALS = {
   saldoCents: 0,
 };
 
-/** Aggregates getBudgetOverview across every month from fromMonthKey to
- * toMonthKey (inclusive) — reusing it rather than re-deriving the
- * default-vs-custom-month resolution logic, so a personalized month
- * inside the range is still accounted for correctly. Used by the
- * Dashboard's "Visão Histórica" — the monthly view keeps using
- * getBudgetOverview directly. */
+/** Aggregates getBudgetOverview across every calendar month touched by
+ * [fromDate, toDate] (both inclusive — the range doesn't need to align
+ * to month boundaries, see enumerateMonthBucketsForDateRange) —
+ * reusing getBudgetOverview rather than re-deriving the default-vs-
+ * custom-month resolution logic, so a personalized month inside the
+ * range is still accounted for correctly, and passing each bucket's
+ * clipped range so a partial first/last month only counts the days
+ * actually requested. Used by the Dashboard's "Visão Histórica" — the
+ * monthly view keeps using getBudgetOverview directly. */
 export async function getBudgetHistory(
   userId: string,
-  fromMonthKey: string,
-  toMonthKey: string
+  fromDate: Date,
+  toDate: Date
 ): Promise<BudgetHistory> {
+  const fromDateStr = toDateInputValue(fromDate);
+  const toDateStr = toDateInputValue(toDate);
   const profile = await getBudgetProfile(userId);
 
   if (!profile) {
     return {
       hasProfile: false,
-      fromMonthKey,
-      toMonthKey,
+      fromDate: fromDateStr,
+      toDate: toDateStr,
       monthCount: 0,
+      monthsWithDataCount: 0,
       months: [],
       categories: [],
       totals: EMPTY_BUDGET_HISTORY_TOTALS,
@@ -316,11 +371,10 @@ export async function getBudgetHistory(
     };
   }
 
-  const monthKeys = enumerateMonthKeys(fromMonthKey, toMonthKey);
+  const buckets = enumerateMonthBucketsForDateRange(fromDate, toDate);
   const overviews = await Promise.all(
-    monthKeys.map((monthKey) => getBudgetOverview(userId, monthKey))
+    buckets.map((b) => getBudgetOverview(userId, b.monthKey, { from: b.from, to: b.to }))
   );
-  const monthCount = Math.max(overviews.length, 1);
 
   const rowFor = (
     ov: (typeof overviews)[number],
@@ -360,6 +414,8 @@ export async function getBudgetHistory(
     };
   });
 
+  const monthsWithDataCount = countMonthsWithData(months);
+
   // One row per category with any realized spending across the period —
   // Investimentos excluded (see BudgetHistoryCategoryRow above).
   const categoryTotals = new Map<string, BudgetHistoryCategoryRow>();
@@ -385,7 +441,7 @@ export async function getBudgetHistory(
   }
   const categories = [...categoryTotals.values()].map((c) => ({
     ...c,
-    avgRealizedCents: Math.round(c.totalRealizedCents / monthCount),
+    avgRealizedCents: Math.round(c.totalRealizedCents / monthsWithDataCount),
   }));
 
   const sumOf = (pick: (m: BudgetHistoryMonthRow) => number) =>
@@ -401,17 +457,18 @@ export async function getBudgetHistory(
 
   return {
     hasProfile: true,
-    fromMonthKey,
-    toMonthKey,
+    fromDate: fromDateStr,
+    toDate: toDateStr,
     monthCount: overviews.length,
+    monthsWithDataCount,
     months,
     categories,
     totals,
     averages: {
-      receitaCents: Math.round(totals.receitaCents / monthCount),
-      despesasCents: Math.round(totals.despesasCents / monthCount),
-      investimentosCents: Math.round(totals.investimentosCents / monthCount),
-      saldoCents: Math.round(totals.saldoCents / monthCount),
+      receitaCents: Math.round(totals.receitaCents / monthsWithDataCount),
+      despesasCents: Math.round(totals.despesasCents / monthsWithDataCount),
+      investimentosCents: Math.round(totals.investimentosCents / monthsWithDataCount),
+      saldoCents: Math.round(totals.saldoCents / monthsWithDataCount),
     },
   };
 }
