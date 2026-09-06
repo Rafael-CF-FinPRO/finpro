@@ -6,8 +6,12 @@ import { currentMonthKey, isValidMonthKey, shiftMonthKey } from "@/lib/dates";
 import { MonthNavigator } from "@/components/orcamento/MonthNavigator";
 import { DashboardViewTabs } from "@/components/dashboard/DashboardViewTabs";
 import { HistoricalPeriodPicker } from "@/components/dashboard/HistoricalPeriodPicker";
-import { BudgetHistorySummary } from "@/components/dashboard/BudgetHistorySummary";
+import { HistoricalSummaryStrip } from "@/components/dashboard/HistoricalSummaryStrip";
 import { BudgetEvolutionChart } from "@/components/dashboard/BudgetEvolutionChart";
+import { IncomeDistributionEvolutionChart } from "@/components/dashboard/IncomeDistributionEvolutionChart";
+import { ComplianceEvolutionChart } from "@/components/dashboard/ComplianceEvolutionChart";
+import { HistoricalInvestmentsPanel } from "@/components/dashboard/HistoricalInvestmentsPanel";
+import { HistoricalTopCategories } from "@/components/dashboard/HistoricalTopCategories";
 import { MonthSummaryStrip } from "@/components/dashboard/MonthSummaryStrip";
 import { IncomeFlowFunnel } from "@/components/dashboard/IncomeFlowFunnel";
 import { ValueDistributionDonut } from "@/components/dashboard/ValueDistributionDonut";
@@ -129,11 +133,13 @@ async function DashboardHistoricalView({
       <div className="mt-4">
         <HistoricalPeriodPicker from={from} to={to} />
       </div>
-      <div className="mt-4">
-        <BudgetHistorySummary history={history} />
-      </div>
-      <div className="mt-4">
+      <div className="mt-4 space-y-4">
+        <HistoricalSummaryStrip history={history} />
         <BudgetEvolutionChart months={history.months} />
+        <IncomeDistributionEvolutionChart months={history.months} />
+        <ComplianceEvolutionChart months={history.months} />
+        <HistoricalInvestmentsPanel history={history} />
+        <HistoricalTopCategories history={history} />
       </div>
     </>
   );

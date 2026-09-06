@@ -1,13 +1,31 @@
 import { formatCentsToBRL } from "@/lib/money";
-import type { BudgetHistoryMonth } from "@/lib/budget";
+import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
+import type { BudgetHistoryMonthRow } from "@/lib/budget";
 
-const CHART_HEIGHT = 160;
+const SALDO_COLOR = "#2a78d6";
 
-/** Month-by-month Orçado × Realizado trend for the selected historical
- * period. Plain flex/CSS bars (heights as %) rather than SVG — simpler
- * to keep correct than hand-rolled arc/path math for a chart that just
- * needs two proportional bars per month. */
-export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonth[] }) {
+const SERIES: { key: keyof BudgetHistoryMonthRow; label: string; color: string }[] = [
+  { key: "receitaCents", label: "Receita", color: "var(--primary)" },
+  { key: "custosCents", label: "Custos Obrigatórios", color: CLASSIFICATION_COLORS.CUSTOS_OBRIGATORIOS },
+  { key: "prazeresCents", label: "Prazeres e Confortos", color: CLASSIFICATION_COLORS.PRAZERES_E_CONFORTOS },
+  { key: "investimentosCents", label: "Investimentos", color: CLASSIFICATION_COLORS.INVESTIMENTOS },
+  { key: "saldoCents", label: "Saldo", color: SALDO_COLOR },
+];
+
+const WIDTH = 640;
+const HEIGHT = 240;
+const PAD_LEFT = 12;
+const PAD_RIGHT = 12;
+const PAD_TOP = 12;
+const PAD_BOTTOM = 24;
+
+/** "Evolução Financeira" — Receita, Custos Obrigatórios, Prazeres e
+ * Confortos, Investimentos and Saldo, one line each, over the selected
+ * months. A dashed zero-reference line only appears when Saldo actually
+ * dips negative somewhere in the range. Hover a point (native SVG
+ * title) for its exact value; the legend below names every line since
+ * color alone shouldn't carry 5-way identity. */
+export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow[] }) {
   if (months.length === 0) {
     return (
       <div className="card flex h-40 items-center justify-center p-4 text-sm text-[var(--muted)]">
@@ -16,44 +34,76 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonth[] 
     );
   }
 
-  const max = Math.max(1, ...months.flatMap((m) => [m.budgetedCents, m.realizedCents]));
+  const chartWidth = WIDTH - PAD_LEFT - PAD_RIGHT;
+  const chartHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
+
+  const allValues = months.flatMap((m) => SERIES.map((s) => m[s.key] as number));
+  const maxValue = Math.max(...allValues, 0);
+  const minValue = Math.min(...allValues, 0);
+  const range = maxValue - minValue || 1;
+
+  const xFor = (i: number) =>
+    PAD_LEFT + (months.length <= 1 ? chartWidth / 2 : (i / (months.length - 1)) * chartWidth);
+  const yFor = (value: number) => PAD_TOP + chartHeight - ((value - minValue) / range) * chartHeight;
 
   return (
     <div className="card p-4">
-      <p className="text-sm font-medium text-stone-700">Evolução mensal — Orçado × Realizado</p>
-      <div className="mt-4 overflow-x-auto">
-        <div className="flex min-w-max items-end gap-5 px-1" style={{ height: CHART_HEIGHT }}>
-          {months.map((m) => {
-            const budgetedHeight = Math.round((m.budgetedCents / max) * 100);
-            const realizedHeight = Math.round((m.realizedCents / max) * 100);
-            const isOver = m.budgetedCents > 0 && m.realizedCents > m.budgetedCents;
+      <p className="text-sm font-medium text-stone-700">Evolução Financeira</p>
+      <div className="mt-3 overflow-x-auto">
+        <svg
+          width={WIDTH}
+          height={HEIGHT}
+          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+          className="min-w-[560px]"
+          role="img"
+          aria-label="Evolução mensal de Receita, Custos Obrigatórios, Prazeres e Confortos, Investimentos e Saldo"
+        >
+          {minValue < 0 && (
+            <line
+              x1={PAD_LEFT}
+              x2={WIDTH - PAD_RIGHT}
+              y1={yFor(0)}
+              y2={yFor(0)}
+              stroke="var(--surface-border)"
+              strokeWidth={1}
+              strokeDasharray="4 3"
+            />
+          )}
+
+          {SERIES.map((series) => {
+            const points = months.map((m, i) => `${xFor(i)},${yFor(m[series.key] as number)}`).join(" ");
             return (
-              <div key={m.monthKey} className="flex h-full flex-col items-center justify-end gap-1">
-                <div className="flex h-full items-end gap-1.5">
-                  <div
-                    className="w-3.5 rounded-t bg-stone-200"
-                    style={{ height: `${budgetedHeight}%` }}
-                    title={`Orçado: ${formatCentsToBRL(m.budgetedCents)}`}
-                  />
-                  <div
-                    className={`w-3.5 rounded-t ${isOver ? "bg-[var(--danger)]" : "bg-[var(--primary)]"}`}
-                    style={{ height: `${realizedHeight}%` }}
-                    title={`Realizado: ${formatCentsToBRL(m.realizedCents)}`}
-                  />
-                </div>
-                <p className="whitespace-nowrap text-[11px] text-[var(--muted)]">{m.shortLabel}</p>
-              </div>
+              <g key={series.key}>
+                <polyline points={points} fill="none" stroke={series.color} strokeWidth={2} />
+                {months.map((m, i) => (
+                  <circle key={m.monthKey} cx={xFor(i)} cy={yFor(m[series.key] as number)} r={3} fill={series.color}>
+                    <title>{`${series.label} — ${m.shortLabel}: ${formatCentsToBRL(m[series.key] as number)}`}</title>
+                  </circle>
+                ))}
+              </g>
             );
           })}
-        </div>
+
+          {months.map((m, i) => (
+            <text
+              key={m.monthKey}
+              x={xFor(i)}
+              y={HEIGHT - 6}
+              textAnchor="middle"
+              className="fill-stone-500 text-[10px]"
+            >
+              {m.shortLabel}
+            </text>
+          ))}
+        </svg>
       </div>
-      <div className="mt-3 flex items-center gap-4 text-xs text-[var(--muted)]">
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-stone-200" /> Orçado
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-[var(--primary)]" /> Realizado
-        </span>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-[var(--muted)]">
+        {SERIES.map((series) => (
+          <span key={series.key} className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: series.color }} />
+            {series.label}
+          </span>
+        ))}
       </div>
     </div>
   );

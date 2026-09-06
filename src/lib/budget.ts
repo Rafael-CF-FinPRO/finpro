@@ -4,9 +4,8 @@ import {
   BUDGET_CLASSIFICATIONS,
   computeBudgetPct,
   computeBudgetStatus,
-  computeBudgetHealth,
+  computeOverallCompliancePct,
   type BudgetStatus,
-  type BudgetHealth,
 } from "@/lib/budget-calc";
 import type { Classification } from "@/generated/prisma/enums";
 
@@ -61,11 +60,57 @@ export async function getBudgetProfile(userId: string) {
   return prisma.budgetProfile.findUnique({ where: { userId } });
 }
 
+/** All of getBudgetOverview's reads in one round trip. Classification/
+ * category allocations are fetched for BOTH `monthKey` and "default" at
+ * once (filtering through the budgetProfile relation, so this doesn't
+ * even have to wait on the profile lookup) — isCustomMonth/scopeKey is
+ * then resolved from those already-fetched rows instead of a separate
+ * count() query. Previously this was 3 sequential waterfall legs
+ * (profile → count+categories → allocations+realized); collapsing them
+ * matters most for the Dashboard's Visão Histórica, which calls this
+ * once per month in the range — each month's fetch now costs one round
+ * trip instead of three. */
 export async function getBudgetOverview(
   userId: string,
   monthKey: string
 ): Promise<BudgetOverview> {
-  const profile = await getBudgetProfile(userId);
+  const { from, to } = monthRangeForKey(monthKey);
+
+  const [
+    profile,
+    categories,
+    realizedByCategory,
+    realizedIncomeAgg,
+    classificationAllocationsBoth,
+    categoryAllocationsBoth,
+  ] = await Promise.all([
+    getBudgetProfile(userId),
+    prisma.category.findMany({
+      where: { userId, type: "SAIDA" },
+      orderBy: [{ classification: "asc" }, { order: "asc" }],
+    }),
+    // status: "PAGO" excludes not-yet-paid recurring/installment
+    // occurrences from Realizado — a predicted bill due later this
+    // month must not count as money already spent, the same way
+    // type: "SAIDA" already excludes NEUTRO.
+    prisma.transaction.groupBy({
+      by: ["categoryId"],
+      where: { userId, type: "SAIDA", status: "PAGO", date: { gte: from, lt: to } },
+      _sum: { amountCents: true },
+    }),
+    // Real money in this month, for the Dashboard's "Receita" — same
+    // PAGO/date-range convention as realizedByCategory above.
+    prisma.transaction.aggregate({
+      where: { userId, type: "ENTRADA", status: "PAGO", date: { gte: from, lt: to } },
+      _sum: { amountCents: true },
+    }),
+    prisma.budgetClassificationAllocation.findMany({
+      where: { budgetProfile: { userId }, monthKey: { in: [monthKey, "default"] } },
+    }),
+    prisma.budgetCategoryAllocation.findMany({
+      where: { budgetProfile: { userId }, monthKey: { in: [monthKey, "default"] } },
+    }),
+  ]);
 
   if (!profile) {
     return {
@@ -84,44 +129,12 @@ export async function getBudgetOverview(
     };
   }
 
-  const [customCount, categories] = await Promise.all([
-    prisma.budgetClassificationAllocation.count({
-      where: { budgetProfileId: profile.id, monthKey },
-    }),
-    prisma.category.findMany({
-      where: { userId, type: "SAIDA" },
-      orderBy: [{ classification: "asc" }, { order: "asc" }],
-    }),
-  ]);
-
-  const isCustomMonth = customCount > 0;
+  const isCustomMonth = classificationAllocationsBoth.some((a) => a.monthKey === monthKey);
   const scopeKey = isCustomMonth ? monthKey : "default";
-  const { from, to } = monthRangeForKey(monthKey);
-
-  const [classificationAllocations, categoryAllocations, realizedByCategory, realizedIncomeAgg] =
-    await Promise.all([
-      prisma.budgetClassificationAllocation.findMany({
-        where: { budgetProfileId: profile.id, monthKey: scopeKey },
-      }),
-      prisma.budgetCategoryAllocation.findMany({
-        where: { budgetProfileId: profile.id, monthKey: scopeKey },
-      }),
-      // status: "PAGO" excludes not-yet-paid recurring/installment
-      // occurrences from Realizado — a predicted bill due later this
-      // month must not count as money already spent, the same way
-      // type: "SAIDA" already excludes NEUTRO.
-      prisma.transaction.groupBy({
-        by: ["categoryId"],
-        where: { userId, type: "SAIDA", status: "PAGO", date: { gte: from, lt: to } },
-        _sum: { amountCents: true },
-      }),
-      // Real money in this month, for the Dashboard's "Receita" — same
-      // PAGO/date-range convention as realizedByCategory above.
-      prisma.transaction.aggregate({
-        where: { userId, type: "ENTRADA", status: "PAGO", date: { gte: from, lt: to } },
-        _sum: { amountCents: true },
-      }),
-    ]);
+  const classificationAllocations = classificationAllocationsBoth.filter(
+    (a) => a.monthKey === scopeKey
+  );
+  const categoryAllocations = categoryAllocationsBoth.filter((a) => a.monthKey === scopeKey);
 
   const realizedMap = new Map(
     realizedByCategory.map((r) => [r.categoryId, r._sum.amountCents ?? 0])
@@ -199,36 +212,77 @@ export async function getBudgetOverview(
   };
 }
 
-export type BudgetHistoryMonth = {
+/** One month's worth of the historical evolution — everything the
+ * Dashboard's Visão Histórica charts need per month, all derived from
+ * that month's own getBudgetOverview (never re-deriving a calculation
+ * that already exists there). Despesas is deliberately NOT a field
+ * here: Custos Obrigatórios and Prazeres e Confortos stay separate
+ * (Evolução Financeira plots them as distinct lines), same as
+ * Investimentos never being folded into a generic "despesa" — it's a
+ * destination for money, not consumption. */
+export type BudgetHistoryMonthRow = {
   monthKey: string;
-  label: string;
   shortLabel: string;
-  budgetedCents: number;
-  realizedCents: number;
+  receitaCents: number;
+  custosCents: number;
+  custosBudgetedCents: number;
+  prazeresCents: number;
+  prazeresBudgetedCents: number;
+  investimentosCents: number;
+  /** The month's investment goal — same field as budgetedCents
+   * elsewhere, named "meta" here since that's what it is for a goal
+   * classification (see isGoalClassification in budget-calc.ts). */
+  investimentosMetaCents: number;
+  saldoCents: number;
+  /** Cumprimento do Orçamento for that single month — same formula as
+   * BudgetComplianceScore (computeOverallCompliancePct), just computed
+   * per month instead of once for the selected month. */
+  compliancePct: number;
 };
 
-export type BudgetHistoryClassificationRow = {
+/** One category's totals across the whole period — for "Top 10
+ * Categorias". Investimentos categories are excluded, same convention
+ * as the monthly view's own Top 10 (it isn't spending to rank — it's
+ * tracked as a goal in its own section). Only categories with any
+ * realized spending across the period appear at all. */
+export type BudgetHistoryCategoryRow = {
+  categoryId: string;
+  name: string;
   classification: Classification;
-  budgetedCents: number;
-  realizedCents: number;
+  totalRealizedCents: number;
   avgRealizedCents: number;
-  pctGasto: number | null;
-  status: BudgetStatus;
-  health: BudgetHealth;
 };
 
 export type BudgetHistory = {
   hasProfile: boolean;
   fromMonthKey: string;
   toMonthKey: string;
-  months: BudgetHistoryMonth[];
-  classifications: BudgetHistoryClassificationRow[];
+  monthCount: number;
+  months: BudgetHistoryMonthRow[];
+  categories: BudgetHistoryCategoryRow[];
   totals: {
-    incomeCents: number;
-    budgetedCents: number;
-    realizedCents: number;
-    avgRealizedCents: number;
+    receitaCents: number;
+    despesasCents: number;
+    custosCents: number;
+    prazeresCents: number;
+    investimentosCents: number;
+    saldoCents: number;
   };
+  averages: {
+    receitaCents: number;
+    despesasCents: number;
+    investimentosCents: number;
+    saldoCents: number;
+  };
+};
+
+const EMPTY_BUDGET_HISTORY_TOTALS = {
+  receitaCents: 0,
+  despesasCents: 0,
+  custosCents: 0,
+  prazeresCents: 0,
+  investimentosCents: 0,
+  saldoCents: 0,
 };
 
 /** Aggregates getBudgetOverview across every month from fromMonthKey to
@@ -249,9 +303,11 @@ export async function getBudgetHistory(
       hasProfile: false,
       fromMonthKey,
       toMonthKey,
+      monthCount: 0,
       months: [],
-      classifications: [],
-      totals: { incomeCents: 0, budgetedCents: 0, realizedCents: 0, avgRealizedCents: 0 },
+      categories: [],
+      totals: EMPTY_BUDGET_HISTORY_TOTALS,
+      averages: { receitaCents: 0, despesasCents: 0, investimentosCents: 0, saldoCents: 0 },
     };
   }
 
@@ -259,52 +315,88 @@ export async function getBudgetHistory(
   const overviews = await Promise.all(
     monthKeys.map((monthKey) => getBudgetOverview(userId, monthKey))
   );
-
-  const months: BudgetHistoryMonth[] = overviews.map((ov) => ({
-    monthKey: ov.monthKey,
-    label: ov.monthKey,
-    shortLabel: formatMonthKeyShortLabel(ov.monthKey),
-    budgetedCents: ov.totals.budgetedCents,
-    realizedCents: ov.totals.realizedCents,
-  }));
-
   const monthCount = Math.max(overviews.length, 1);
 
-  const classifications: BudgetHistoryClassificationRow[] = BUDGET_CLASSIFICATIONS.map(
-    (classification) => {
-      let budgetedCents = 0;
-      let realizedCents = 0;
-      for (const ov of overviews) {
-        const row = ov.classifications.find((c) => c.classification === classification);
-        budgetedCents += row?.budgetedCents ?? 0;
-        realizedCents += row?.realizedCents ?? 0;
-      }
-      return {
-        classification,
-        budgetedCents,
-        realizedCents,
-        avgRealizedCents: Math.round(realizedCents / monthCount),
-        pctGasto: computeBudgetPct(realizedCents, budgetedCents),
-        status: computeBudgetStatus(realizedCents, budgetedCents),
-        health: computeBudgetHealth(realizedCents, budgetedCents),
-      };
-    }
-  );
+  const rowFor = (
+    ov: (typeof overviews)[number],
+    classification: Classification
+  ) => ov.classifications.find((c) => c.classification === classification);
 
-  const totalBudgeted = months.reduce((s, m) => s + m.budgetedCents, 0);
-  const totalRealized = months.reduce((s, m) => s + m.realizedCents, 0);
+  const months: BudgetHistoryMonthRow[] = overviews.map((ov) => {
+    const custos = rowFor(ov, "CUSTOS_OBRIGATORIOS");
+    const prazeres = rowFor(ov, "PRAZERES_E_CONFORTOS");
+    const investimentos = rowFor(ov, "INVESTIMENTOS");
+    const custosCents = custos?.realizedCents ?? 0;
+    const prazeresCents = prazeres?.realizedCents ?? 0;
+    const investimentosCents = investimentos?.realizedCents ?? 0;
+
+    return {
+      monthKey: ov.monthKey,
+      shortLabel: formatMonthKeyShortLabel(ov.monthKey),
+      receitaCents: ov.realizedIncomeCents,
+      custosCents,
+      custosBudgetedCents: custos?.budgetedCents ?? 0,
+      prazeresCents,
+      prazeresBudgetedCents: prazeres?.budgetedCents ?? 0,
+      investimentosCents,
+      investimentosMetaCents: investimentos?.budgetedCents ?? 0,
+      saldoCents: ov.realizedIncomeCents - custosCents - prazeresCents - investimentosCents,
+      compliancePct: computeOverallCompliancePct(ov.classifications),
+    };
+  });
+
+  // One row per category with any realized spending across the period —
+  // Investimentos excluded (see BudgetHistoryCategoryRow above).
+  const categoryTotals = new Map<string, BudgetHistoryCategoryRow>();
+  for (const ov of overviews) {
+    for (const cls of ov.classifications) {
+      if (cls.classification === "INVESTIMENTOS") continue;
+      for (const cat of cls.categories) {
+        if (cat.realizedCents <= 0) continue;
+        const existing = categoryTotals.get(cat.categoryId);
+        if (existing) {
+          existing.totalRealizedCents += cat.realizedCents;
+        } else {
+          categoryTotals.set(cat.categoryId, {
+            categoryId: cat.categoryId,
+            name: cat.name,
+            classification: cls.classification,
+            totalRealizedCents: cat.realizedCents,
+            avgRealizedCents: 0,
+          });
+        }
+      }
+    }
+  }
+  const categories = [...categoryTotals.values()].map((c) => ({
+    ...c,
+    avgRealizedCents: Math.round(c.totalRealizedCents / monthCount),
+  }));
+
+  const sumOf = (pick: (m: BudgetHistoryMonthRow) => number) =>
+    months.reduce((sum, m) => sum + pick(m), 0);
+  const totals = {
+    receitaCents: sumOf((m) => m.receitaCents),
+    despesasCents: sumOf((m) => m.custosCents + m.prazeresCents),
+    custosCents: sumOf((m) => m.custosCents),
+    prazeresCents: sumOf((m) => m.prazeresCents),
+    investimentosCents: sumOf((m) => m.investimentosCents),
+    saldoCents: sumOf((m) => m.saldoCents),
+  };
 
   return {
     hasProfile: true,
     fromMonthKey,
     toMonthKey,
+    monthCount: overviews.length,
     months,
-    classifications,
-    totals: {
-      incomeCents: profile.monthlyIncomeCents * monthCount,
-      budgetedCents: totalBudgeted,
-      realizedCents: totalRealized,
-      avgRealizedCents: Math.round(totalRealized / monthCount),
+    categories,
+    totals,
+    averages: {
+      receitaCents: Math.round(totals.receitaCents / monthCount),
+      despesasCents: Math.round(totals.despesasCents / monthCount),
+      investimentosCents: Math.round(totals.investimentosCents / monthCount),
+      saldoCents: Math.round(totals.saldoCents / monthCount),
     },
   };
 }

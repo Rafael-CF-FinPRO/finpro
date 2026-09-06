@@ -1,9 +1,4 @@
-import {
-  computeGoalCompliancePct,
-  computeLimitCompliancePct,
-  computeWeightedCompliancePct,
-  isGoalClassification,
-} from "@/lib/budget-calc";
+import { computeClassificationCompliancePct, computeWeightedCompliancePct } from "@/lib/budget-calc";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
@@ -47,56 +42,14 @@ function angleForPct(pct: number): number {
   return 180 - (Math.min(Math.max(pct, 0), 100) / 100) * 179.99;
 }
 
-/** One classification's compliance score. When it has categories with
- * their own orçado defined, the score blends those categories'
- * compliance weighted by each one's own orçado (computeWeightedCompliancePct)
- * — money in a bigger category moves the classification's score more
- * than money in a small one. Whatever isn't attributed to a specifically
- * configured category — an inactive category's past spending (e.g. a
- * category deactivated after money was spent through it), or simply
- * money not yet broken down by category — still counts, folded in as
- * one more weighted row at the classification's own remaining
- * orçado/realizado, so a fully-compliant named category can never mask
- * overspending that happened elsewhere in the same classification. A
- * classification with no per-category orçamento configured at all (only
- * the classification-level % was set) falls back to scoring the
- * classification as a whole, exactly as before. */
-function classificationCompliancePct(cls: ClassificationBudgetRow): number {
-  const goal = isGoalClassification(cls.classification);
-  const complianceOf = (realizedCents: number, budgetedCents: number) =>
-    goal
-      ? computeGoalCompliancePct(realizedCents, budgetedCents)
-      : computeLimitCompliancePct(realizedCents, budgetedCents);
-
-  const configuredCategories = cls.categories.filter((c) => c.isActive && c.budgetedCents > 0);
-  if (configuredCategories.length === 0) {
-    return complianceOf(cls.realizedCents, cls.budgetedCents);
-  }
-
-  const rows = configuredCategories.map((c) => ({
-    pct: complianceOf(c.realizedCents, c.budgetedCents),
-    budgetedCents: c.budgetedCents,
-  }));
-
-  const configuredBudgeted = configuredCategories.reduce((sum, c) => sum + c.budgetedCents, 0);
-  const configuredRealized = configuredCategories.reduce((sum, c) => sum + c.realizedCents, 0);
-  const remainderBudgeted = cls.budgetedCents - configuredBudgeted;
-  if (remainderBudgeted > 0) {
-    rows.push({
-      pct: complianceOf(cls.realizedCents - configuredRealized, remainderBudgeted),
-      budgetedCents: remainderBudgeted,
-    });
-  }
-
-  return computeWeightedCompliancePct(rows);
-}
-
 /** "Cumprimento do Orçamento" — one index (0-100) summarizing how well
  * the month followed the budget. Weighted at two levels, both by
  * orçado: each classification's own score blends its categories
- * (classificationCompliancePct above), and the 3 classifications then
- * blend into the overall index the same way — a classification with a
- * bigger orçamento moves the index more than a small one. Custos
+ * (computeClassificationCompliancePct in src/lib/budget-calc.ts, shared
+ * with the historical view's month-by-month evolution), and the 3
+ * classifications then blend into the overall index the same way — a
+ * classification with a bigger orçamento moves the index more than a
+ * small one. Custos
  * Obrigatórios e Prazeres e Confortos score by how well they respected
  * their ceiling; Investimentos scores by how close it got to its goal,
  * capped at 100 once reached — exceeding it never lowers the index and
@@ -114,7 +67,7 @@ export function BudgetComplianceScore({
 }) {
   const scores = classifications.map((cls) => ({
     classification: cls.classification,
-    pct: classificationCompliancePct(cls),
+    pct: computeClassificationCompliancePct(cls),
     budgetedCents: cls.budgetedCents,
   }));
 

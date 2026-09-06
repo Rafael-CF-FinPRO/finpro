@@ -121,3 +121,74 @@ export function computeWeightedCompliancePct(rows: { pct: number; budgetedCents:
   const weightedSum = rows.reduce((sum, r) => sum + r.pct * Math.max(r.budgetedCents, 0), 0);
   return Math.round(weightedSum / totalWeight);
 }
+
+/** Structural subset of ClassificationBudgetRow (src/lib/budget.ts) that
+ * the compliance formulas below actually need — kept minimal here
+ * rather than importing that type, since budget.ts already imports
+ * from this file and a back-import would be circular. Any
+ * ClassificationBudgetRow[] is assignable here as-is. */
+export type ComplianceClassificationInput = {
+  classification: Classification;
+  budgetedCents: number;
+  realizedCents: number;
+  categories: { isActive: boolean; budgetedCents: number; realizedCents: number }[];
+};
+
+/** One classification's compliance score. When it has categories with
+ * their own orçado defined, the score blends those categories'
+ * compliance weighted by each one's own orçado (computeWeightedCompliancePct)
+ * — money in a bigger category moves the classification's score more
+ * than money in a small one. Whatever isn't attributed to a specifically
+ * configured category — an inactive category's past spending (e.g. a
+ * category deactivated after money was spent through it), or simply
+ * money not yet broken down by category — still counts, folded in as
+ * one more weighted row at the classification's own remaining
+ * orçado/realizado, so a fully-compliant named category can never mask
+ * overspending that happened elsewhere in the same classification. A
+ * classification with no per-category orçamento configured at all (only
+ * the classification-level % was set) falls back to scoring the
+ * classification as a whole. Shared by the Dashboard's monthly
+ * Cumprimento do Orçamento (BudgetComplianceScore) and its historical
+ * month-by-month evolution (getBudgetHistory) — one formula, used both
+ * places, never re-derived. */
+export function computeClassificationCompliancePct(cls: ComplianceClassificationInput): number {
+  const goal = isGoalClassification(cls.classification);
+  const complianceOf = (realizedCents: number, budgetedCents: number) =>
+    goal
+      ? computeGoalCompliancePct(realizedCents, budgetedCents)
+      : computeLimitCompliancePct(realizedCents, budgetedCents);
+
+  const configuredCategories = cls.categories.filter((c) => c.isActive && c.budgetedCents > 0);
+  if (configuredCategories.length === 0) {
+    return complianceOf(cls.realizedCents, cls.budgetedCents);
+  }
+
+  const rows = configuredCategories.map((c) => ({
+    pct: complianceOf(c.realizedCents, c.budgetedCents),
+    budgetedCents: c.budgetedCents,
+  }));
+
+  const configuredBudgeted = configuredCategories.reduce((sum, c) => sum + c.budgetedCents, 0);
+  const configuredRealized = configuredCategories.reduce((sum, c) => sum + c.realizedCents, 0);
+  const remainderBudgeted = cls.budgetedCents - configuredBudgeted;
+  if (remainderBudgeted > 0) {
+    rows.push({
+      pct: complianceOf(cls.realizedCents - configuredRealized, remainderBudgeted),
+      budgetedCents: remainderBudgeted,
+    });
+  }
+
+  return computeWeightedCompliancePct(rows);
+}
+
+/** The overall "Cumprimento do Orçamento" index (0-100): each
+ * classification's own score (computeClassificationCompliancePct),
+ * rolled up weighted by that classification's own orçado. */
+export function computeOverallCompliancePct(classifications: ComplianceClassificationInput[]): number {
+  return computeWeightedCompliancePct(
+    classifications.map((cls) => ({
+      pct: computeClassificationCompliancePct(cls),
+      budgetedCents: cls.budgetedCents,
+    }))
+  );
+}
