@@ -7,8 +7,9 @@ import { MonthNavigator } from "@/components/orcamento/MonthNavigator";
 import { DashboardViewTabs } from "@/components/dashboard/DashboardViewTabs";
 import { HistoricalPeriodPicker } from "@/components/dashboard/HistoricalPeriodPicker";
 import { HistoricalSummaryStrip } from "@/components/dashboard/HistoricalSummaryStrip";
+import { HistoricalClassificationCards } from "@/components/dashboard/HistoricalClassificationCards";
 import { BudgetEvolutionChart } from "@/components/dashboard/BudgetEvolutionChart";
-import { IncomeDistributionEvolutionChart } from "@/components/dashboard/IncomeDistributionEvolutionChart";
+import { SpendingDistributionChart } from "@/components/dashboard/SpendingDistributionChart";
 import { ComplianceEvolutionChart } from "@/components/dashboard/ComplianceEvolutionChart";
 import { HistoricalInvestmentsPanel } from "@/components/dashboard/HistoricalInvestmentsPanel";
 import { HistoricalTopCategories } from "@/components/dashboard/HistoricalTopCategories";
@@ -135,10 +136,15 @@ async function DashboardHistoricalView({
       </div>
       <div className="mt-4 space-y-4">
         <HistoricalSummaryStrip history={history} />
-        <BudgetEvolutionChart months={history.months} />
-        <IncomeDistributionEvolutionChart months={history.months} />
-        <ComplianceEvolutionChart months={history.months} />
-        <HistoricalInvestmentsPanel history={history} />
+        <HistoricalClassificationCards months={history.months} />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <BudgetEvolutionChart months={history.months} />
+          <SpendingDistributionChart months={history.months} />
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <ComplianceEvolutionChart months={history.months} />
+          <HistoricalInvestmentsPanel history={history} />
+        </div>
         <HistoricalTopCategories history={history} />
       </div>
     </>

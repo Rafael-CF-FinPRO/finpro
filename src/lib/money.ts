@@ -32,3 +32,20 @@ export function formatCentsToBRL(cents: number): string {
     currency: "BRL",
   });
 }
+
+/** Short form for chart axis ticks, where the full currency format
+ * (formatCentsToBRL) would crowd the labels — "R$20 mil" instead of
+ * "R$ 20.000,00". Never used for a value the user needs to act on
+ * (transactions, totals, form fields), only for scale reference. */
+export function formatCentsCompactBRL(cents: number): string {
+  const reais = cents / 100;
+  const sign = reais < 0 ? "-" : "";
+  const abs = Math.abs(reais);
+  if (abs >= 1_000_000) {
+    return `${sign}R$${(abs / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}mi`;
+  }
+  if (abs >= 1_000) {
+    return `${sign}R$${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}mil`;
+  }
+  return `${sign}R$${abs.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+}

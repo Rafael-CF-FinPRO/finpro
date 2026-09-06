@@ -1,11 +1,12 @@
 import type { BudgetHistoryMonthRow } from "@/lib/budget";
 
-const WIDTH = 640;
-const HEIGHT = 200;
-const PAD_LEFT = 12;
-const PAD_RIGHT = 12;
-const PAD_TOP = 12;
-const PAD_BOTTOM = 24;
+const WIDTH = 480;
+const HEIGHT = 210;
+const PAD_LEFT = 30;
+const PAD_RIGHT = 8;
+const PAD_TOP = 10;
+const PAD_BOTTOM = 22;
+const Y_LABELS = [0, 50, 80, 100];
 
 function tierColorFor(pct: number): string {
   if (pct >= 80) return "var(--success)";
@@ -18,8 +19,10 @@ function tierColorFor(pct: number): string {
  * (computeOverallCompliancePct in src/lib/budget-calc.ts): Custos
  * Obrigatórios/Prazeres e Confortos score by their ceiling, Investimentos
  * by its meta, never penalized for exceeding it. Points are colored by
- * the same Crítico/Atenção/Bom tiers as the gauge, with reference lines
- * at 50 and 80 marking the tier boundaries. */
+ * the same Crítico/Atenção/Bom tiers as the gauge; the Y axis is labeled
+ * exactly at 0/50/80/100 — the tier boundaries themselves — rather than
+ * generic evenly-spaced ticks, since those specific numbers are what the
+ * color changes at. */
 export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMonthRow[] }) {
   if (months.length === 0) {
     return (
@@ -41,26 +44,28 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
   return (
     <div className="card p-4">
       <p className="text-sm font-medium text-stone-700">Cumprimento do Orçamento</p>
-      <div className="mt-3 overflow-x-auto">
+      <div className="mt-3">
         <svg
-          width={WIDTH}
-          height={HEIGHT}
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          className="min-w-[560px]"
+          className="w-full"
           role="img"
           aria-label="Evolução mensal do Cumprimento do Orçamento"
         >
-          {[50, 80].map((ref) => (
-            <line
-              key={ref}
-              x1={PAD_LEFT}
-              x2={WIDTH - PAD_RIGHT}
-              y1={yFor(ref)}
-              y2={yFor(ref)}
-              stroke="var(--surface-border)"
-              strokeWidth={1}
-              strokeDasharray="4 3"
-            />
+          {Y_LABELS.map((ref) => (
+            <g key={ref}>
+              <line
+                x1={PAD_LEFT}
+                x2={WIDTH - PAD_RIGHT}
+                y1={yFor(ref)}
+                y2={yFor(ref)}
+                stroke="var(--surface-border)"
+                strokeWidth={1}
+                strokeDasharray={ref === 0 || ref === 100 ? undefined : "4 3"}
+              />
+              <text x={PAD_LEFT - 6} y={yFor(ref) + 3} textAnchor="end" className="fill-stone-400 text-[9px]">
+                {ref}%
+              </text>
+            </g>
           ))}
 
           <polyline points={points} fill="none" stroke="var(--primary)" strokeWidth={2} opacity={0.4} />
@@ -76,7 +81,7 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
               x={xFor(i)}
               y={HEIGHT - 6}
               textAnchor="middle"
-              className="fill-stone-500 text-[10px]"
+              className="fill-stone-500 text-[9px]"
             >
               {m.shortLabel}
             </text>

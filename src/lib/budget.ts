@@ -238,6 +238,11 @@ export type BudgetHistoryMonthRow = {
    * BudgetComplianceScore (computeOverallCompliancePct), just computed
    * per month instead of once for the selected month. */
   compliancePct: number;
+  /** Every category (any of the 3 classifications, Investimentos
+   * included — unlike the period-level Top 10) with realized spending
+   * that specific month — for "Distribuição dos Gastos"' Categorias
+   * view, which needs a per-month breakdown, not just a period total. */
+  categories: { categoryId: string; name: string; classification: Classification; realizedCents: number }[];
 };
 
 /** One category's totals across the whole period — for "Top 10
@@ -342,6 +347,16 @@ export async function getBudgetHistory(
       investimentosMetaCents: investimentos?.budgetedCents ?? 0,
       saldoCents: ov.realizedIncomeCents - custosCents - prazeresCents - investimentosCents,
       compliancePct: computeOverallCompliancePct(ov.classifications),
+      categories: ov.classifications.flatMap((cls) =>
+        cls.categories
+          .filter((cat) => cat.realizedCents > 0)
+          .map((cat) => ({
+            categoryId: cat.categoryId,
+            name: cat.name,
+            classification: cls.classification,
+            realizedCents: cat.realizedCents,
+          }))
+      ),
     };
   });
 

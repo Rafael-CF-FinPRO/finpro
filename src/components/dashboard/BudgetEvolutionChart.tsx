@@ -1,4 +1,4 @@
-import { formatCentsToBRL } from "@/lib/money";
+import { formatCentsToBRL, formatCentsCompactBRL } from "@/lib/money";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import type { BudgetHistoryMonthRow } from "@/lib/budget";
 
@@ -12,19 +12,24 @@ const SERIES: { key: keyof BudgetHistoryMonthRow; label: string; color: string }
   { key: "saldoCents", label: "Saldo", color: SALDO_COLOR },
 ];
 
-const WIDTH = 640;
-const HEIGHT = 240;
-const PAD_LEFT = 12;
-const PAD_RIGHT = 12;
-const PAD_TOP = 12;
-const PAD_BOTTOM = 24;
+const WIDTH = 480;
+const HEIGHT = 220;
+const PAD_LEFT = 52;
+const PAD_RIGHT = 8;
+const PAD_TOP = 10;
+const PAD_BOTTOM = 22;
+const Y_TICKS = 4;
 
 /** "Evolução Financeira" — Receita, Custos Obrigatórios, Prazeres e
  * Confortos, Investimentos and Saldo, one line each, over the selected
- * months. A dashed zero-reference line only appears when Saldo actually
- * dips negative somewhere in the range. Hover a point (native SVG
- * title) for its exact value; the legend below names every line since
- * color alone shouldn't carry 5-way identity. */
+ * months. A visible Y axis (evenly-spaced gridlines, compact R$ labels)
+ * and month labels on X make values and trend readable without relying
+ * only on hover; a dashed zero-reference line only appears when Saldo
+ * actually dips negative somewhere in the range. Hover a point (native
+ * SVG title) for its exact value; the legend below names every line
+ * since color alone shouldn't carry 5-way identity. Sized for a 2-up
+ * grid (viewBox scales down responsively) — see Visão Histórica's
+ * layout in src/app/(app)/dashboard/page.tsx. */
 export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow[] }) {
   if (months.length === 0) {
     return (
@@ -46,25 +51,40 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
     PAD_LEFT + (months.length <= 1 ? chartWidth / 2 : (i / (months.length - 1)) * chartWidth);
   const yFor = (value: number) => PAD_TOP + chartHeight - ((value - minValue) / range) * chartHeight;
 
+  const yTicks = Array.from({ length: Y_TICKS + 1 }, (_, i) => minValue + (range * i) / Y_TICKS);
+
   return (
     <div className="card p-4">
       <p className="text-sm font-medium text-stone-700">Evolução Financeira</p>
-      <div className="mt-3 overflow-x-auto">
+      <div className="mt-3">
         <svg
-          width={WIDTH}
-          height={HEIGHT}
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          className="min-w-[560px]"
+          className="w-full"
           role="img"
           aria-label="Evolução mensal de Receita, Custos Obrigatórios, Prazeres e Confortos, Investimentos e Saldo"
         >
+          {yTicks.map((tick) => (
+            <g key={tick}>
+              <line
+                x1={PAD_LEFT}
+                x2={WIDTH - PAD_RIGHT}
+                y1={yFor(tick)}
+                y2={yFor(tick)}
+                stroke="var(--surface-border)"
+                strokeWidth={1}
+              />
+              <text x={PAD_LEFT - 6} y={yFor(tick) + 3} textAnchor="end" className="fill-stone-400 text-[9px]">
+                {formatCentsCompactBRL(tick)}
+              </text>
+            </g>
+          ))}
           {minValue < 0 && (
             <line
               x1={PAD_LEFT}
               x2={WIDTH - PAD_RIGHT}
               y1={yFor(0)}
               y2={yFor(0)}
-              stroke="var(--surface-border)"
+              stroke="var(--muted)"
               strokeWidth={1}
               strokeDasharray="4 3"
             />
@@ -90,7 +110,7 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
               x={xFor(i)}
               y={HEIGHT - 6}
               textAnchor="middle"
-              className="fill-stone-500 text-[10px]"
+              className="fill-stone-500 text-[9px]"
             >
               {m.shortLabel}
             </text>
