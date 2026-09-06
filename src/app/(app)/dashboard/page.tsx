@@ -10,6 +10,7 @@ import { BudgetHistorySummary } from "@/components/dashboard/BudgetHistorySummar
 import { BudgetEvolutionChart } from "@/components/dashboard/BudgetEvolutionChart";
 import { MonthSummaryStrip } from "@/components/dashboard/MonthSummaryStrip";
 import { IncomeFlowFunnel } from "@/components/dashboard/IncomeFlowFunnel";
+import { ValueDistributionDonut } from "@/components/dashboard/ValueDistributionDonut";
 import { BudgetVsRealizedPanel } from "@/components/dashboard/BudgetVsRealizedPanel";
 import { TopCategoriesRanking } from "@/components/dashboard/TopCategoriesRanking";
 
@@ -86,10 +87,16 @@ async function DashboardMonthlyView({
           realizedIncomeCents={overview.realizedIncomeCents}
           classifications={overview.classifications}
         />
-        <IncomeFlowFunnel
-          receitaCents={overview.realizedIncomeCents}
-          classifications={overview.classifications}
-        />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <IncomeFlowFunnel
+            receitaCents={overview.realizedIncomeCents}
+            classifications={overview.classifications}
+          />
+          <ValueDistributionDonut
+            realizedIncomeCents={overview.realizedIncomeCents}
+            classifications={overview.classifications}
+          />
+        </div>
         <BudgetVsRealizedPanel classifications={overview.classifications} />
         <TopCategoriesRanking classifications={overview.classifications} />
       </div>

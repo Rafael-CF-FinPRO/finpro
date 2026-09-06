@@ -22,10 +22,18 @@ function tierFor(pct: number): { label: string; color: string } {
 // Same semicircle-arc convention as SaldoGauge.tsx (180°→0° sweeping the
 // top), duplicated locally since this gauge draws fixed color zones
 // instead of a single filled arc — a different enough shape to not share
-// SaldoGauge's implementation.
+// SaldoGauge's implementation. Math.cos/Math.sin can differ in their
+// last bit between the server's and the browser's JS engine build,
+// which would otherwise make the rendered triangle's `points` string
+// mismatch between SSR and hydration — same fix as the donut charts'
+// own round().
+function round(value: number): number {
+  return Math.round(value * 10000) / 10000;
+}
+
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
   const angleRad = (angleDeg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(angleRad), y: cy - r * Math.sin(angleRad) };
+  return { x: round(cx + r * Math.cos(angleRad)), y: round(cy - r * Math.sin(angleRad)) };
 }
 
 function describeSemiArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
