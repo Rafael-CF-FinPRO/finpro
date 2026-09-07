@@ -7,6 +7,7 @@ import { BUDGET_CLASSIFICATIONS } from "@/lib/budget-calc";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { withCategoryDisplayName } from "@/lib/category-display";
+import { useChartWidth } from "@/lib/use-chart-width";
 import type { BudgetHistoryMonthRow } from "@/lib/budget";
 import type { Classification } from "@/generated/prisma/enums";
 
@@ -14,19 +15,25 @@ type NonReceita = Exclude<Classification, "RECEITA" | "NEUTRA">;
 type ViewMode = "classificacoes" | "categorias";
 type Segment = { key: string; label: string; color: string };
 
-const BAR_WIDTH = 26;
-const GAP = 12;
-const CHART_HEIGHT = 190;
-const TOP_MARGIN = 10;
-const BOTTOM_MARGIN = 20;
+/** Only used for the very first paint, before useChartWidth has
+ * measured the card's real width. */
+const FALLBACK_WIDTH = 480;
+const HEIGHT = 132;
+const PAD_LEFT = 42;
+const PAD_RIGHT = 6;
+const PAD_TOP = 8;
+const PAD_BOTTOM = 16;
 const Y_TICKS = 3;
+const BAR_FRACTION = 0.62;
+const MIN_BAR_WIDTH = 4;
+const MAX_BAR_WIDTH = 34;
+const BAR_RADIUS = 3;
 const LEGEND_CAP = 10;
 /** At most this many X labels — same decluttering rule as the other
  * historical charts (section 3: eixos sem excesso de marcações); a long
  * custom period (up to 24 months) would otherwise cram every month's
  * label under narrow bars until they overlap. */
 const MAX_X_LABELS = 12;
-const BAR_RADIUS = 4;
 
 /** Path for a bar segment with rounded top corners and a square bottom
  * — used only for a column's topmost visible segment, so a stack reads
@@ -49,10 +56,17 @@ function roundedTopBarPath(x: number, y: number, width: number, height: number, 
  * per-category breakdown the same way Orçamento × Realizado and
  * ValueDistributionDonut do. Hovering a column shows every segment's
  * value for that month as one card (not per-segment isolated tooltips),
- * including the individual category breakdown when in Categorias mode. */
+ * including the individual category breakdown when in Categorias mode.
+ * `useChartWidth` keeps the SVG's internal coordinate system matched
+ * 1:1 to real screen pixels regardless of the card's width (see that
+ * hook's own doc) — bar width is a proportion of each month's slot
+ * rather than a fixed pixel value, so the chart fills the available
+ * width at any month count instead of leaving it mostly empty or
+ * overflowing it. */
 export function SpendingDistributionChart({ months }: { months: BudgetHistoryMonthRow[] }) {
   const [view, setView] = useState<ViewMode>("classificacoes");
   const [hovered, setHovered] = useState<number | null>(null);
+  const { containerRef, width: WIDTH } = useChartWidth(FALLBACK_WIDTH);
 
   if (months.length === 0) {
     return (
@@ -110,14 +124,13 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
   const monthTotals = months.map((m) => segments.reduce((sum, seg) => sum + valueFor(m, seg.key), 0));
   const maxTotal = Math.max(...monthTotals, 1);
 
-  const width = months.length * (BAR_WIDTH + GAP) + GAP;
-  const height = CHART_HEIGHT + TOP_MARGIN + BOTTOM_MARGIN;
-  const padLeft = 44;
-  const totalWidth = width + padLeft;
-  const yFor = (value: number) => (value / maxTotal) * CHART_HEIGHT;
-  const baselineY = TOP_MARGIN + CHART_HEIGHT;
+  const chartWidth = WIDTH - PAD_LEFT - PAD_RIGHT;
+  const chartHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
+  const slotWidth = chartWidth / months.length;
+  const barWidth = Math.min(MAX_BAR_WIDTH, Math.max(MIN_BAR_WIDTH, slotWidth * BAR_FRACTION));
+  const xFor = (i: number) => PAD_LEFT + slotWidth * (i + 0.5);
+  const yFor = (value: number) => PAD_TOP + chartHeight - (value / maxTotal) * chartHeight;
   const yTicks = Array.from({ length: Y_TICKS + 1 }, (_, i) => (maxTotal * i) / Y_TICKS);
-  const columnFor = (i: number) => padLeft + GAP + i * (BAR_WIDTH + GAP);
   const xLabelStep = Math.max(1, Math.ceil(months.length / MAX_X_LABELS));
 
   const hoveredSegments =
@@ -154,31 +167,32 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
         </div>
       </div>
 
-      <div className="relative mt-3">
+      <div ref={containerRef} className="relative mt-3">
         <svg
-          viewBox={`0 0 ${totalWidth} ${height}`}
-          className="w-full"
+          width={WIDTH}
+          height={HEIGHT}
+          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           role="img"
           aria-label="Distribuição mensal dos gastos e investimentos realizados"
         >
           {yTicks.map((tick) => (
             <g key={tick}>
               <line
-                x1={padLeft}
-                x2={totalWidth}
-                y1={baselineY - yFor(tick)}
-                y2={baselineY - yFor(tick)}
+                x1={PAD_LEFT}
+                x2={WIDTH - PAD_RIGHT}
+                y1={yFor(tick)}
+                y2={yFor(tick)}
                 stroke="var(--surface-border)"
                 strokeWidth={1}
               />
-              <text x={padLeft - 6} y={baselineY - yFor(tick) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[8px]">
+              <text x={PAD_LEFT - 6} y={yFor(tick) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[8px]">
                 {formatCentsCompactBRL(tick)}
               </text>
             </g>
           ))}
 
           {months.map((m, i) => {
-            const x = columnFor(i);
+            const x = xFor(i) - barWidth / 2;
             let cumulative = 0;
             const topSegmentKey = segments.filter((seg) => valueFor(m, seg.key) > 0).at(-1)?.key;
             return (
@@ -186,14 +200,14 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
                 {segments.map((seg) => {
                   const value = valueFor(m, seg.key);
                   if (value <= 0) return null;
-                  const segHeight = yFor(value);
-                  const y = baselineY - yFor(cumulative) - segHeight;
+                  const y = yFor(cumulative + value);
+                  const segHeight = yFor(cumulative) - y;
                   cumulative += value;
                   const opacity = hovered === null || hovered === i ? 1 : 0.45;
                   return seg.key === topSegmentKey ? (
                     <path
                       key={seg.key}
-                      d={roundedTopBarPath(x, y, BAR_WIDTH, segHeight, BAR_RADIUS)}
+                      d={roundedTopBarPath(x, y, barWidth, segHeight, BAR_RADIUS)}
                       fill={seg.color}
                       opacity={opacity}
                     />
@@ -202,7 +216,7 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
                       key={seg.key}
                       x={x}
                       y={y}
-                      width={BAR_WIDTH}
+                      width={barWidth}
                       height={segHeight}
                       fill={seg.color}
                       opacity={opacity}
@@ -210,7 +224,7 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
                   );
                 })}
                 {i % xLabelStep === 0 && (
-                  <text x={x + BAR_WIDTH / 2} y={height - 4} textAnchor="middle" className="fill-[var(--muted)] text-[8px]">
+                  <text x={xFor(i)} y={HEIGHT - 4} textAnchor="middle" className="fill-[var(--muted)] text-[8px]">
                     {m.shortLabel}
                   </text>
                 )}
@@ -221,10 +235,10 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
           {months.map((m, i) => (
             <rect
               key={m.monthKey}
-              x={columnFor(i) - GAP / 2}
+              x={xFor(i) - slotWidth / 2}
               y={0}
-              width={BAR_WIDTH + GAP}
-              height={height}
+              width={slotWidth}
+              height={HEIGHT}
               fill="transparent"
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
@@ -237,7 +251,7 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
             className={`pointer-events-none absolute top-1 z-10 max-h-[220px] overflow-y-auto rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] p-2.5 text-[11px] shadow-lg ${
               view === "categorias" ? "w-52" : "w-44"
             } ${hovered <= 1 ? "" : hovered >= months.length - 2 ? "-translate-x-full" : "-translate-x-1/2"}`}
-            style={{ left: `${((columnFor(hovered) + BAR_WIDTH / 2) / totalWidth) * 100}%` }}
+            style={{ left: `${(xFor(hovered) / WIDTH) * 100}%` }}
           >
             <p className="mb-1 font-semibold text-[var(--text-primary)]">{formatMonthKeyLabel(months[hovered].monthKey)}</p>
             <div className="space-y-0.5">

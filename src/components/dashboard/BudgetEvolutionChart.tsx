@@ -4,6 +4,7 @@ import { useState } from "react";
 import { formatCentsToBRL, formatCentsCompactBRL } from "@/lib/money";
 import { formatMonthKeyLabel } from "@/lib/dates";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
+import { useChartWidth } from "@/lib/use-chart-width";
 import type { BudgetHistoryMonthRow } from "@/lib/budget";
 
 const RECEITA_COLOR = "var(--primary)";
@@ -28,13 +29,15 @@ const LEGEND: { key: keyof BudgetHistoryMonthRow; label: string; color: string }
   { key: "saldoCents", label: "Saldo", color: SALDO_POSITIVE_COLOR },
 ];
 
-const WIDTH = 480;
-const HEIGHT = 200;
-const PAD_LEFT = 46;
+/** Only used for the very first paint, before useChartWidth has
+ * measured the card's real width. */
+const FALLBACK_WIDTH = 480;
+const HEIGHT = 132;
+const PAD_LEFT = 42;
 const PAD_RIGHT = 6;
-const PAD_TOP = 10;
-const PAD_BOTTOM = 20;
-const Y_TICKS = 4;
+const PAD_TOP = 8;
+const PAD_BOTTOM = 16;
+const Y_TICKS = 3;
 const BAR_FRACTION = 0.62;
 const MIN_BAR_WIDTH = 4;
 const MAX_BAR_WIDTH = 34;
@@ -45,10 +48,10 @@ const BAR_RADIUS = 3;
 const MAX_X_LABELS = 6;
 
 /** Path for a bar segment with rounded top corners and a square bottom
- * — applied only to the Saldo segment, which (see SEGMENT_KEYS above)
- * always sits at the column's true visual peak whether it's a surplus
- * stacked on top or a deficit notched back down from an overspend
- * peak. */
+ * — applied only to the topmost segment with any height in a given
+ * column (found per-column below), so a stack reads as one rounded
+ * pill made of colored bands rather than a sharp block, regardless of
+ * which classification happens to close out that particular month. */
 function roundedTopBarPath(x: number, y: number, width: number, height: number, radius: number): string {
   const r = Math.min(radius, width / 2, height);
   if (r <= 0) return `M${x},${y} h${width} v${height} h${-width} Z`;
@@ -70,11 +73,14 @@ function roundedTopBarPath(x: number, y: number, width: number, height: number, 
  * Investimentos keeps its own segment (never folded into Custos/
  * Prazeres) since it's a destination for money, not consumption — same
  * framing as ValueDistributionDonut and SpendingDistributionChart.
- * Hovering a column shows every value for that month as one card. Sized
- * for a 2-up grid (viewBox scales down responsively) — see Visão
- * Histórica's layout in src/app/(app)/dashboard/page.tsx. */
+ * Hovering a column shows every value for that month as one card.
+ * `useChartWidth` keeps the SVG's internal coordinate system matched
+ * 1:1 to real screen pixels regardless of the card's width (see that
+ * hook's own doc) — HEIGHT stays a small fixed constant, so the chart
+ * reads as a compact strip at any width instead of ballooning with it. */
 export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow[] }) {
   const [hovered, setHovered] = useState<number | null>(null);
+  const { containerRef, width: WIDTH } = useChartWidth(FALLBACK_WIDTH);
 
   if (months.length === 0) {
     return (
@@ -106,10 +112,11 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
   return (
     <div className="card p-4">
       <p className="text-sm font-medium text-[var(--text-secondary)]">Evolução Financeira</p>
-      <div className="relative mt-3">
+      <div ref={containerRef} className="relative mt-3">
         <svg
+          width={WIDTH}
+          height={HEIGHT}
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          className="w-full"
           role="img"
           aria-label="Evolução mensal de Receita, Custos Obrigatórios, Prazeres e Confortos, Investimentos e Saldo"
         >
@@ -134,6 +141,10 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
             const opacity = hovered === null || hovered === i ? 1 : 0.45;
             const cumulative = [0];
             for (const key of SEGMENT_KEYS) cumulative.push(cumulative[cumulative.length - 1] + m[key]);
+            const topIndex = SEGMENT_KEYS.reduce(
+              (top, _key, idx) => (Math.abs(cumulative[idx + 1] - cumulative[idx]) > 0 ? idx : top),
+              -1
+            );
 
             return (
               <g key={m.monthKey}>
@@ -149,7 +160,7 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
                   const isSaldo = key === "saldoCents";
                   const color = isSaldo ? (m.saldoCents >= 0 ? SALDO_POSITIVE_COLOR : SALDO_NEGATIVE_COLOR) : LEGEND[segIndex + 1].color;
 
-                  return isSaldo ? (
+                  return segIndex === topIndex ? (
                     <path
                       key={key}
                       d={roundedTopBarPath(x, y, barWidth, height, BAR_RADIUS)}
@@ -161,7 +172,7 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
                   );
                 })}
                 {i % xLabelStep === 0 && (
-                  <text x={xFor(i)} y={HEIGHT - 5} textAnchor="middle" className="fill-[var(--muted)] text-[8px]">
+                  <text x={xFor(i)} y={HEIGHT - 4} textAnchor="middle" className="fill-[var(--muted)] text-[8px]">
                     {m.shortLabel}
                   </text>
                 )}
