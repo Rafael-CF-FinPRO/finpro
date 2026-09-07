@@ -16,8 +16,8 @@ export function HistoricalInvestmentsPanel({ history }: { history: BudgetHistory
   return (
     <div className="card p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-stone-700">Investimentos</p>
-        <p className="text-sm text-stone-900">
+        <p className="text-sm font-medium text-[var(--text-secondary)]">Investimentos</p>
+        <p className="text-sm text-[var(--text-primary)]">
           Total no período:{" "}
           <span className="font-semibold" style={{ color: CLASSIFICATION_COLORS.INVESTIMENTOS }}>
             {formatCentsToBRL(totals.investimentosCents)}
@@ -43,10 +43,10 @@ export function HistoricalInvestmentsPanel({ history }: { history: BudgetHistory
                 const pctReceita = m.receitaCents > 0 ? Math.round((m.investimentosCents / m.receitaCents) * 1000) / 10 : null;
                 return (
                   <tr key={m.monthKey} className="border-b border-[var(--surface-border)] last:border-0">
-                    <td className="py-1.5 pr-2 font-medium text-stone-900">{m.shortLabel}</td>
-                    <td className="py-1.5 pr-2 text-stone-900">{formatCentsToBRL(m.investimentosMetaCents)}</td>
-                    <td className="py-1.5 pr-2 text-stone-900">{formatCentsToBRL(m.investimentosCents)}</td>
-                    <td className="py-1.5 text-stone-900">
+                    <td className="py-1.5 pr-2 font-medium text-[var(--text-primary)]">{m.shortLabel}</td>
+                    <td className="py-1.5 pr-2 text-[var(--text-primary)]">{formatCentsToBRL(m.investimentosMetaCents)}</td>
+                    <td className="py-1.5 pr-2 text-[var(--text-primary)]">{formatCentsToBRL(m.investimentosCents)}</td>
+                    <td className="py-1.5 text-[var(--text-primary)]">
                       {pctReceita === null ? "—" : `${pctReceita.toLocaleString("pt-BR")}%`}
                     </td>
                   </tr>

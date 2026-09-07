@@ -1,23 +1,28 @@
 import type { Classification } from "@/generated/prisma/enums";
 
-// One distinct color per budget classification, shared by the pie chart
-// and its legend. RECEITA and NEUTRA never appear here — neither
-// participates in the budget distribution.
+// One distinct color identity per budget classification, shared by
+// every chart/badge/legend in the app. Defined as CSS custom properties
+// in src/app/globals.css (light + dark values) rather than literal hex,
+// so every consumer — fill=, style={{backgroundColor}}, Tailwind
+// arbitrary-value classes — automatically tracks the active theme with
+// no per-component branching. RECEITA and NEUTRA never appear here —
+// neither participates in the budget distribution.
 export const CLASSIFICATION_COLORS: Record<
   Exclude<Classification, "RECEITA" | "NEUTRA">,
   string
 > = {
-  CUSTOS_OBRIGATORIOS: "#4f46e5",
-  PRAZERES_E_CONFORTOS: "#f59e0b",
-  INVESTIMENTOS: "#16a34a",
+  CUSTOS_OBRIGATORIOS: "var(--classification-custos)",
+  PRAZERES_E_CONFORTOS: "var(--classification-prazeres)",
+  INVESTIMENTOS: "var(--classification-investimentos)",
 };
 
-/** Appends an alpha channel to one of the hex colors above, so Category
- * rows can read as a soft tint of their parent Classification's color
+/** Blends one of the colors above toward transparent, so Category rows
+ * can read as a soft tint of their parent Classification's color
  * (contrast between the two levels) without a second color palette to
- * maintain. `alphaHex` is a two-digit hex string, e.g. "14" (~8%) for a
- * background tint or "33" (~20%) for something that needs to read more
- * clearly, like an icon badge on a light background. */
-export function withAlpha(hexColor: string, alphaHex: string): string {
-  return `${hexColor}${alphaHex}`;
+ * maintain. `percent` is how much of the original color remains (e.g.
+ * 15 for a subtle background tint) — color-mix() rather than a hex
+ * alpha suffix because these colors are CSS var() references, not
+ * literal hex strings a suffix could append to. */
+export function withAlpha(color: string, percent: number): string {
+  return `color-mix(in srgb, ${color} ${percent}%, transparent)`;
 }

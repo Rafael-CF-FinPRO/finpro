@@ -22,7 +22,7 @@ export function SummaryCards({ summary }: { summary: TransactionsSummary }) {
         <p className="text-sm text-[var(--muted)]">Saldo</p>
         <p
           className={`mt-1 text-xl font-semibold ${
-            isNegative ? "text-[var(--danger)]" : "text-stone-900"
+            isNegative ? "text-[var(--danger)]" : "text-[var(--text-primary)]"
           }`}
         >
           {formatCentsToBRL(summary.balanceCents)}
@@ -30,7 +30,7 @@ export function SummaryCards({ summary }: { summary: TransactionsSummary }) {
       </div>
       <div className="card p-4">
         <p className="text-sm text-[var(--muted)]">Neutro</p>
-        <p className="mt-1 text-xl font-semibold text-stone-600">
+        <p className="mt-1 text-xl font-semibold text-[var(--text-tertiary)]">
           {formatCentsToBRL(summary.neutroCents)}
         </p>
       </div>

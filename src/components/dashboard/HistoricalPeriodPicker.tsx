@@ -113,8 +113,8 @@ export function HistoricalPeriodPicker({ from, to }: { from: string; to: string 
           onClick={() => applyPreset(preset.label, preset.months)}
           className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
             activeLabel === preset.label
-              ? "bg-[var(--primary)] text-white"
-              : "border border-[var(--surface-border)] text-stone-600 hover:bg-stone-50"
+              ? "bg-[var(--primary)] text-[var(--on-primary)]"
+              : "border border-[var(--surface-border)] text-[var(--text-tertiary)] hover:bg-[var(--surface-hover)]"
           }`}
         >
           {preset.label}
@@ -125,8 +125,8 @@ export function HistoricalPeriodPicker({ from, to }: { from: string; to: string 
         onClick={() => setCustomOpen((prev) => !prev)}
         className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
           customOpen
-            ? "bg-[var(--primary)] text-white"
-            : "border border-[var(--surface-border)] text-stone-600 hover:bg-stone-50"
+            ? "bg-[var(--primary)] text-[var(--on-primary)]"
+            : "border border-[var(--surface-border)] text-[var(--text-tertiary)] hover:bg-[var(--surface-hover)]"
         }`}
       >
         Personalizado

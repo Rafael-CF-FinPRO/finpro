@@ -22,7 +22,7 @@ export function RestoreDefaultDialog({
           type="button"
           disabled={pending}
           onClick={onCancel}
-          className="rounded-lg border border-[var(--surface-border)] px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg border border-[var(--surface-border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           Cancelar
         </button>
@@ -30,7 +30,7 @@ export function RestoreDefaultDialog({
           type="button"
           disabled={pending}
           onClick={onConfirm}
-          className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--on-primary)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? "Restaurando..." : "Restaurar"}
         </button>

@@ -111,7 +111,7 @@ export function ImportWizard({
             />
           </svg>
         </div>
-        <p className="font-medium text-stone-900">
+        <p className="font-medium text-[var(--text-primary)]">
           {step.count} {step.count === 1 ? "lançamento importado" : "lançamentos importados"} com sucesso.
         </p>
         <div className="flex gap-2">
@@ -153,7 +153,7 @@ export function ImportWizard({
               <Icon size={20} />
             </div>
             <div>
-              <p className="font-medium text-stone-900">{source.label}</p>
+              <p className="font-medium text-[var(--text-primary)]">{source.label}</p>
               <p className="mt-1 text-sm text-[var(--muted)]">{source.description}</p>
             </div>
 

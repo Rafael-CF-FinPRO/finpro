@@ -1,13 +1,28 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f4ec;
-  --foreground: #1a1a1a;
+  --background: #f8f9fb;
+  --foreground: #14161f;
   --surface: #ffffff;
-  --surface-border: #e7e1d2;
-  --muted: #78716c;
+  --surface-border: #e5e7eb;
+  --surface-hover: #f1f2f5;
+  --surface-subtle: #f4f5f7;
+  --control-track: #e2e4e9;
+  --overlay: rgba(15, 17, 24, 0.45);
+
+  --text-primary: #14161f;
+  --text-secondary: #4b4f5a;
+  --text-tertiary: #6b7280;
+  --text-faint: #9aa0ac;
+  --muted: #6b7280;
+
   --primary: #16181f;
   --primary-hover: #2b2e37;
+  --on-primary: #ffffff;
+
+  --neutral: #52525b;
+  --neutral-bg: #f0f0f2;
+
   --danger: #c1422e;
   --danger-bg: #fbeee9;
   --danger-border: #eec7b8;
@@ -17,6 +32,110 @@
   --warning: #b45309;
   --warning-bg: #fdf3e2;
   --warning-border: #f3d9a8;
+
+  /* Data-series accent colors — one identity per budget classification,
+     shared by every chart/badge/legend in the app (see
+     src/lib/classification-colors.ts). The hue never changes between
+     themes (Custos=indigo, Prazeres=amber, Investimentos=green stays
+     true in both), only the exact shade shifts for contrast against
+     --surface. */
+  --classification-custos: #4f46e5;
+  --classification-prazeres: #f59e0b;
+  --classification-investimentos: #16a34a;
+  --chart-saldo: #2a78d6;
+  --indicator-maximo: #f97316;
+  --indicator-aceitavel: #16a34a;
+  --indicator-ideal: #38bdf8;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* Applied when the OS is dark AND the user hasn't explicitly picked
+     Light — an explicit choice (data-theme) always overrides system
+     preference, in either direction. See the [data-theme="dark"] block
+     below for the "explicit dark, OS light" case this can't cover. */
+  :root:not([data-theme="light"]) {
+    --background: #0a0e1a;
+    --foreground: #f3f5fa;
+    --surface: #10152a;
+    --surface-border: rgba(255, 255, 255, 0.07);
+    --surface-hover: rgba(255, 255, 255, 0.05);
+    --surface-subtle: rgba(255, 255, 255, 0.03);
+    --control-track: rgba(255, 255, 255, 0.12);
+    --overlay: rgba(0, 0, 0, 0.6);
+
+    --text-primary: #f3f5fa;
+    --text-secondary: #b7bed1;
+    --text-tertiary: #838ba3;
+    --text-faint: #545c76;
+    --muted: #838ba3;
+
+    --primary: #f3f5fa;
+    --primary-hover: #d8dcea;
+    --on-primary: #0a0e1a;
+
+    --neutral: #9096ab;
+    --neutral-bg: rgba(255, 255, 255, 0.06);
+
+    --danger: #f2705c;
+    --danger-bg: rgba(242, 112, 92, 0.12);
+    --danger-border: rgba(242, 112, 92, 0.3);
+    --success: #34d399;
+    --success-bg: rgba(52, 211, 153, 0.12);
+    --success-border: rgba(52, 211, 153, 0.3);
+    --warning: #fbbf24;
+    --warning-bg: rgba(251, 191, 36, 0.12);
+    --warning-border: rgba(251, 191, 36, 0.3);
+
+    --classification-custos: #818cf8;
+    --classification-prazeres: #fbbf24;
+    --classification-investimentos: #4ade80;
+    --chart-saldo: #60a5fa;
+    --indicator-maximo: #fb923c;
+    --indicator-aceitavel: #4ade80;
+    --indicator-ideal: #7dd3fc;
+  }
+}
+
+[data-theme="dark"] {
+  --background: #0a0e1a;
+  --foreground: #f3f5fa;
+  --surface: #10152a;
+  --surface-border: rgba(255, 255, 255, 0.07);
+  --surface-hover: rgba(255, 255, 255, 0.05);
+  --surface-subtle: rgba(255, 255, 255, 0.03);
+  --control-track: rgba(255, 255, 255, 0.12);
+  --overlay: rgba(0, 0, 0, 0.6);
+
+  --text-primary: #f3f5fa;
+  --text-secondary: #b7bed1;
+  --text-tertiary: #838ba3;
+  --text-faint: #545c76;
+  --muted: #838ba3;
+
+  --primary: #f3f5fa;
+  --primary-hover: #d8dcea;
+  --on-primary: #0a0e1a;
+
+  --neutral: #9096ab;
+  --neutral-bg: rgba(255, 255, 255, 0.06);
+
+  --danger: #f2705c;
+  --danger-bg: rgba(242, 112, 92, 0.12);
+  --danger-border: rgba(242, 112, 92, 0.3);
+  --success: #34d399;
+  --success-bg: rgba(52, 211, 153, 0.12);
+  --success-border: rgba(52, 211, 153, 0.3);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.12);
+  --warning-border: rgba(251, 191, 36, 0.3);
+
+  --classification-custos: #818cf8;
+  --classification-prazeres: #fbbf24;
+  --classification-investimentos: #4ade80;
+  --chart-saldo: #60a5fa;
+  --indicator-maximo: #fb923c;
+  --indicator-aceitavel: #4ade80;
+  --indicator-ideal: #7dd3fc;
 }
 
 @theme inline {
@@ -38,11 +157,13 @@
 
 html {
   font-family: var(--font-sans);
+  color-scheme: light dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 /* Form controls don't inherit font-family from their ancestors by
@@ -57,19 +178,19 @@ select {
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2.5 text-sm font-medium text-[var(--on-primary)] transition-colors hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50;
+    @apply inline-flex items-center justify-center rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)];
   }
 
   .field-label {
-    @apply mb-1.5 block text-sm font-medium text-stone-700;
+    @apply mb-1.5 block text-sm font-medium text-[var(--text-secondary)];
   }
 
   .field-input {
-    @apply block w-full rounded-lg border border-[var(--surface-border)] bg-white px-3.5 py-2.5 text-sm text-stone-900 shadow-sm transition-colors placeholder:text-stone-400 focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20;
+    @apply block w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] shadow-sm transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20;
   }
 
   .card {

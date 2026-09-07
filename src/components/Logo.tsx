@@ -7,7 +7,7 @@ export function Logo({
 }) {
   return (
     <div className={`flex items-center gap-2 ${className ?? ""}`}>
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)] text-white">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)] text-[var(--on-primary)]">
         <svg
           width="18"
           height="18"
@@ -32,7 +32,7 @@ export function Logo({
         </svg>
       </span>
       {!iconOnly && (
-        <span className="text-lg font-semibold tracking-tight text-stone-900">
+        <span className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
           Fin<span className="text-[var(--primary)]">PRO</span>
         </span>
       )}

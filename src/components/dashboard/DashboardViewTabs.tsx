@@ -65,8 +65,8 @@ export function DashboardViewTabs({ view }: { view: "mensal" | "historico" }) {
           onClick={() => goTo(tab.value)}
           className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
             activeView === tab.value
-              ? "bg-[var(--primary)] text-white"
-              : "text-stone-600 hover:bg-stone-100"
+              ? "bg-[var(--primary)] text-[var(--on-primary)]"
+              : "text-[var(--text-tertiary)] hover:bg-[var(--surface-hover)]"
           }`}
         >
           {tab.label}

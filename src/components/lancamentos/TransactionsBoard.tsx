@@ -65,7 +65,7 @@ function TypeBadge({ type }: { type: "ENTRADA" | "SAIDA" | "NEUTRO" }) {
       ? "bg-[var(--success-bg)] text-[var(--success)]"
       : type === "SAIDA"
         ? "bg-[var(--danger-bg)] text-[var(--danger)]"
-        : "bg-stone-100 text-stone-600";
+        : "bg-[var(--neutral-bg)] text-[var(--neutral)]";
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
       {TYPE_LABELS[type]}
@@ -111,7 +111,7 @@ function StatusToggle({ id, status }: { id: string; status: TransactionStatus })
     >
       <span
         className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-          isPago ? "bg-[var(--success)]" : "bg-stone-300"
+          isPago ? "bg-[var(--success)]" : "bg-[var(--control-track)]"
         }`}
       >
         <span
@@ -162,7 +162,7 @@ function displayTitle(t: TransactionRow): string {
 function amountColorClass(type: "ENTRADA" | "SAIDA" | "NEUTRO"): string {
   if (type === "ENTRADA") return "text-[var(--success)]";
   if (type === "SAIDA") return "text-[var(--danger)]";
-  return "text-stone-600";
+  return "text-[var(--text-tertiary)]";
 }
 
 function amountSign(type: "ENTRADA" | "SAIDA" | "NEUTRO"): string {
@@ -171,7 +171,7 @@ function amountSign(type: "ENTRADA" | "SAIDA" | "NEUTRO"): string {
 
 function TagBadge({ name }: { name: string }) {
   return (
-    <span className="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">
+    <span className="inline-flex items-center rounded-full bg-[var(--neutral-bg)] px-2 py-0.5 text-xs font-medium text-[var(--neutral)]">
       {name}
     </span>
   );
@@ -227,12 +227,12 @@ export function TransactionsBoard({
       {importOpen && (
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium text-stone-700">Importar lançamentos</p>
+            <p className="text-sm font-medium text-[var(--text-secondary)]">Importar lançamentos</p>
             <button
               type="button"
               aria-label="Fechar importação"
               onClick={() => setImportOpen(false)}
-              className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+              className="rounded-lg p-1.5 text-[var(--text-faint)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-tertiary)]"
             >
               <X size={16} />
             </button>
@@ -272,27 +272,27 @@ export function TransactionsBoard({
               <tbody className="divide-y divide-[var(--surface-border)]">
                 {transactions.map((t) => (
                   <tr key={t.id}>
-                    <td className="px-4 py-3 text-stone-600">{t.dateLabel}</td>
+                    <td className="px-4 py-3 text-[var(--text-tertiary)]">{t.dateLabel}</td>
                     <td className="px-4 py-3">
                       <TypeBadge type={t.type} />
                     </td>
                     <td className="px-4 py-3">
                       <StatusToggle id={t.id} status={t.status} />
                     </td>
-                    <td className="px-4 py-3 font-medium text-stone-900">
+                    <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
                       {displayTitle(t)}
                       <SeriesAnnotation t={t} />
                     </td>
-                    <td className="px-4 py-3 text-stone-600">{t.categoryName}</td>
-                    <td className="px-4 py-3 text-stone-600">
+                    <td className="px-4 py-3 text-[var(--text-tertiary)]">{t.categoryName}</td>
+                    <td className="px-4 py-3 text-[var(--text-tertiary)]">
                       {CLASSIFICATION_LABELS[t.classification]}
                     </td>
-                    <td className="px-4 py-3 text-stone-600">
+                    <td className="px-4 py-3 text-[var(--text-tertiary)]">
                       {t.paymentMethodName ?? "—"}
                     </td>
                     <td className="px-4 py-3">
                       {t.tagName ? <TagBadge name={t.tagName} /> : (
-                        <span className="text-stone-400">—</span>
+                        <span className="text-[var(--text-faint)]">—</span>
                       )}
                     </td>
                     <td className={`px-4 py-3 text-right font-medium ${amountColorClass(t.type)}`}>
@@ -307,7 +307,7 @@ export function TransactionsBoard({
                           onClick={() =>
                             setModal({ mode: "edit", type: t.type, transaction: t })
                           }
-                          className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+                          className="rounded-lg p-1.5 text-[var(--text-faint)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-tertiary)]"
                         >
                           <EditIcon />
                         </button>
@@ -329,7 +329,7 @@ export function TransactionsBoard({
                 <li key={t.id} className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-stone-900">
+                      <p className="truncate font-medium text-[var(--text-primary)]">
                         {displayTitle(t)}
                       </p>
                       <p className="mt-0.5 text-xs text-[var(--muted)]">
@@ -364,7 +364,7 @@ export function TransactionsBoard({
                         onClick={() =>
                           setModal({ mode: "edit", type: t.type, transaction: t })
                         }
-                        className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+                        className="rounded-lg p-1.5 text-[var(--text-faint)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-tertiary)]"
                       >
                         <EditIcon />
                       </button>

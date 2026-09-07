@@ -262,15 +262,15 @@ export function BudgetBoard({
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <div>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-stone-700">Distribuição do orçamento</p>
+                  <p className="text-sm font-medium text-[var(--text-secondary)]">Distribuição do orçamento</p>
                   <div className="inline-flex rounded-lg border border-[var(--surface-border)] p-0.5 text-xs">
                     <button
                       type="button"
                       onClick={() => setDistributionView("classificacoes")}
                       className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
                         distributionView === "classificacoes"
-                          ? "bg-[var(--primary)] text-white"
-                          : "text-stone-500 hover:bg-stone-100"
+                          ? "bg-[var(--primary)] text-[var(--on-primary)]"
+                          : "text-[var(--muted)] hover:bg-[var(--surface-hover)]"
                       }`}
                     >
                       Classificações
@@ -280,8 +280,8 @@ export function BudgetBoard({
                       onClick={() => setDistributionView("categorias")}
                       className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
                         distributionView === "categorias"
-                          ? "bg-[var(--primary)] text-white"
-                          : "text-stone-500 hover:bg-stone-100"
+                          ? "bg-[var(--primary)] text-[var(--on-primary)]"
+                          : "text-[var(--muted)] hover:bg-[var(--surface-hover)]"
                       }`}
                     >
                       Categorias
@@ -295,7 +295,7 @@ export function BudgetBoard({
                 )}
               </div>
               <div className="lg:border-l lg:border-[var(--surface-border)] lg:pl-6">
-                <p className="mb-3 text-center text-sm font-medium text-stone-700 lg:text-left">
+                <p className="mb-3 text-center text-sm font-medium text-[var(--text-secondary)] lg:text-left">
                   Indicadores de Saúde Orçamentária
                 </p>
                 <BudgetHealthIndicators
@@ -315,7 +315,7 @@ export function BudgetBoard({
         <button
           type="button"
           onClick={toggleChartsCollapsed}
-          className={`flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] py-1.5 text-xs font-medium text-stone-500 shadow-sm hover:bg-stone-50 hover:text-stone-700 ${
+          className={`flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] py-1.5 text-xs font-medium text-[var(--muted)] shadow-sm hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)] ${
             chartsCollapsed ? "" : "mt-2"
           }`}
         >
@@ -335,12 +335,12 @@ export function BudgetBoard({
         <p className="text-sm text-[var(--muted)]">
           {isCustomMonth ? (
             <>
-              <span className="font-medium text-stone-700">{formatMonthKeyLabel(monthKey)}</span>{" "}
+              <span className="font-medium text-[var(--text-secondary)]">{formatMonthKeyLabel(monthKey)}</span>{" "}
               tem uma personalização própria.
             </>
           ) : (
             <>
-              <span className="font-medium text-stone-700">{formatMonthKeyLabel(monthKey)}</span>{" "}
+              <span className="font-medium text-[var(--text-secondary)]">{formatMonthKeyLabel(monthKey)}</span>{" "}
               segue o orçamento padrão.
             </>
           )}
@@ -402,10 +402,10 @@ export function BudgetBoard({
                       color={CLASSIFICATION_COLORS[cls.classification as NonReceita]}
                     />
                     <div>
-                      <p className="font-semibold text-stone-900">
+                      <p className="font-semibold text-[var(--text-primary)]">
                         {CLASSIFICATION_LABELS[cls.classification]}
                       </p>
-                      <p className="text-xs text-stone-600">
+                      <p className="text-xs text-[var(--text-tertiary)]">
                         {CLASSIFICATION_DESCRIPTIONS[cls.classification]}
                       </p>
                     </div>
@@ -425,17 +425,17 @@ export function BudgetBoard({
                     />
                   </div>
                 ) : (
-                  <p className="mt-1 text-sm font-medium text-stone-700">{clsPct}%</p>
+                  <p className="mt-1 text-sm font-medium text-[var(--text-secondary)]">{clsPct}%</p>
                 )}
 
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                   <div>
                     <p className="text-[var(--muted)]">{isGoal ? "Meta" : "Orçado"}</p>
-                    <p className="font-medium text-stone-900">{formatCentsToBRL(liveBudgeted)}</p>
+                    <p className="font-medium text-[var(--text-primary)]">{formatCentsToBRL(liveBudgeted)}</p>
                   </div>
                   <div>
                     <p className="text-[var(--muted)]">{isGoal ? "Investido" : "Realizado"}</p>
-                    <p className="font-medium text-stone-900">
+                    <p className="font-medium text-[var(--text-primary)]">
                       {formatCentsToBRL(cls.realizedCents)}
                     </p>
                   </div>
@@ -445,7 +445,7 @@ export function BudgetBoard({
                     </p>
                     <p
                       className={`font-medium ${
-                        !isGoal && liveDiferenca < 0 ? "text-[var(--danger)]" : "text-stone-900"
+                        !isGoal && liveDiferenca < 0 ? "text-[var(--danger)]" : "text-[var(--text-primary)]"
                       }`}
                     >
                       {formatCentsToBRL(isGoal ? Math.abs(liveDiferenca) : liveDiferenca)}
@@ -453,7 +453,7 @@ export function BudgetBoard({
                   </div>
                   <div>
                     <p className="text-[var(--muted)]">{isGoal ? "% da meta" : "% Utilizado"}</p>
-                    <p className="font-medium text-stone-900">
+                    <p className="font-medium text-[var(--text-primary)]">
                       {livePctGasto === null ? "—" : `${livePctGasto.toLocaleString("pt-BR")}%`}
                     </p>
                   </div>
@@ -506,7 +506,7 @@ export function BudgetBoard({
                     }
                   />
                 ) : (
-                  <div className="space-y-2 border-t border-[var(--surface-border)] bg-stone-50/60 p-4">
+                  <div className="space-y-2 border-t border-[var(--surface-border)] bg-[var(--surface-subtle)] p-4">
                     {activeCategories.length === 0 ? (
                       <p className="text-sm text-[var(--muted)]">
                         Nenhuma categoria ativa nesta classificação.
@@ -531,9 +531,9 @@ export function BudgetBoard({
                                   size="sm"
                                 />
                                 <div>
-                                  <p className="font-medium text-stone-900">{cat.name}</p>
+                                  <p className="font-medium text-[var(--text-primary)]">{cat.name}</p>
                                   {cat.description && (
-                                    <p className="text-xs text-stone-600">{cat.description}</p>
+                                    <p className="text-xs text-[var(--text-tertiary)]">{cat.description}</p>
                                   )}
                                 </div>
                               </div>
@@ -548,19 +548,19 @@ export function BudgetBoard({
                             <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
                               <div>
                                 <p className="text-[var(--muted)]">{isGoal ? "Meta" : "Orçado"}</p>
-                                <p className="font-medium text-stone-900">
+                                <p className="font-medium text-[var(--text-primary)]">
                                   {formatCentsToBRL(cat.budgetedCents)}
                                 </p>
                               </div>
                               <div>
                                 <p className="text-[var(--muted)]">{isGoal ? "Investido" : "Realizado"}</p>
-                                <p className="font-medium text-stone-900">
+                                <p className="font-medium text-[var(--text-primary)]">
                                   {formatCentsToBRL(cat.realizedCents)}
                                 </p>
                               </div>
                               <div>
                                 <p className="text-[var(--muted)]">{isGoal ? "% da meta" : "% Utilizado"}</p>
-                                <p className="font-medium text-stone-900">
+                                <p className="font-medium text-[var(--text-primary)]">
                                   {catPctGasto === null
                                     ? "—"
                                     : `${catPctGasto.toLocaleString("pt-BR")}%`}

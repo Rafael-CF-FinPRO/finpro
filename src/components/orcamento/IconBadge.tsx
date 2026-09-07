@@ -33,7 +33,7 @@ export function IconBadge({
       style={
         variant === "solid"
           ? { backgroundColor: color, color: "#fff" }
-          : { backgroundColor: withAlpha(color, "26"), color }
+          : { backgroundColor: withAlpha(color, 15), color }
       }
     >
       <Icon size={iconSize} strokeWidth={2.25} />

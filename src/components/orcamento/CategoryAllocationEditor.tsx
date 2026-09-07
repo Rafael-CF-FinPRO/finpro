@@ -133,7 +133,7 @@ export function CategoryAllocationEditor({
   }
 
   return (
-    <div className="space-y-3 border-t border-[var(--surface-border)] bg-stone-50/60 p-4">
+    <div className="space-y-3 border-t border-[var(--surface-border)] bg-[var(--surface-subtle)] p-4">
       {active.length === 0 && (
         <p className="text-sm text-[var(--muted)]">
           Nenhuma categoria ativa vinculada a esta classificação ainda.
@@ -205,9 +205,9 @@ export function CategoryAllocationEditor({
                     size="sm"
                   />
                   <div>
-                    <p className="font-medium text-stone-900">{cat.name}</p>
+                    <p className="font-medium text-[var(--text-primary)]">{cat.name}</p>
                     {cat.description && (
-                      <p className="text-xs text-stone-600">{cat.description}</p>
+                      <p className="text-xs text-[var(--text-tertiary)]">{cat.description}</p>
                     )}
                   </div>
                 </div>
@@ -245,15 +245,15 @@ export function CategoryAllocationEditor({
             <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
               <div>
                 <p className="text-[var(--muted)]">{isGoal ? "Meta" : "Orçado"}</p>
-                <p className="font-medium text-stone-900">{formatCentsToBRL(liveBudgeted)}</p>
+                <p className="font-medium text-[var(--text-primary)]">{formatCentsToBRL(liveBudgeted)}</p>
               </div>
               <div>
                 <p className="text-[var(--muted)]">{isGoal ? "Investido" : "Realizado"}</p>
-                <p className="font-medium text-stone-900">{formatCentsToBRL(cat.realizedCents)}</p>
+                <p className="font-medium text-[var(--text-primary)]">{formatCentsToBRL(cat.realizedCents)}</p>
               </div>
               <div>
                 <p className="text-[var(--muted)]">{isGoal ? "% da meta" : "% Gasto"}</p>
-                <p className="font-medium text-stone-900">
+                <p className="font-medium text-[var(--text-primary)]">
                   {livePctGasto === null ? "—" : `${livePctGasto.toLocaleString("pt-BR")}%`}
                 </p>
               </div>
@@ -270,7 +270,7 @@ export function CategoryAllocationEditor({
           <p className="text-xs font-medium text-[var(--muted)]">Categorias inativas</p>
           {inactive.map((cat) => (
             <div key={cat.categoryId} className="flex items-center justify-between text-sm">
-              <span className="text-stone-500">{cat.name}</span>
+              <span className="text-[var(--muted)]">{cat.name}</span>
               <span className="flex items-center gap-3">
                 <button
                   type="button"

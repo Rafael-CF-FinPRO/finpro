@@ -5,6 +5,7 @@ import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import { formatCentsToBRL } from "@/lib/money";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { IconBadge } from "./IconBadge";
+import { describeDonutSegment } from "@/lib/donut-geometry";
 import type { Classification } from "@/generated/prisma/enums";
 
 export type CategorySlice = {
@@ -14,44 +15,6 @@ export type CategorySlice = {
   percentage: number;
   budgetedCents: number;
 };
-
-// Same donut geometry as BudgetPieChart — duplicated deliberately
-// rather than shared, since that component is meant to stay exactly as
-// it is; this is an independent alternate view of the same "Orçado"
-// data, one category per slice instead of one classification per
-// slice, grouped and colored by each category's own classification so
-// it reads as "the classification donut, subdivided".
-function round(value: number): number {
-  return Math.round(value * 10000) / 10000;
-}
-
-function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
-  const angleRad = ((angleDeg - 90) * Math.PI) / 180;
-  return { x: round(cx + r * Math.cos(angleRad)), y: round(cy + r * Math.sin(angleRad)) };
-}
-
-function describeDonutSegment(
-  cx: number,
-  cy: number,
-  outerR: number,
-  innerR: number,
-  startAngle: number,
-  endAngle: number
-) {
-  const clampedEnd = Math.min(endAngle, startAngle + 359.99);
-  const startOuter = polarToCartesian(cx, cy, outerR, startAngle);
-  const endOuter = polarToCartesian(cx, cy, outerR, clampedEnd);
-  const startInner = polarToCartesian(cx, cy, innerR, clampedEnd);
-  const endInner = polarToCartesian(cx, cy, innerR, startAngle);
-  const largeArc = clampedEnd - startAngle > 180 ? 1 : 0;
-  return [
-    `M ${startOuter.x} ${startOuter.y}`,
-    `A ${outerR} ${outerR} 0 ${largeArc} 1 ${endOuter.x} ${endOuter.y}`,
-    `L ${startInner.x} ${startInner.y}`,
-    `A ${innerR} ${innerR} 0 ${largeArc} 0 ${endInner.x} ${endInner.y}`,
-    "Z",
-  ].join(" ");
-}
 
 /** Alternate view of "Distribuição do orçamento" — one slice per
  * Category (Orçado %) instead of one per Classification, colored by
@@ -110,10 +73,10 @@ export function BudgetCategoryDistribution({ categories }: { categories: Categor
             <title>{`${slice.name}: ${slice.percentage}% (${formatCentsToBRL(slice.budgetedCents)})`}</title>
           </path>
         ))}
-        <text x={cx} y={cy - 6} textAnchor="middle" className="fill-stone-900 text-sm font-semibold">
+        <text x={cx} y={cy - 6} textAnchor="middle" className="fill-[var(--text-primary)] text-sm font-semibold">
           {active ? `${active.percentage}%` : "Orçamento"}
         </text>
-        <text x={cx} y={cy + 14} textAnchor="middle" className="fill-stone-500 text-xs">
+        <text x={cx} y={cy + 14} textAnchor="middle" className="fill-[var(--muted)] text-xs">
           {active ? formatCentsToBRL(active.budgetedCents) : `${configured.length} categorias`}
         </text>
       </svg>
@@ -133,8 +96,8 @@ export function BudgetCategoryDistribution({ categories }: { categories: Categor
               size="sm"
             />
             <div className="leading-tight">
-              <p className="text-stone-700">{slice.name}</p>
-              <p className="font-medium text-stone-900">
+              <p className="text-[var(--text-secondary)]">{slice.name}</p>
+              <p className="font-medium text-[var(--text-primary)]">
                 {slice.percentage}% · {formatCentsToBRL(slice.budgetedCents)}
               </p>
             </div>

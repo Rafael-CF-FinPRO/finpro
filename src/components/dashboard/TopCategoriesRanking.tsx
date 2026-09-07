@@ -42,7 +42,7 @@ export function TopCategoriesRanking({
 
   return (
     <div className="card p-4 sm:p-5">
-      <p className="text-sm font-medium text-stone-700">Top 10 Categorias</p>
+      <p className="text-sm font-medium text-[var(--text-secondary)]">Top 10 Categorias</p>
       <p className="text-xs text-[var(--muted)]">Onde você mais gastou?</p>
 
       {top.length === 0 ? (
@@ -60,12 +60,12 @@ export function TopCategoriesRanking({
                 <IconBadge icon={getCategoryIcon(cat.name)} color={color} variant="soft" size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-                    <p className="truncate text-sm font-medium text-stone-900">{cat.displayName}</p>
-                    <p className="text-sm font-semibold text-stone-900">
+                    <p className="truncate text-sm font-medium text-[var(--text-primary)]">{cat.displayName}</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">
                       {formatCentsToBRL(cat.realizedCents)}
                     </p>
                   </div>
-                  <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-stone-100">
+                  <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-[var(--control-track)]">
                     <div className="h-full rounded-full" style={{ width: `${barWidth}%`, backgroundColor: color }} />
                   </div>
                 </div>

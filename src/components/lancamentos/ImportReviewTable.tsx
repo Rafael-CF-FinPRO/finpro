@@ -100,7 +100,7 @@ function toEditableRow(row: ParsedTransactionRow): EditableRow {
 // ConfidenceBadge does below for the (unrelated) reconciliation match.
 function SourceBadge({ source }: { source: SuggestionSource }) {
   return (
-    <span className="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">
+    <span className="inline-flex items-center rounded-full bg-[var(--neutral-bg)] px-2 py-0.5 text-xs font-medium text-[var(--neutral)]">
       {SOURCE_LABELS[source]}
     </span>
   );
@@ -258,20 +258,20 @@ export function ImportReviewTable({
     <div className="card p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="font-medium text-stone-900">Revisar lançamentos</p>
+          <p className="font-medium text-[var(--text-primary)]">Revisar lançamentos</p>
           <p className="text-sm text-[var(--muted)]">
             Confira e ajuste cada linha antes de confirmar a importação.
           </p>
         </div>
         <div className="text-right text-sm">
-          <p className="font-medium text-stone-900">
+          <p className="font-medium text-[var(--text-primary)]">
             {includedRows.length} de {rows.length} selecionados
           </p>
           <p className="text-[var(--muted)]">Total: {formatCentsToBRL(totalCents)}</p>
         </div>
       </div>
 
-      <div className="mb-4 rounded-lg border border-[var(--surface-border)] bg-stone-50 p-3">
+      <div className="mb-4 rounded-lg border border-[var(--surface-border)] bg-[var(--surface-subtle)] p-3">
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -289,7 +289,7 @@ export function ImportReviewTable({
           </p>
         </div>
         {categorizeResult && (
-          <p className="mt-2 text-xs text-stone-700">
+          <p className="mt-2 text-xs text-[var(--text-secondary)]">
             Categorização concluída: {categorizeResult.summary.history} pelo histórico,{" "}
             {categorizeResult.summary.global} pelo conhecimento existente, {categorizeResult.summary.ai} pela IA,{" "}
             {categorizeResult.summary.research} pela pesquisa, {categorizeResult.summary.unresolved} para revisão
@@ -315,7 +315,7 @@ export function ImportReviewTable({
             <col className="w-[12%]" />
           </colgroup>
           <thead>
-            <tr className="border-b border-[var(--surface-border)] bg-stone-50 text-left text-xs font-medium text-[var(--muted)]">
+            <tr className="border-b border-[var(--surface-border)] bg-[var(--surface-subtle)] text-left text-xs font-medium text-[var(--muted)]">
               <th className="px-2 py-2">Incluir</th>
               <th className="px-2 py-2">Data</th>
               <th className="px-2 py-2">Tipo</th>
@@ -486,7 +486,7 @@ export function ImportReviewTable({
                 </tr>
                 {row.matchedPendingTransactionId && row.matchConfidence && (
                   <tr className={`border-b border-[var(--surface-border)] last:border-b-0 ${row.include ? "" : "opacity-50"}`}>
-                    <td colSpan={9} className="bg-stone-50 px-2 py-2">
+                    <td colSpan={9} className="bg-[var(--surface-subtle)] px-2 py-2">
                       <label className="flex items-start gap-2 text-xs">
                         <input
                           type="checkbox"
@@ -497,7 +497,7 @@ export function ImportReviewTable({
                         />
                         <span className="flex flex-wrap items-center gap-1.5">
                           <ConfidenceBadge confidence={row.matchConfidence} />
-                          <span className="text-stone-700">
+                          <span className="text-[var(--text-secondary)]">
                             Corresponde a um lançamento previsto
                             {row.matchInstallmentLabel ? ` (${row.matchInstallmentLabel})` : ""} —{" "}
                             {row.matchReason}

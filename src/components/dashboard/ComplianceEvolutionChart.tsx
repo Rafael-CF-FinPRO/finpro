@@ -61,7 +61,7 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
 
   return (
     <div className="card p-4">
-      <p className="text-sm font-medium text-stone-700">Cumprimento do Orçamento</p>
+      <p className="text-sm font-medium text-[var(--text-secondary)]">Cumprimento do Orçamento</p>
       <div className="relative mt-3">
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
@@ -80,7 +80,7 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
                 strokeWidth={1}
                 strokeDasharray={ref === 0 || ref === 100 ? undefined : "4 3"}
               />
-              <text x={PAD_LEFT - 6} y={yFor(ref) + 3} textAnchor="end" className="fill-stone-400 text-[8px]">
+              <text x={PAD_LEFT - 6} y={yFor(ref) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[8px]">
                 {ref}%
               </text>
             </g>
@@ -105,7 +105,7 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
                   x={xFor(i)}
                   y={HEIGHT - 5}
                   textAnchor="middle"
-                  className="fill-stone-500 text-[8px]"
+                  className="fill-[var(--muted)] text-[8px]"
                 >
                   {m.shortLabel}
                 </text>
@@ -134,45 +134,45 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
             style={{ left: `${(xFor(hovered!) / WIDTH) * 100}%` }}
           >
             <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="font-semibold text-stone-900">{formatMonthKeyLabel(hoveredMonth.monthKey)}</p>
+              <p className="font-semibold text-[var(--text-primary)]">{formatMonthKeyLabel(hoveredMonth.monthKey)}</p>
               <span className="font-semibold" style={{ color: tierColorFor(hoveredMonth.compliancePct) }}>
                 {hoveredMonth.compliancePct}%
               </span>
             </div>
             <div className="space-y-0.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1 text-stone-600">
+                <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
                   <span
                     className="h-1.5 w-1.5 shrink-0 rounded-full"
                     style={{ backgroundColor: CLASSIFICATION_COLORS.CUSTOS_OBRIGATORIOS }}
                   />
                   Custos Obrigatórios
                 </span>
-                <span className="font-medium text-stone-900">
+                <span className="font-medium text-[var(--text-primary)]">
                   {formatCentsToBRL(hoveredMonth.custosCents)} / {formatCentsToBRL(hoveredMonth.custosBudgetedCents)}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1 text-stone-600">
+                <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
                   <span
                     className="h-1.5 w-1.5 shrink-0 rounded-full"
                     style={{ backgroundColor: CLASSIFICATION_COLORS.PRAZERES_E_CONFORTOS }}
                   />
                   Prazeres e Confortos
                 </span>
-                <span className="font-medium text-stone-900">
+                <span className="font-medium text-[var(--text-primary)]">
                   {formatCentsToBRL(hoveredMonth.prazeresCents)} / {formatCentsToBRL(hoveredMonth.prazeresBudgetedCents)}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1 text-stone-600">
+                <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
                   <span
                     className="h-1.5 w-1.5 shrink-0 rounded-full"
                     style={{ backgroundColor: CLASSIFICATION_COLORS.INVESTIMENTOS }}
                   />
                   Investimentos
                 </span>
-                <span className="font-medium text-stone-900">
+                <span className="font-medium text-[var(--text-primary)]">
                   {formatCentsToBRL(hoveredMonth.investimentosCents)} /{" "}
                   {formatCentsToBRL(hoveredMonth.investimentosMetaCents)}
                 </span>

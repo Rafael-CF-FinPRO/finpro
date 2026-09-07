@@ -47,7 +47,7 @@ export function DeleteTransactionButton({
         <button
           type="submit"
           aria-label="Excluir"
-          className="rounded-lg p-1.5 text-stone-400 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
+          className="rounded-lg p-1.5 text-[var(--text-faint)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
         >
           <TrashIcon />
         </button>
@@ -61,19 +61,19 @@ export function DeleteTransactionButton({
         type="button"
         aria-label="Excluir"
         onClick={() => setChoosing((v) => !v)}
-        className="rounded-lg p-1.5 text-stone-400 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
+        className="rounded-lg p-1.5 text-[var(--text-faint)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
       >
         <TrashIcon />
       </button>
       {choosing && (
-        <div className="absolute right-0 z-10 mt-1 w-52 rounded-lg border border-[var(--surface-border)] bg-white p-1.5 shadow-lg">
+        <div className="absolute right-0 z-10 mt-1 w-52 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] p-1.5 shadow-lg">
           <form action={deleteSeriesOccurrenceAction}>
             <input type="hidden" name="id" value={id} />
             <button
               type="submit"
               name="scope"
               value="this"
-              className="block w-full rounded-md px-2 py-1.5 text-left text-sm text-stone-700 hover:bg-stone-50"
+              className="block w-full rounded-md px-2 py-1.5 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
               onClick={(e) => {
                 if (!confirm(`Excluir somente "${description}"?`)) e.preventDefault();
               }}
@@ -84,7 +84,7 @@ export function DeleteTransactionButton({
               type="submit"
               name="scope"
               value="this_and_future"
-              className="block w-full rounded-md px-2 py-1.5 text-left text-sm text-stone-700 hover:bg-stone-50"
+              className="block w-full rounded-md px-2 py-1.5 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
               onClick={(e) => {
                 if (!confirm(`Excluir "${description}" e os próximos ainda não pagos?`))
                   e.preventDefault();
@@ -96,7 +96,7 @@ export function DeleteTransactionButton({
           <button
             type="button"
             onClick={() => setChoosing(false)}
-            className="mt-1 block w-full rounded-md px-2 py-1.5 text-left text-xs text-[var(--muted)] hover:bg-stone-50"
+            className="mt-1 block w-full rounded-md px-2 py-1.5 text-left text-xs text-[var(--muted)] hover:bg-[var(--surface-hover)]"
           >
             Cancelar
           </button>

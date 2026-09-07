@@ -6,7 +6,7 @@ import { formatMonthKeyLabel } from "@/lib/dates";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import type { BudgetHistoryMonthRow } from "@/lib/budget";
 
-const SALDO_COLOR = "#2a78d6";
+const SALDO_COLOR = "var(--chart-saldo)";
 
 const SERIES: { key: keyof BudgetHistoryMonthRow; label: string; color: string }[] = [
   { key: "receitaCents", label: "Receita", color: "var(--primary)" },
@@ -68,7 +68,7 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
 
   return (
     <div className="card p-4">
-      <p className="text-sm font-medium text-stone-700">Evolução Financeira</p>
+      <p className="text-sm font-medium text-[var(--text-secondary)]">Evolução Financeira</p>
       <div className="relative mt-3">
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
@@ -86,7 +86,7 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
                 stroke="var(--surface-border)"
                 strokeWidth={1}
               />
-              <text x={PAD_LEFT - 6} y={yFor(tick) + 3} textAnchor="end" className="fill-stone-400 text-[8px]">
+              <text x={PAD_LEFT - 6} y={yFor(tick) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[8px]">
                 {formatCentsCompactBRL(tick)}
               </text>
             </g>
@@ -105,9 +105,17 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
 
           {SERIES.map((series) => {
             const points = months.map((m, i) => `${xFor(i)},${yFor(m[series.key] as number)}`).join(" ");
+            const isNet = series.key === "saldoCents";
             return (
               <g key={series.key}>
-                <polyline points={points} fill="none" stroke={series.color} strokeWidth={2} />
+                <polyline
+                  points={points}
+                  fill="none"
+                  stroke={series.color}
+                  strokeWidth={2}
+                  strokeDasharray={isNet ? "1 4" : undefined}
+                  strokeLinecap={isNet ? "round" : undefined}
+                />
                 {months.map((m, i) => (
                   <circle
                     key={m.monthKey}
@@ -129,7 +137,7 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
                   x={xFor(i)}
                   y={HEIGHT - 5}
                   textAnchor="middle"
-                  className="fill-stone-500 text-[8px]"
+                  className="fill-[var(--muted)] text-[8px]"
                 >
                   {m.shortLabel}
                 </text>
@@ -157,15 +165,15 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
             }`}
             style={{ left: `${(xFor(hovered) / WIDTH) * 100}%` }}
           >
-            <p className="mb-1 font-semibold text-stone-900">{formatMonthKeyLabel(months[hovered].monthKey)}</p>
+            <p className="mb-1 font-semibold text-[var(--text-primary)]">{formatMonthKeyLabel(months[hovered].monthKey)}</p>
             <div className="space-y-0.5">
               {SERIES.map((series) => (
                 <div key={series.key} className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1 text-stone-600">
+                  <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: series.color }} />
                     {series.label}
                   </span>
-                  <span className="font-medium text-stone-900">
+                  <span className="font-medium text-[var(--text-primary)]">
                     {formatCentsToBRL(months[hovered][series.key] as number)}
                   </span>
                 </div>

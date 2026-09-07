@@ -51,7 +51,7 @@ export function HistoricalClassificationCards({ months }: { months: BudgetHistor
         return (
           <div key={classification} className="card p-4">
             <div className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1.5 font-bold text-stone-900">
+              <span className="flex items-center gap-1.5 font-bold text-[var(--text-primary)]">
                 <IconBadge icon={CLASSIFICATION_ICONS[classification as NonReceita]} color={color} size="sm" />
                 {CLASSIFICATION_LABELS[classification]}
               </span>
@@ -63,10 +63,10 @@ export function HistoricalClassificationCards({ months }: { months: BudgetHistor
             </div>
 
             <p className="mt-2 text-sm text-[var(--muted)]">{isGoal ? "Meta Média" : "Orçado Médio"}</p>
-            <p className="text-lg font-semibold text-stone-900">{formatCentsToBRL(avgBudgeted)}</p>
+            <p className="text-lg font-semibold text-[var(--text-primary)]">{formatCentsToBRL(avgBudgeted)}</p>
 
             <p className="mt-1 text-sm text-[var(--muted)]">Realizado Médio</p>
-            <p className="text-lg font-semibold text-stone-900">{formatCentsToBRL(avgRealized)}</p>
+            <p className="text-lg font-semibold text-[var(--text-primary)]">{formatCentsToBRL(avgRealized)}</p>
 
             <p className="mt-1 text-sm text-[var(--muted)]">
               {isGoal
@@ -82,10 +82,10 @@ export function HistoricalClassificationCards({ months }: { months: BudgetHistor
                 isGoal
                   ? diffCents <= 0
                     ? "text-[var(--success)]"
-                    : "text-stone-900"
+                    : "text-[var(--text-primary)]"
                   : diffCents < 0
                     ? "text-[var(--danger)]"
-                    : "text-stone-900"
+                    : "text-[var(--text-primary)]"
               }`}
             >
               {isGoal && diffCents === 0 ? "Meta atingida" : formatCentsToBRL(Math.abs(diffCents))}

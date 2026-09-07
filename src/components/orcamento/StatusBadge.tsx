@@ -1,7 +1,7 @@
 import type { BudgetStatus, GoalStatus } from "@/lib/budget-calc";
 
 const GOAL_STATUS_META: Record<GoalStatus, { label: string; className: string }> = {
-  EM_PROGRESSO: { label: "Em progresso", className: "bg-stone-100 text-stone-600" },
+  EM_PROGRESSO: { label: "Em progresso", className: "bg-[var(--neutral-bg)] text-[var(--neutral)]" },
   QUASE_LA: { label: "Quase lá", className: "bg-[var(--warning-bg)] text-[var(--warning)]" },
   META_ATINGIDA: { label: "Meta atingida", className: "bg-[var(--success-bg)] text-[var(--success)]" },
 };

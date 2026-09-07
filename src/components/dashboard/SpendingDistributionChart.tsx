@@ -26,6 +26,17 @@ const LEGEND_CAP = 10;
  * custom period (up to 24 months) would otherwise cram every month's
  * label under narrow bars until they overlap. */
 const MAX_X_LABELS = 12;
+const BAR_RADIUS = 4;
+
+/** Path for a bar segment with rounded top corners and a square bottom
+ * — used only for a column's topmost visible segment, so a stack reads
+ * as one rounded pill made of colored bands rather than a sharp block.
+ * Every lower segment keeps rendering as a plain <rect> (same geometry
+ * either way, just a different SVG element). */
+function roundedTopBarPath(x: number, y: number, width: number, height: number, radius: number): string {
+  const r = Math.min(radius, width / 2, height);
+  return `M${x},${y + height} V${y + r} Q${x},${y} ${x + r},${y} H${x + width - r} Q${x + width},${y} ${x + width},${y + r} V${y + height} Z`;
+}
 
 /** "Distribuição dos Gastos" — for each month, how the money actually
  * spent/invested that month broke down, as a stacked column in R$ (not
@@ -120,13 +131,13 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
   return (
     <div className="card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-stone-700">Distribuição dos Gastos</p>
+        <p className="text-sm font-medium text-[var(--text-secondary)]">Distribuição dos Gastos</p>
         <div className="inline-flex rounded-lg border border-[var(--surface-border)] p-0.5 text-xs">
           <button
             type="button"
             onClick={() => setView("classificacoes")}
             className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-              view === "classificacoes" ? "bg-[var(--primary)] text-white" : "text-stone-500 hover:bg-stone-100"
+              view === "classificacoes" ? "bg-[var(--primary)] text-[var(--on-primary)]" : "text-[var(--muted)] hover:bg-[var(--surface-hover)]"
             }`}
           >
             Classificações
@@ -135,7 +146,7 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
             type="button"
             onClick={() => setView("categorias")}
             className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-              view === "categorias" ? "bg-[var(--primary)] text-white" : "text-stone-500 hover:bg-stone-100"
+              view === "categorias" ? "bg-[var(--primary)] text-[var(--on-primary)]" : "text-[var(--muted)] hover:bg-[var(--surface-hover)]"
             }`}
           >
             Categorias
@@ -160,7 +171,7 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
                 stroke="var(--surface-border)"
                 strokeWidth={1}
               />
-              <text x={padLeft - 6} y={baselineY - yFor(tick) + 3} textAnchor="end" className="fill-stone-400 text-[8px]">
+              <text x={padLeft - 6} y={baselineY - yFor(tick) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[8px]">
                 {formatCentsCompactBRL(tick)}
               </text>
             </g>
@@ -169,6 +180,7 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
           {months.map((m, i) => {
             const x = columnFor(i);
             let cumulative = 0;
+            const topSegmentKey = segments.filter((seg) => valueFor(m, seg.key) > 0).at(-1)?.key;
             return (
               <g key={m.monthKey}>
                 {segments.map((seg) => {
@@ -177,7 +189,15 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
                   const segHeight = yFor(value);
                   const y = baselineY - yFor(cumulative) - segHeight;
                   cumulative += value;
-                  return (
+                  const opacity = hovered === null || hovered === i ? 1 : 0.45;
+                  return seg.key === topSegmentKey ? (
+                    <path
+                      key={seg.key}
+                      d={roundedTopBarPath(x, y, BAR_WIDTH, segHeight, BAR_RADIUS)}
+                      fill={seg.color}
+                      opacity={opacity}
+                    />
+                  ) : (
                     <rect
                       key={seg.key}
                       x={x}
@@ -185,12 +205,12 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
                       width={BAR_WIDTH}
                       height={segHeight}
                       fill={seg.color}
-                      opacity={hovered === null || hovered === i ? 1 : 0.45}
+                      opacity={opacity}
                     />
                   );
                 })}
                 {i % xLabelStep === 0 && (
-                  <text x={x + BAR_WIDTH / 2} y={height - 4} textAnchor="middle" className="fill-stone-500 text-[8px]">
+                  <text x={x + BAR_WIDTH / 2} y={height - 4} textAnchor="middle" className="fill-[var(--muted)] text-[8px]">
                     {m.shortLabel}
                   </text>
                 )}
@@ -219,23 +239,23 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
             } ${hovered <= 1 ? "" : hovered >= months.length - 2 ? "-translate-x-full" : "-translate-x-1/2"}`}
             style={{ left: `${((columnFor(hovered) + BAR_WIDTH / 2) / totalWidth) * 100}%` }}
           >
-            <p className="mb-1 font-semibold text-stone-900">{formatMonthKeyLabel(months[hovered].monthKey)}</p>
+            <p className="mb-1 font-semibold text-[var(--text-primary)]">{formatMonthKeyLabel(months[hovered].monthKey)}</p>
             <div className="space-y-0.5">
               {hoveredSegments.length === 0 ? (
-                <p className="text-stone-500">Sem valores no mês.</p>
+                <p className="text-[var(--muted)]">Sem valores no mês.</p>
               ) : (
                 hoveredSegments.map((seg) => (
                   <div key={seg.key} className="flex items-center justify-between gap-2">
-                    <span className="flex min-w-0 items-center gap-1 text-stone-600">
+                    <span className="flex min-w-0 items-center gap-1 text-[var(--text-tertiary)]">
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
                       <span className={view === "categorias" ? "truncate" : ""}>{seg.label}</span>
                     </span>
-                    <span className="shrink-0 font-medium text-stone-900">{formatCentsToBRL(seg.value)}</span>
+                    <span className="shrink-0 font-medium text-[var(--text-primary)]">{formatCentsToBRL(seg.value)}</span>
                   </div>
                 ))
               )}
             </div>
-            <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--surface-border)] pt-1 font-semibold text-stone-900">
+            <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--surface-border)] pt-1 font-semibold text-[var(--text-primary)]">
               <span>Total</span>
               <span>{formatCentsToBRL(monthTotals[hovered])}</span>
             </div>
@@ -261,7 +281,7 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
             </span>
           ))}
           {segments.length > LEGEND_CAP && (
-            <span className="text-stone-400">+{segments.length - LEGEND_CAP} categorias</span>
+            <span className="text-[var(--text-faint)]">+{segments.length - LEGEND_CAP} categorias</span>
           )}
         </div>
       )}

@@ -11,11 +11,6 @@ import {
 import { getCategoryIcon } from "@/lib/category-icons";
 import { IconBadge } from "@/components/orcamento/IconBadge";
 
-// Stone-500 — Neutro categories have no classification color of their
-// own (they never appear in the budget's classification palette, see
-// src/lib/classification-colors.ts), so a neutral gray badge fits.
-const NEUTRO_COLOR = "#78716c";
-
 export type NeutroCategory = {
   id: string;
   name: string;
@@ -157,10 +152,10 @@ export function NeutroCategoriesEditor({ categories }: { categories: NeutroCateg
             ) : (
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="flex items-start gap-2">
-                  <IconBadge icon={getCategoryIcon(cat.name)} color={NEUTRO_COLOR} variant="soft" size="sm" />
+                  <IconBadge icon={getCategoryIcon(cat.name)} color="var(--muted)" variant="soft" size="sm" />
                   <div>
-                    <p className="font-medium text-stone-900">{cat.name}</p>
-                    {cat.description && <p className="text-xs text-stone-600">{cat.description}</p>}
+                    <p className="font-medium text-[var(--text-primary)]">{cat.name}</p>
+                    {cat.description && <p className="text-xs text-[var(--text-tertiary)]">{cat.description}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -191,7 +186,7 @@ export function NeutroCategoriesEditor({ categories }: { categories: NeutroCateg
           <p className="text-xs font-medium text-[var(--muted)]">Categorias inativas</p>
           {inactive.map((cat) => (
             <div key={cat.id} className="flex items-center justify-between text-sm">
-              <span className="text-stone-500">{cat.name}</span>
+              <span className="text-[var(--muted)]">{cat.name}</span>
               <span className="flex items-center gap-3">
                 <button
                   type="button"

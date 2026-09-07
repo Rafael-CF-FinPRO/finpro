@@ -41,13 +41,13 @@ function DiferencaCell({ row }: { row: Row }) {
   const diffCents = row.budgetedCents - row.realizedCents;
   if (!isGoalClassification(row.classification)) {
     return (
-      <span className={diffCents < 0 ? "text-[var(--danger)]" : "text-stone-900"}>
+      <span className={diffCents < 0 ? "text-[var(--danger)]" : "text-[var(--text-primary)]"}>
         {formatCentsToBRL(diffCents)}
       </span>
     );
   }
   if (diffCents > 0) {
-    return <span className="text-stone-900">Faltam {formatCentsToBRL(diffCents)}</span>;
+    return <span className="text-[var(--text-primary)]">Faltam {formatCentsToBRL(diffCents)}</span>;
   }
   if (diffCents === 0) {
     return <span className="font-medium text-[var(--success)]">Meta atingida</span>;
@@ -116,15 +116,15 @@ export function BudgetVsRealizedPanel({
   return (
     <div className="card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-stone-700">Orçamento × Realizado</p>
+        <p className="text-sm font-medium text-[var(--text-secondary)]">Orçamento × Realizado</p>
         <div className="inline-flex rounded-lg border border-[var(--surface-border)] p-0.5 text-xs">
           <button
             type="button"
             onClick={() => setView("classificacoes")}
             className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
               view === "classificacoes"
-                ? "bg-[var(--primary)] text-white"
-                : "text-stone-500 hover:bg-stone-100"
+                ? "bg-[var(--primary)] text-[var(--on-primary)]"
+                : "text-[var(--muted)] hover:bg-[var(--surface-hover)]"
             }`}
           >
             Classificações
@@ -134,8 +134,8 @@ export function BudgetVsRealizedPanel({
             onClick={() => setView("categorias")}
             className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
               view === "categorias"
-                ? "bg-[var(--primary)] text-white"
-                : "text-stone-500 hover:bg-stone-100"
+                ? "bg-[var(--primary)] text-[var(--on-primary)]"
+                : "text-[var(--muted)] hover:bg-[var(--surface-hover)]"
             }`}
           >
             Categorias
@@ -168,17 +168,17 @@ export function BudgetVsRealizedPanel({
                 return (
                   <tr key={row.key} className="border-b border-[var(--surface-border)] last:border-0">
                     <td className="py-2.5 pr-2">
-                      <span className="flex items-center gap-2 font-medium text-stone-900">
+                      <span className="flex items-center gap-2 font-medium text-[var(--text-primary)]">
                         <IconBadge icon={row.icon} color={row.color} variant={row.variant} size="sm" />
                         {row.name}
                       </span>
                     </td>
-                    <td className="py-2.5 pr-2 text-stone-900">{formatCentsToBRL(row.budgetedCents)}</td>
-                    <td className="py-2.5 pr-2 text-stone-900">{formatCentsToBRL(row.realizedCents)}</td>
+                    <td className="py-2.5 pr-2 text-[var(--text-primary)]">{formatCentsToBRL(row.budgetedCents)}</td>
+                    <td className="py-2.5 pr-2 text-[var(--text-primary)]">{formatCentsToBRL(row.realizedCents)}</td>
                     <td className="py-2.5 pr-2">
                       <DiferencaCell row={row} />
                     </td>
-                    <td className="py-2.5 pr-2 text-stone-900">
+                    <td className="py-2.5 pr-2 text-[var(--text-primary)]">
                       {pct === null ? "—" : `${pct.toLocaleString("pt-BR")}%`}
                     </td>
                     <td className="py-2.5">

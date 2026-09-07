@@ -262,7 +262,7 @@ export function TransactionForm({
             />
           </svg>
         </div>
-        <p className="font-medium text-stone-700">
+        <p className="font-medium text-[var(--text-secondary)]">
           {TYPE_LABELS[type]} registrada com sucesso.
         </p>
       </div>
@@ -412,7 +412,7 @@ export function TransactionForm({
         {selectedCategory && (
           <p className="mt-1.5 text-sm text-[var(--muted)]">
             Classificação:{" "}
-            <span className="font-medium text-stone-700">
+            <span className="font-medium text-[var(--text-secondary)]">
               {CLASSIFICATION_LABELS[selectedCategory.classification]}
             </span>
           </p>
@@ -485,7 +485,7 @@ export function TransactionForm({
 
       {!isEdit && (
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
+          <label className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
             <input
               type="checkbox"
               className="h-4 w-4"
@@ -574,7 +574,7 @@ export function TransactionForm({
                   {totalPreview && (
                     <p className="mt-1.5 text-sm text-[var(--muted)]">
                       Total da compra:{" "}
-                      <span className="font-medium text-stone-700">{totalPreview}</span>
+                      <span className="font-medium text-[var(--text-secondary)]">{totalPreview}</span>
                     </p>
                   )}
                 </div>

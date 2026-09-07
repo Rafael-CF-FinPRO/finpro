@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "./LogoutButton";
+import { ThemeToggle } from "./ThemeToggle";
 import { NAV_ITEMS } from "./nav-items";
 
 // Remembers the collapsed/expanded state across visits — purely a
@@ -44,7 +45,7 @@ function NavLinks({
             } ${
               isActive
                 ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                : "text-[var(--text-tertiary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
             }`}
           >
             <Icon className="shrink-0" />
@@ -104,7 +105,7 @@ export function Sidebar({
         type="button"
         onClick={toggleCollapsed}
         aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-        className="absolute top-1/2 right-0 z-10 flex h-6 w-6 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-[var(--surface-border)] bg-[var(--surface)] text-stone-500 shadow-sm transition-colors hover:bg-stone-50 hover:text-stone-700"
+        className="absolute top-1/2 right-0 z-10 flex h-6 w-6 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-[var(--surface-border)] bg-[var(--surface)] text-[var(--muted)] shadow-sm transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
       >
         {collapsed ? <ChevronsRight size={13} /> : <ChevronsLeft size={13} />}
       </button>
@@ -130,6 +131,7 @@ export function Sidebar({
             >
               {initial}
             </div>
+            <ThemeToggle collapsed />
             <LogoutButton collapsed />
           </div>
         ) : (
@@ -139,11 +141,12 @@ export function Sidebar({
                 {initial}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-stone-900">{userName}</p>
+                <p className="truncate text-sm font-medium text-[var(--text-primary)]">{userName}</p>
                 <p className="truncate text-xs text-[var(--muted)]">{userEmail}</p>
               </div>
             </div>
-            <div className="mt-2">
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <ThemeToggle />
               <LogoutButton />
             </div>
           </>

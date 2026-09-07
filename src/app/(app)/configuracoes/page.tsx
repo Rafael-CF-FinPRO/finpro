@@ -25,13 +25,13 @@ export default async function ConfiguracoesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-stone-900">Configurações</h1>
+      <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Configurações</h1>
       <p className="mt-1 text-sm text-[var(--muted)]">
         Preferências da sua conta FinPRO.
       </p>
 
       <div className="card mt-6 p-4">
-        <h2 className="font-semibold text-stone-900">Meios de pagamento</h2>
+        <h2 className="font-semibold text-[var(--text-primary)]">Meios de pagamento</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Usados para identificar como cada lançamento foi pago ou recebido.
         </p>
@@ -43,7 +43,7 @@ export default async function ConfiguracoesPage() {
       </div>
 
       <div className="card mt-4 p-4">
-        <h2 className="font-semibold text-stone-900">Tags</h2>
+        <h2 className="font-semibold text-[var(--text-primary)]">Tags</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Usadas para agrupar lançamentos de uma viagem, passeio ou evento esporádico.
         </p>
@@ -53,7 +53,7 @@ export default async function ConfiguracoesPage() {
       </div>
 
       <div className="card mt-4 p-4">
-        <h2 className="font-semibold text-stone-900">Categorias neutras</h2>
+        <h2 className="font-semibold text-[var(--text-primary)]">Categorias neutras</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Para lançamentos que não são nem receita nem despesa, como pagamento de fatura,
           reembolso ou transferência entre suas contas. Não entram no orçamento.

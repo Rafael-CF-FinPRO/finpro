@@ -42,7 +42,7 @@ export default async function OrcamentoPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-stone-900">Orçamento</h1>
+      <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Orçamento</h1>
       <p className="mt-1 text-sm text-[var(--muted)]">
         Distribua sua renda mensal entre classificações e categorias.
       </p>

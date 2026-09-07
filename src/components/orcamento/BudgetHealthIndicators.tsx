@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-const MAXIMO_COLOR = "#f97316";
-const ACEITAVEL_COLOR = "#16a34a";
-const IDEAL_COLOR = "#38bdf8";
+const MAXIMO_COLOR = "var(--indicator-maximo)";
+const ACEITAVEL_COLOR = "var(--indicator-aceitavel)";
+const IDEAL_COLOR = "var(--indicator-ideal)";
 
 /** Which of the reference zones `value` currently falls in, so the
  * bar itself is colored the same as whichever threshold it's closest
@@ -202,7 +202,7 @@ function IndicatorBar({
   return (
     <div>
       <div className="mb-1.5 flex items-center gap-1.5">
-        <p className="text-xs font-medium text-stone-600">{label}</p>
+        <p className="text-xs font-medium text-[var(--text-tertiary)]">{label}</p>
         <div className="relative">
           <InfoButton
             label={`Sobre o indicador ${label}`}
@@ -213,12 +213,12 @@ function IndicatorBar({
           />
           {tooltipOpen && (
             <div
-              className="absolute left-0 top-5 z-20 w-64 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] p-2.5 text-[11px] leading-relaxed text-stone-600 shadow-lg"
+              className="absolute left-0 top-5 z-20 w-64 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] p-2.5 text-[11px] leading-relaxed text-[var(--text-tertiary)] shadow-lg"
               onMouseEnter={onTooltipEnter}
               onMouseLeave={onTooltipLeave}
             >
               <p>{description}</p>
-              <p className="mt-1.5 font-medium text-stone-700">
+              <p className="mt-1.5 font-medium text-[var(--text-secondary)]">
                 {higherIsBetter
                   ? "Quanto maior o valor, melhor dentro dos parâmetros de referência."
                   : "Quanto menor o valor, melhor dentro dos parâmetros de referência."}
@@ -232,7 +232,7 @@ function IndicatorBar({
           className="relative h-4 flex-1 cursor-help"
           title={`% Valor (do usuário): ${clampPct(userValue)}%`}
         >
-          <div className="h-full overflow-hidden rounded-full bg-stone-100">
+          <div className="h-full overflow-hidden rounded-full bg-[var(--control-track)]">
             <div
               className="h-full rounded-full"
               style={{ width: `${clampPct(userValue)}%`, backgroundColor: barColor }}
@@ -301,7 +301,7 @@ export function BudgetHealthIndicators({
       </div>
 
       <div className="mt-2 flex items-center gap-2">
-        <div className="flex flex-1 justify-between text-[10px] text-stone-400">
+        <div className="flex flex-1 justify-between text-[10px] text-[var(--text-faint)]">
           <span>0%</span>
           <span>25%</span>
           <span>50%</span>
@@ -311,7 +311,7 @@ export function BudgetHealthIndicators({
         <span className="w-10 shrink-0" aria-hidden="true" />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-xs text-stone-600">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-xs text-[var(--text-tertiary)]">
         <span>% Valor (do usuário) — na cor da faixa em que se encontra:</span>
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: MAXIMO_COLOR }} />
@@ -335,19 +335,19 @@ export function BudgetHealthIndicators({
           />
           {openTooltip === "legend" && (
             <div
-              className="absolute bottom-5 right-0 z-20 w-64 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] p-2.5 text-[11px] leading-relaxed text-stone-600 shadow-lg"
+              className="absolute bottom-5 right-0 z-20 w-64 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] p-2.5 text-[11px] leading-relaxed text-[var(--text-tertiary)] shadow-lg"
               onMouseEnter={() => setOpenTooltip("legend")}
               onMouseLeave={() => setOpenTooltip((cur) => (cur === "legend" ? null : cur))}
             >
               <p>
-                <strong className="text-stone-700">Máximo</strong> — limite superior de referência.
+                <strong className="text-[var(--text-secondary)]">Máximo</strong> — limite superior de referência.
               </p>
               <p className="mt-1">
-                <strong className="text-stone-700">Aceitável</strong> — nível intermediário de
+                <strong className="text-[var(--text-secondary)]">Aceitável</strong> — nível intermediário de
                 referência.
               </p>
               <p className="mt-1">
-                <strong className="text-stone-700">Ideal</strong> — objetivo de referência.
+                <strong className="text-[var(--text-secondary)]">Ideal</strong> — objetivo de referência.
               </p>
               <p className="mt-1.5">
                 A barra e o rótulo do valor do usuário ficam na cor da faixa (Máximo, Aceitável ou

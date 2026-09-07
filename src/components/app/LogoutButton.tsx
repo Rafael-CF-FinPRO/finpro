@@ -6,7 +6,7 @@ export function LogoutButton({ collapsed = false }: { collapsed?: boolean }) {
       <button
         type="submit"
         title={collapsed ? "Sair" : undefined}
-        className={`inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900 ${
+        className={`inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] ${
           collapsed ? "justify-center p-2" : "px-3 py-2"
         }`}
       >

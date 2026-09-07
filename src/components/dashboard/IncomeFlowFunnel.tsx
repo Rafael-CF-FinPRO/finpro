@@ -82,7 +82,7 @@ export function IncomeFlowFunnel({
 
   return (
     <div className="card p-4 sm:p-5">
-      <p className="text-sm font-medium text-stone-700">Visão Geral</p>
+      <p className="text-sm font-medium text-[var(--text-secondary)]">Visão Geral</p>
       <div className="mt-4 space-y-1">
         {stages.map((stage, i) => {
           const widthPct = Math.min(Math.max(pctOf(stage.remainderCents), 0), 100);
@@ -90,23 +90,23 @@ export function IncomeFlowFunnel({
           return (
             <div key={stage.key}>
               {i > 0 && (
-                <div className="flex justify-center py-0.5 text-stone-300">
+                <div className="flex justify-center py-0.5 text-[var(--text-faint)]">
                   <ChevronDown size={14} />
                 </div>
               )}
               <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="flex items-center gap-1.5 font-medium text-stone-700">
+                <span className="flex items-center gap-1.5 font-medium text-[var(--text-secondary)]">
                   {stage.icon && <IconBadge icon={stage.icon} color={stage.color} size="sm" />}
                   {stage.label}
                 </span>
-                <span className="font-semibold text-stone-900">
+                <span className="font-semibold text-[var(--text-primary)]">
                   {formatCentsToBRL(stage.valueCents)}{" "}
                   <span className="font-normal text-[var(--muted)]">
                     ({pctValue.toLocaleString("pt-BR")}% da receita)
                   </span>
                 </span>
               </div>
-              <div className="mt-1 h-3 w-full overflow-hidden rounded-full bg-stone-100">
+              <div className="mt-1 h-3 w-full overflow-hidden rounded-full bg-[var(--control-track)]">
                 <div
                   className="h-full rounded-full transition-[width]"
                   style={{ width: `${widthPct}%`, margin: "0 auto", backgroundColor: stage.color }}

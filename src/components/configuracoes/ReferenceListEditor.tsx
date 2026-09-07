@@ -121,7 +121,7 @@ export function ReferenceListEditor({
               </div>
             ) : (
               <>
-                <span className="font-medium text-stone-900">{item.name}</span>
+                <span className="font-medium text-[var(--text-primary)]">{item.name}</span>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"

@@ -38,7 +38,7 @@ export function HistoricalTopCategories({ history }: { history: BudgetHistory })
     <div className="card p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-base font-medium text-stone-700">Top 10 Categorias</p>
+          <p className="text-base font-medium text-[var(--text-secondary)]">Top 10 Categorias</p>
           <p className="text-sm text-[var(--muted)]">Onde você mais gastou no período?</p>
         </div>
         <div className="inline-flex rounded-lg border border-[var(--surface-border)] p-0.5 text-sm">
@@ -46,7 +46,7 @@ export function HistoricalTopCategories({ history }: { history: BudgetHistory })
             type="button"
             onClick={() => setView("media")}
             className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
-              view === "media" ? "bg-[var(--primary)] text-white" : "text-stone-500 hover:bg-stone-100"
+              view === "media" ? "bg-[var(--primary)] text-[var(--on-primary)]" : "text-[var(--muted)] hover:bg-[var(--surface-hover)]"
             }`}
           >
             Média mensal
@@ -55,7 +55,7 @@ export function HistoricalTopCategories({ history }: { history: BudgetHistory })
             type="button"
             onClick={() => setView("total")}
             className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
-              view === "total" ? "bg-[var(--primary)] text-white" : "text-stone-500 hover:bg-stone-100"
+              view === "total" ? "bg-[var(--primary)] text-[var(--on-primary)]" : "text-[var(--muted)] hover:bg-[var(--surface-hover)]"
             }`}
           >
             Total do período
@@ -79,10 +79,10 @@ export function HistoricalTopCategories({ history }: { history: BudgetHistory })
                 <IconBadge icon={getCategoryIcon(cat.name)} color={color} variant="soft" size="md" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-                    <p className="truncate text-base font-medium text-stone-900">{cat.displayName}</p>
-                    <p className="text-base font-semibold text-stone-900">{formatCentsToBRL(value)}</p>
+                    <p className="truncate text-base font-medium text-[var(--text-primary)]">{cat.displayName}</p>
+                    <p className="text-base font-semibold text-[var(--text-primary)]">{formatCentsToBRL(value)}</p>
                   </div>
-                  <div className="mt-1.5 h-3.5 w-full overflow-hidden rounded-full bg-stone-100">
+                  <div className="mt-1.5 h-3.5 w-full overflow-hidden rounded-full bg-[var(--control-track)]">
                     <div className="h-full rounded-full" style={{ width: `${barWidth}%`, backgroundColor: color }} />
                   </div>
                 </div>

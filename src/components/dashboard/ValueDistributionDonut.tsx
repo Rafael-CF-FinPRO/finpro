@@ -9,6 +9,7 @@ import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { withCategoryDisplayName } from "@/lib/category-display";
 import { IconBadge } from "@/components/orcamento/IconBadge";
+import { describeDonutSegment } from "@/lib/donut-geometry";
 import type { ClassificationBudgetRow } from "@/lib/budget";
 import type { Classification } from "@/generated/prisma/enums";
 
@@ -24,43 +25,6 @@ type Slice = {
   icon: ReturnType<typeof getCategoryIcon>;
   variant: "solid" | "soft";
 };
-
-// Same donut geometry as BudgetPieChart/BudgetCategoryDistribution —
-// duplicated deliberately rather than shared, since those stay exactly
-// as they are; this is an independent chart with its own slice shape
-// (it mixes Receitas in with the 3 classifications, which the Orçamento
-// donuts never do).
-function round(value: number): number {
-  return Math.round(value * 10000) / 10000;
-}
-
-function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
-  const angleRad = ((angleDeg - 90) * Math.PI) / 180;
-  return { x: round(cx + r * Math.cos(angleRad)), y: round(cy + r * Math.sin(angleRad)) };
-}
-
-function describeDonutSegment(
-  cx: number,
-  cy: number,
-  outerR: number,
-  innerR: number,
-  startAngle: number,
-  endAngle: number
-) {
-  const clampedEnd = Math.min(endAngle, startAngle + 359.99);
-  const startOuter = polarToCartesian(cx, cy, outerR, startAngle);
-  const endOuter = polarToCartesian(cx, cy, outerR, clampedEnd);
-  const startInner = polarToCartesian(cx, cy, innerR, clampedEnd);
-  const endInner = polarToCartesian(cx, cy, innerR, startAngle);
-  const largeArc = clampedEnd - startAngle > 180 ? 1 : 0;
-  return [
-    `M ${startOuter.x} ${startOuter.y}`,
-    `A ${outerR} ${outerR} 0 ${largeArc} 1 ${endOuter.x} ${endOuter.y}`,
-    `L ${startInner.x} ${startInner.y}`,
-    `A ${innerR} ${innerR} 0 ${largeArc} 0 ${endInner.x} ${endInner.y}`,
-    "Z",
-  ].join(" ");
-}
 
 /** "Distribuição dos Valores" — a donut that puts Receitas (all of this
  * month's income) alongside the 3 classifications' Realizado, so the
@@ -139,7 +103,7 @@ export function ValueDistributionDonut({
   return (
     <div className="card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-stone-700">Distribuição dos Valores</p>
+        <p className="text-sm font-medium text-[var(--text-secondary)]">Distribuição dos Valores</p>
         <div className="inline-flex rounded-lg border border-[var(--surface-border)] p-0.5 text-xs">
           <button
             type="button"
@@ -149,8 +113,8 @@ export function ValueDistributionDonut({
             }}
             className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
               view === "classificacoes"
-                ? "bg-[var(--primary)] text-white"
-                : "text-stone-500 hover:bg-stone-100"
+                ? "bg-[var(--primary)] text-[var(--on-primary)]"
+                : "text-[var(--muted)] hover:bg-[var(--surface-hover)]"
             }`}
           >
             Classificações
@@ -163,8 +127,8 @@ export function ValueDistributionDonut({
             }}
             className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
               view === "categorias"
-                ? "bg-[var(--primary)] text-white"
-                : "text-stone-500 hover:bg-stone-100"
+                ? "bg-[var(--primary)] text-[var(--on-primary)]"
+                : "text-[var(--muted)] hover:bg-[var(--surface-hover)]"
             }`}
           >
             Categorias
@@ -201,10 +165,10 @@ export function ValueDistributionDonut({
                 <title>{`${slice.name}: ${formatCentsToBRL(slice.valueCents)} (${pctOf(slice.valueCents)}%)`}</title>
               </path>
             ))}
-            <text x={cx} y={cy - 6} textAnchor="middle" className="fill-stone-900 text-sm font-semibold">
+            <text x={cx} y={cy - 6} textAnchor="middle" className="fill-[var(--text-primary)] text-sm font-semibold">
               {active ? `${pctOf(active.valueCents)}%` : "Total"}
             </text>
-            <text x={cx} y={cy + 14} textAnchor="middle" className="fill-stone-500 text-xs">
+            <text x={cx} y={cy + 14} textAnchor="middle" className="fill-[var(--muted)] text-xs">
               {active ? formatCentsToBRL(active.valueCents) : formatCentsToBRL(total)}
             </text>
           </svg>
@@ -219,8 +183,8 @@ export function ValueDistributionDonut({
               >
                 <IconBadge icon={slice.icon} color={slice.color} variant={slice.variant} size="sm" />
                 <div className="leading-tight">
-                  <p className="text-stone-700">{slice.name}</p>
-                  <p className="font-medium text-stone-900">
+                  <p className="text-[var(--text-secondary)]">{slice.name}</p>
+                  <p className="font-medium text-[var(--text-primary)]">
                     {pctOf(slice.valueCents)}% · {formatCentsToBRL(slice.valueCents)}
                   </p>
                 </div>

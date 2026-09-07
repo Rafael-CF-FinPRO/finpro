@@ -14,14 +14,14 @@ function tierFor(pct: number): { label: string; color: string } {
   return { label: "Crítico", color: "var(--danger)" };
 }
 
-// Same semicircle-arc convention as SaldoGauge.tsx (180°→0° sweeping the
-// top), duplicated locally since this gauge draws fixed color zones
-// instead of a single filled arc — a different enough shape to not share
-// SaldoGauge's implementation. Math.cos/Math.sin can differ in their
-// last bit between the server's and the browser's JS engine build,
-// which would otherwise make the rendered triangle's `points` string
-// mismatch between SSR and hydration — same fix as the donut charts'
-// own round().
+// A semicircle-arc gauge (180°→0° sweeping the top) with fixed color
+// zones instead of a single filled arc — different enough from the
+// donut charts' full-circle geometry (src/lib/donut-geometry.ts) to
+// warrant its own math rather than sharing it. Math.cos/Math.sin can
+// differ in their last bit between the server's and the browser's JS
+// engine build, which would otherwise make the rendered triangle's
+// `points` string mismatch between SSR and hydration — same fix as the
+// donut charts' own round().
 function round(value: number): number {
   return Math.round(value * 10000) / 10000;
 }
@@ -79,11 +79,17 @@ export function BudgetComplianceScore({
   const cy = 118;
   const r = 88;
   const strokeWidth = 14;
+  // A small gap between zones so their now-rounded caps read as
+  // separate capsule segments instead of overlapping into each other
+  // at the 50/80 boundaries — the true 0/100 ends stay full-length.
+  const ZONE_GAP_PCT = 1.2;
   const zones = [
-    { from: 0, to: 50, color: "var(--danger)" },
-    { from: 50, to: 80, color: "var(--warning)" },
-    { from: 80, to: 100, color: "var(--success)" },
+    { from: 0, to: 50 - ZONE_GAP_PCT / 2, color: "var(--danger)" },
+    { from: 50 + ZONE_GAP_PCT / 2, to: 80 - ZONE_GAP_PCT / 2, color: "var(--warning)" },
+    { from: 80 + ZONE_GAP_PCT / 2, to: 100, color: "var(--success)" },
   ];
+  const TICKS = [0, 50, 80, 100];
+  const tickLabelR = r + strokeWidth / 2 + 12;
 
   const needleAngle = angleForPct(overall);
   const tipR = r + strokeWidth / 2 + 3;
@@ -99,7 +105,7 @@ export function BudgetComplianceScore({
 
   return (
     <div className="mt-6 border-t border-[var(--surface-border)] pt-4">
-      <p className="text-sm font-medium text-stone-700">Cumprimento do Orçamento</p>
+      <p className="text-sm font-medium text-[var(--text-secondary)]">Cumprimento do Orçamento</p>
 
       <div className="flex flex-col items-center">
         <svg
@@ -114,12 +120,27 @@ export function BudgetComplianceScore({
               fill="none"
               stroke={zone.color}
               strokeWidth={strokeWidth}
-              strokeLinecap="butt"
+              strokeLinecap="round"
               opacity={0.85}
             />
           ))}
+          {TICKS.map((v) => {
+            const p = polarToCartesian(cx, cy, tickLabelR, angleForPct(v));
+            return (
+              <text
+                key={v}
+                x={p.x}
+                y={p.y}
+                textAnchor={v === 0 ? "start" : v === 100 ? "end" : "middle"}
+                dominantBaseline="middle"
+                className="fill-[var(--text-faint)] text-[9px]"
+              >
+                {v}
+              </text>
+            );
+          })}
           <polygon points={trianglePoints} fill="var(--primary)" />
-          <text x={cx} y={cy - 20} textAnchor="middle" className="fill-stone-900 text-2xl font-bold">
+          <text x={cx} y={cy - 20} textAnchor="middle" className="fill-[var(--text-primary)] text-2xl font-bold">
             {overall}%
           </text>
           <text x={cx} y={cy} textAnchor="middle" className="text-xs font-medium" fill={tier.color}>
@@ -134,7 +155,7 @@ export function BudgetComplianceScore({
             key={s.classification}
             className="flex items-center justify-between gap-2 rounded-lg border border-[var(--surface-border)] px-3 py-2 text-xs"
           >
-            <span className="flex items-center gap-1.5 font-medium text-stone-700">
+            <span className="flex items-center gap-1.5 font-medium text-[var(--text-secondary)]">
               <IconBadge
                 icon={CLASSIFICATION_ICONS[s.classification as NonReceita]}
                 color={CLASSIFICATION_COLORS[s.classification as NonReceita]}
@@ -143,7 +164,7 @@ export function BudgetComplianceScore({
               />
               {CLASSIFICATION_LABELS[s.classification]}
             </span>
-            <span className="font-semibold text-stone-900">{s.pct}%</span>
+            <span className="font-semibold text-[var(--text-primary)]">{s.pct}%</span>
           </div>
         ))}
       </div>

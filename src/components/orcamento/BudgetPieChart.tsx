@@ -6,6 +6,7 @@ import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { formatCentsToBRL } from "@/lib/money";
 import { IconBadge } from "./IconBadge";
+import { describeDonutSegment } from "@/lib/donut-geometry";
 import type { Classification } from "@/generated/prisma/enums";
 
 type Slice = {
@@ -13,42 +14,6 @@ type Slice = {
   percentage: number;
   budgetedCents: number;
 };
-
-// Math.cos/Math.sin can differ in their last bit between the server's and
-// the browser's JS engine build, which would otherwise make the rendered
-// path's `d` string mismatch between SSR and hydration. Rounding collapses
-// that ULP-level noise before it becomes an observable string difference.
-function round(value: number): number {
-  return Math.round(value * 10000) / 10000;
-}
-
-function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
-  const angleRad = ((angleDeg - 90) * Math.PI) / 180;
-  return { x: round(cx + r * Math.cos(angleRad)), y: round(cy + r * Math.sin(angleRad)) };
-}
-
-function describeDonutSegment(
-  cx: number,
-  cy: number,
-  outerR: number,
-  innerR: number,
-  startAngle: number,
-  endAngle: number
-) {
-  const clampedEnd = Math.min(endAngle, startAngle + 359.99);
-  const startOuter = polarToCartesian(cx, cy, outerR, startAngle);
-  const endOuter = polarToCartesian(cx, cy, outerR, clampedEnd);
-  const startInner = polarToCartesian(cx, cy, innerR, clampedEnd);
-  const endInner = polarToCartesian(cx, cy, innerR, startAngle);
-  const largeArc = clampedEnd - startAngle > 180 ? 1 : 0;
-  return [
-    `M ${startOuter.x} ${startOuter.y}`,
-    `A ${outerR} ${outerR} 0 ${largeArc} 1 ${endOuter.x} ${endOuter.y}`,
-    `L ${startInner.x} ${startInner.y}`,
-    `A ${innerR} ${innerR} 0 ${largeArc} 0 ${endInner.x} ${endInner.y}`,
-    "Z",
-  ].join(" ");
-}
 
 export function BudgetPieChart({ slices }: { slices: Slice[] }) {
   const [active, setActive] = useState<Slice | null>(null);
@@ -105,11 +70,11 @@ export function BudgetPieChart({ slices }: { slices: Slice[] }) {
           x={cx}
           y={cy - 6}
           textAnchor="middle"
-          className="fill-stone-900 text-sm font-semibold"
+          className="fill-[var(--text-primary)] text-sm font-semibold"
         >
           {active ? `${active.percentage}%` : "Orçamento"}
         </text>
-        <text x={cx} y={cy + 14} textAnchor="middle" className="fill-stone-500 text-xs">
+        <text x={cx} y={cy + 14} textAnchor="middle" className="fill-[var(--muted)] text-xs">
           {active
             ? formatCentsToBRL(active.budgetedCents)
             : `${slices.filter((s) => s.percentage > 0).length} classificações`}
@@ -130,8 +95,8 @@ export function BudgetPieChart({ slices }: { slices: Slice[] }) {
               size="sm"
             />
             <div className="leading-tight">
-              <p className="text-stone-700">{CLASSIFICATION_LABELS[slice.classification]}</p>
-              <p className="font-medium text-stone-900">
+              <p className="text-[var(--text-secondary)]">{CLASSIFICATION_LABELS[slice.classification]}</p>
+              <p className="font-medium text-[var(--text-primary)]">
                 {slice.percentage}% · {formatCentsToBRL(slice.budgetedCents)}
               </p>
             </div>
