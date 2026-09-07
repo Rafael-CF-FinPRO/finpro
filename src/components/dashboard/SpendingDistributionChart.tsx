@@ -141,6 +141,13 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
           .filter((seg) => seg.value > 0)
           .sort((a, b) => b.value - a.value);
 
+  // Share of that month's total despesas — recomputed from
+  // monthTotals[hovered], which is itself already derived from
+  // `segments`, so switching Classificações ↔ Categorias or hovering a
+  // different month updates every percentage automatically.
+  const pctOfMonthTotal = (value: number) =>
+    hovered !== null && monthTotals[hovered] > 0 ? Math.round((value / monthTotals[hovered]) * 100) : 0;
+
   return (
     <div className="card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -264,7 +271,9 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
                       <span className={view === "categorias" ? "truncate" : ""}>{seg.label}</span>
                     </span>
-                    <span className="shrink-0 font-medium text-[var(--text-primary)]">{formatCentsToBRL(seg.value)}</span>
+                    <span className="shrink-0 font-medium text-[var(--text-primary)]">
+                      {formatCentsToBRL(seg.value)} — {pctOfMonthTotal(seg.value)}%
+                    </span>
                   </div>
                 ))
               )}

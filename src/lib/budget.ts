@@ -342,9 +342,31 @@ export async function getBudgetHistory(
   fromDate: Date,
   toDate: Date
 ): Promise<BudgetHistory> {
-  const fromDateStr = toDateInputValue(fromDate);
+  const [profile, firstTransaction] = await Promise.all([
+    getBudgetProfile(userId),
+    prisma.transaction.aggregate({ where: { userId }, _min: { date: true } }),
+  ]);
+
+  // However far back the selected period (a preset or a custom range)
+  // would normally reach, never enumerate a month before the user's own
+  // first transaction — there's nothing real to show there, and
+  // getBudgetOverview would otherwise happily return a zeroed-out
+  // Realizado for it (Orçado still applies to any month key), rendering
+  // as fabricated empty months the user never actually had. Clamped to
+  // the 1st of that month (not the exact day) so the first bucket is a
+  // clean whole month rather than an arbitrary partial one, and never
+  // past `toDate` itself, so a range entirely before the user's first
+  // transaction collapses to a single point instead of inverting.
+  const firstDataDate = firstTransaction._min.date;
+  let effectiveFromDate = fromDate;
+  if (firstDataDate) {
+    const firstDataMonthStart = new Date(Date.UTC(firstDataDate.getUTCFullYear(), firstDataDate.getUTCMonth(), 1));
+    if (firstDataMonthStart > effectiveFromDate) effectiveFromDate = firstDataMonthStart;
+  }
+  if (effectiveFromDate > toDate) effectiveFromDate = toDate;
+
+  const fromDateStr = toDateInputValue(effectiveFromDate);
   const toDateStr = toDateInputValue(toDate);
-  const profile = await getBudgetProfile(userId);
 
   if (!profile) {
     return {
@@ -360,7 +382,7 @@ export async function getBudgetHistory(
     };
   }
 
-  const buckets = enumerateMonthBucketsForDateRange(fromDate, toDate);
+  const buckets = enumerateMonthBucketsForDateRange(effectiveFromDate, toDate);
   const overviews = await Promise.all(
     buckets.map((b) => getBudgetOverview(userId, b.monthKey, { from: b.from, to: b.to }))
   );
