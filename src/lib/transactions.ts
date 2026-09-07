@@ -154,37 +154,66 @@ export async function getTransactions(userId: string, filters: TransactionFilter
 
 export type TransactionsSummary = {
   incomeCents: number;
+  incomePaidCents: number;
+  incomeUnpaidCents: number;
   expenseCents: number;
+  expensePaidCents: number;
+  expenseUnpaidCents: number;
   neutroCents: number;
+  neutroPaidCents: number;
+  neutroUnpaidCents: number;
   balanceCents: number;
+  balancePaidCents: number;
+  balanceUnpaidCents: number;
 };
 
 // Neutro is neither income nor expense (a bill payment, a reimbursement,
 // a transfer between your own accounts) — it's tracked in its own
 // bucket and deliberately left out of balanceCents, otherwise it would
-// misrepresent the actual Entradas/Saídas/Saldo.
+// misrepresent the actual Entradas/Saídas/Saldo. Each bucket (and the
+// derived Saldo) also splits into its Pago/Não pago share, so the
+// summary cards can show how much of each total is already settled vs
+// still pending.
 export function summarize(
-  transactions: { type: TransactionType; amountCents: number }[]
+  transactions: { type: TransactionType; amountCents: number; status: TransactionStatus }[]
 ): TransactionsSummary {
   let incomeCents = 0;
+  let incomePaidCents = 0;
   let expenseCents = 0;
+  let expensePaidCents = 0;
   let neutroCents = 0;
+  let neutroPaidCents = 0;
 
   for (const t of transactions) {
+    const isPaid = t.status === "PAGO";
     if (t.type === "ENTRADA") {
       incomeCents += t.amountCents;
+      if (isPaid) incomePaidCents += t.amountCents;
     } else if (t.type === "SAIDA") {
       expenseCents += t.amountCents;
+      if (isPaid) expensePaidCents += t.amountCents;
     } else {
       neutroCents += t.amountCents;
+      if (isPaid) neutroPaidCents += t.amountCents;
     }
   }
 
+  const incomeUnpaidCents = incomeCents - incomePaidCents;
+  const expenseUnpaidCents = expenseCents - expensePaidCents;
+
   return {
     incomeCents,
+    incomePaidCents,
+    incomeUnpaidCents,
     expenseCents,
+    expensePaidCents,
+    expenseUnpaidCents,
     neutroCents,
+    neutroPaidCents,
+    neutroUnpaidCents: neutroCents - neutroPaidCents,
     balanceCents: incomeCents - expenseCents,
+    balancePaidCents: incomePaidCents - expensePaidCents,
+    balanceUnpaidCents: incomeUnpaidCents - expenseUnpaidCents,
   };
 }
 
