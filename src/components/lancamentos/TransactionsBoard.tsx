@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Upload, X, Repeat, Layers } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { Upload, X, Repeat, Layers, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { formatCentsToBRL } from "@/lib/money";
 import { CLASSIFICATION_LABELS, STATUS_LABELS, TYPE_LABELS } from "@/lib/transaction-labels";
 import { markTransactionPaidStatusAction } from "@/app/actions/transactions";
@@ -177,6 +177,87 @@ function TagBadge({ name }: { name: string }) {
   );
 }
 
+type SortKey =
+  | "date"
+  | "type"
+  | "status"
+  | "description"
+  | "category"
+  | "classification"
+  | "paymentMethod"
+  | "tag"
+  | "amount";
+type SortState = { key: SortKey; direction: "asc" | "desc" } | null;
+
+function compareTransactions(a: TransactionRow, b: TransactionRow, key: SortKey): number {
+  switch (key) {
+    case "date":
+      return a.dateValue.localeCompare(b.dateValue);
+    case "type":
+      return TYPE_LABELS[a.type].localeCompare(TYPE_LABELS[b.type], "pt-BR");
+    case "status":
+      return STATUS_LABELS[a.status].localeCompare(STATUS_LABELS[b.status], "pt-BR");
+    case "description":
+      return displayTitle(a).localeCompare(displayTitle(b), "pt-BR");
+    case "category":
+      return a.categoryName.localeCompare(b.categoryName, "pt-BR");
+    case "classification":
+      return CLASSIFICATION_LABELS[a.classification].localeCompare(
+        CLASSIFICATION_LABELS[b.classification],
+        "pt-BR"
+      );
+    case "paymentMethod":
+      return (a.paymentMethodName ?? "").localeCompare(b.paymentMethodName ?? "", "pt-BR");
+    case "tag":
+      return (a.tagName ?? "").localeCompare(b.tagName ?? "", "pt-BR");
+    case "amount":
+      return a.amountCents - b.amountCents;
+  }
+}
+
+// A small discreet control appended after the column label — a faint
+// two-way arrow when the column isn't the active sort, a solid
+// directional one once it is. Clicking cycles asc → desc → back to the
+// table's natural order (date desc), rather than being stuck once
+// engaged.
+function SortableHeader({
+  label,
+  sortKey,
+  sort,
+  onToggle,
+  align = "left",
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: SortState;
+  onToggle: (key: SortKey) => void;
+  align?: "left" | "right";
+}) {
+  const isActive = sort?.key === sortKey;
+  return (
+    <th className={`px-4 py-3 font-medium ${align === "right" ? "text-right" : ""}`}>
+      <button
+        type="button"
+        onClick={() => onToggle(sortKey)}
+        className={`inline-flex items-center gap-1 transition-colors hover:text-[var(--text-secondary)] ${
+          align === "right" ? "flex-row-reverse" : ""
+        } ${isActive ? "text-[var(--text-secondary)]" : ""}`}
+      >
+        {label}
+        {isActive ? (
+          sort.direction === "asc" ? (
+            <ArrowUp size={11} className="shrink-0" />
+          ) : (
+            <ArrowDown size={11} className="shrink-0" />
+          )
+        ) : (
+          <ArrowUpDown size={11} className="shrink-0 opacity-40" />
+        )}
+      </button>
+    </th>
+  );
+}
+
 export function TransactionsBoard({
   categories,
   paymentMethods,
@@ -190,6 +271,24 @@ export function TransactionsBoard({
 }) {
   const [modal, setModal] = useState<ModalState>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [sort, setSort] = useState<SortState>(null);
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, direction: "asc" };
+      if (prev.direction === "asc") return { key, direction: "desc" };
+      return null;
+    });
+  }
+
+  // Purely a client-side re-order of the already-filtered/fetched page
+  // — no round trip, since the whole matching result set is already on
+  // screen (Lançamentos has no pagination to preserve order across).
+  const sortedTransactions = useMemo(() => {
+    if (!sort) return transactions;
+    const factor = sort.direction === "asc" ? 1 : -1;
+    return [...transactions].sort((a, b) => factor * compareTransactions(a, b, sort.key));
+  }, [transactions, sort]);
 
   return (
     <div>
@@ -257,20 +356,30 @@ export function TransactionsBoard({
             <table className="hidden w-full text-left text-sm md:table">
               <thead className="border-b border-[var(--surface-border)] text-xs uppercase tracking-wide text-[var(--muted)]">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Data</th>
-                  <th className="px-4 py-3 font-medium">Tipo</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Descrição</th>
-                  <th className="px-4 py-3 font-medium">Categoria</th>
-                  <th className="px-4 py-3 font-medium">Classificação</th>
-                  <th className="px-4 py-3 font-medium">Meio de pagamento</th>
-                  <th className="px-4 py-3 font-medium">Tag</th>
-                  <th className="px-4 py-3 text-right font-medium">Valor</th>
+                  <SortableHeader label="Data" sortKey="date" sort={sort} onToggle={toggleSort} />
+                  <SortableHeader label="Tipo" sortKey="type" sort={sort} onToggle={toggleSort} />
+                  <SortableHeader label="Status" sortKey="status" sort={sort} onToggle={toggleSort} />
+                  <SortableHeader label="Descrição" sortKey="description" sort={sort} onToggle={toggleSort} />
+                  <SortableHeader label="Categoria" sortKey="category" sort={sort} onToggle={toggleSort} />
+                  <SortableHeader
+                    label="Classificação"
+                    sortKey="classification"
+                    sort={sort}
+                    onToggle={toggleSort}
+                  />
+                  <SortableHeader
+                    label="Meio de pagamento"
+                    sortKey="paymentMethod"
+                    sort={sort}
+                    onToggle={toggleSort}
+                  />
+                  <SortableHeader label="Tag" sortKey="tag" sort={sort} onToggle={toggleSort} />
+                  <SortableHeader label="Valor" sortKey="amount" sort={sort} onToggle={toggleSort} align="right" />
                   <th className="px-4 py-3 text-right font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--surface-border)]">
-                {transactions.map((t) => (
+                {sortedTransactions.map((t) => (
                   <tr key={t.id}>
                     <td className="px-4 py-3 text-[var(--text-tertiary)]">{t.dateLabel}</td>
                     <td className="px-4 py-3">
@@ -325,7 +434,7 @@ export function TransactionsBoard({
 
             {/* Mobile cards */}
             <ul className="divide-y divide-[var(--surface-border)] md:hidden">
-              {transactions.map((t) => (
+              {sortedTransactions.map((t) => (
                 <li key={t.id} className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">

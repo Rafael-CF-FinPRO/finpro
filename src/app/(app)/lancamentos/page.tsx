@@ -95,7 +95,12 @@ export default async function LancamentosPage({
       </div>
 
       <div className="mt-4">
-        <FiltersBar filters={filters} categories={categoryOptions} />
+        <FiltersBar
+          filters={filters}
+          categories={categoryOptions}
+          paymentMethods={paymentMethodOptions}
+          tags={tagOptions}
+        />
       </div>
 
       <div className="mt-4">
