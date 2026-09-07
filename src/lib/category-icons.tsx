@@ -27,6 +27,7 @@ import {
   Tag,
   Undo2,
   ArrowLeftRight,
+  PiggyBank,
   type LucideIcon,
 } from "lucide-react";
 
@@ -73,6 +74,7 @@ const CATEGORY_ICON_BY_NAME: Record<string, LucideIcon> = {
   "Pagamento de Fatura": CreditCard,
   Reembolso: Undo2,
   "Transferência entre Contas": ArrowLeftRight,
+  "Pagamento de Despesa Provisionada": PiggyBank,
 };
 
 const FALLBACK_ICON: LucideIcon = Tag;

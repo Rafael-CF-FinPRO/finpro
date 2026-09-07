@@ -287,4 +287,11 @@ export const DEFAULT_CATEGORY_TEMPLATE: {
     classification: "NEUTRA",
     order: 3,
   },
+  {
+    name: "Pagamento de Despesa Provisionada",
+    description: "Pagamento de uma despesa grande e prevista, como o IPVA do carro, usando o dinheiro que você já vinha separando mês a mês e lançando como saída — não é um gasto novo, apenas a quitação do valor que você já havia provisionado.",
+    type: "NEUTRO",
+    classification: "NEUTRA",
+    order: 4,
+  },
 ];
