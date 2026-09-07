@@ -151,7 +151,7 @@ export function CategoryAllocationEditor({
         return (
           <div
             key={cat.categoryId}
-            className="card border-l-4 p-3"
+            className="card border-l-4 p-2"
             style={{ borderLeftColor: classificationColor }}
           >
             {isEditing ? (
@@ -197,21 +197,21 @@ export function CategoryAllocationEditor({
               </div>
             ) : (
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex items-start gap-2">
+                <div className="flex min-w-0 items-start gap-2">
                   <IconBadge
                     icon={getCategoryIcon(cat.name)}
                     color={classificationColor}
                     variant="soft"
                     size="sm"
                   />
-                  <div>
-                    <p className="font-medium text-[var(--text-primary)]">{cat.name}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-[var(--text-primary)]">{cat.name}</p>
                     {cat.description && (
-                      <p className="text-xs text-[var(--text-tertiary)]">{cat.description}</p>
+                      <p className="text-xs leading-snug text-[var(--text-tertiary)]">{cat.description}</p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex shrink-0 items-center gap-2">
                   {!cat.isConfigured && catPct === 0 && (
                     <span className="text-xs text-[var(--muted)]">Não configurada</span>
                   )}
@@ -234,32 +234,41 @@ export function CategoryAllocationEditor({
               </div>
             )}
 
-            <div className="mt-2">
-              <PercentageSlider
-                label={cat.name}
-                value={catPct}
-                onChange={(v) => onPctChange(cat.categoryId, v)}
-                monthlyIncomeCents={monthlyIncomeCents}
-              />
-            </div>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-              <div>
-                <p className="text-[var(--muted)]">{isGoal ? "Meta" : "Orçado"}</p>
-                <p className="font-medium text-[var(--text-primary)]">{formatCentsToBRL(liveBudgeted)}</p>
+            {/* Slider and every stat that used to be its own stacked
+                label/value block now share one flex-wrap row — on a
+                normal-width screen they all sit on a single line;
+                narrower ones just wrap, never a fixed grid forcing extra
+                height. */}
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <div className="min-w-[120px] flex-1">
+                <PercentageSlider
+                  label={cat.name}
+                  value={catPct}
+                  onChange={(v) => onPctChange(cat.categoryId, v)}
+                  monthlyIncomeCents={monthlyIncomeCents}
+                />
               </div>
-              <div>
-                <p className="text-[var(--muted)]">{isGoal ? "Investido" : "Realizado"}</p>
-                <p className="font-medium text-[var(--text-primary)]">{formatCentsToBRL(cat.realizedCents)}</p>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--muted)]">
+                <span>
+                  {isGoal ? "Meta" : "Orçado"}{" "}
+                  <span className="font-medium text-[var(--text-primary)]">
+                    {formatCentsToBRL(liveBudgeted)}
+                  </span>
+                </span>
+                <span>
+                  {isGoal ? "Investido" : "Realizado"}{" "}
+                  <span className="font-medium text-[var(--text-primary)]">
+                    {formatCentsToBRL(cat.realizedCents)}
+                  </span>
+                </span>
+                <span>
+                  {isGoal ? "% da meta" : "% Gasto"}{" "}
+                  <span className="font-medium text-[var(--text-primary)]">
+                    {livePctGasto === null ? "—" : `${livePctGasto.toLocaleString("pt-BR")}%`}
+                  </span>
+                </span>
+                <StatusBadge status={liveStatus} goalStatus={liveGoalStatus} />
               </div>
-              <div>
-                <p className="text-[var(--muted)]">{isGoal ? "% da meta" : "% Gasto"}</p>
-                <p className="font-medium text-[var(--text-primary)]">
-                  {livePctGasto === null ? "—" : `${livePctGasto.toLocaleString("pt-BR")}%`}
-                </p>
-              </div>
-            </div>
-            <div className="mt-2">
-              <StatusBadge status={liveStatus} goalStatus={liveGoalStatus} />
             </div>
           </div>
         );

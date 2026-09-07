@@ -491,21 +491,23 @@ export function BudgetBoard({
                         return (
                           <div
                             key={cat.categoryId}
-                            className="card border-l-4 p-3"
+                            className="card border-l-4 p-2"
                             style={{ borderLeftColor: classificationColor }}
                           >
                             <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="flex items-start gap-2">
+                              <div className="flex min-w-0 items-start gap-2">
                                 <IconBadge
                                   icon={getCategoryIcon(cat.name)}
                                   color={classificationColor}
                                   variant="soft"
                                   size="sm"
                                 />
-                                <div>
-                                  <p className="font-medium text-[var(--text-primary)]">{cat.name}</p>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-[var(--text-primary)]">{cat.name}</p>
                                   {cat.description && (
-                                    <p className="text-xs text-[var(--text-tertiary)]">{cat.description}</p>
+                                    <p className="text-xs leading-snug text-[var(--text-tertiary)]">
+                                      {cat.description}
+                                    </p>
                                   )}
                                 </div>
                               </div>
@@ -517,31 +519,29 @@ export function BudgetBoard({
                                 <StatusBadge status={cat.status} />
                               )}
                             </div>
-                            <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                              <div>
-                                <p className="text-[var(--muted)]">{isGoal ? "Meta" : "Orçado"}</p>
-                                <p className="font-medium text-[var(--text-primary)]">
+                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--muted)]">
+                              <span>
+                                {isGoal ? "Meta" : "Orçado"}{" "}
+                                <span className="font-medium text-[var(--text-primary)]">
                                   {formatCentsToBRL(cat.budgetedCents)}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-[var(--muted)]">{isGoal ? "Investido" : "Realizado"}</p>
-                                <p className="font-medium text-[var(--text-primary)]">
+                                </span>
+                              </span>
+                              <span>
+                                {isGoal ? "Investido" : "Realizado"}{" "}
+                                <span className="font-medium text-[var(--text-primary)]">
                                   {formatCentsToBRL(cat.realizedCents)}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-[var(--muted)]">{isGoal ? "% da meta" : "% Utilizado"}</p>
-                                <p className="font-medium text-[var(--text-primary)]">
+                                </span>
+                              </span>
+                              <span>
+                                {isGoal ? "% da meta" : "% Utilizado"}{" "}
+                                <span className="font-medium text-[var(--text-primary)]">
                                   {catPctGasto === null
                                     ? "—"
                                     : `${catPctGasto.toLocaleString("pt-BR")}%`}
-                                </p>
-                              </div>
+                                </span>
+                              </span>
+                              {!cat.isConfigured && cat.percentage === 0 && <span>Não configurada</span>}
                             </div>
-                            {!cat.isConfigured && cat.percentage === 0 && (
-                              <p className="mt-1.5 text-xs text-[var(--muted)]">Não configurada</p>
-                            )}
                           </div>
                         );
                       })

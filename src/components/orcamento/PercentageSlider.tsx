@@ -53,7 +53,7 @@ export function PercentageSlider({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-2">
       <input
         type="range"
         min={0}
@@ -62,14 +62,14 @@ export function PercentageSlider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         aria-label={ariaLabel ?? label}
-        className="h-2 w-full min-w-[120px] cursor-pointer appearance-none rounded-full bg-[var(--control-track)] accent-[var(--primary)]"
+        className="h-1.5 w-full min-w-[100px] cursor-pointer appearance-none rounded-full bg-[var(--control-track)] accent-[var(--primary)]"
       />
-      <span className="w-14 shrink-0 text-right text-sm font-semibold tabular-nums text-[var(--text-primary)]">
+      <span className="w-11 shrink-0 text-right text-xs font-semibold tabular-nums text-[var(--text-primary)]">
         {value.toLocaleString("pt-BR")}%
       </span>
       {canTypeAmount && (
         <div className="relative shrink-0">
-          <span className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-xs text-[var(--muted)]">
+          <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-[10px] text-[var(--muted)]">
             R$
           </span>
           <input
@@ -84,7 +84,7 @@ export function PercentageSlider({
                 e.currentTarget.blur();
               }
             }}
-            className="field-input w-28 py-1 pl-7 text-right text-sm"
+            className="field-input w-24 py-0.5 pl-6 text-right text-xs"
           />
         </div>
       )}
