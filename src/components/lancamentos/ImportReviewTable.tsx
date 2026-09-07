@@ -150,6 +150,15 @@ export function ImportReviewTable({
   const [pending, startTransition] = useTransition();
   const [categorizing, setCategorizing] = useState(false);
   const [categorizeResult, setCategorizeResult] = useState<CategorizeImportRowsResult | null>(null);
+  // Filters which of the parsed rows are addressable in this import —
+  // review, AI categorization and the final commit all read from
+  // `visibleRows`, never from `rows` directly. Session-only (this
+  // component's own state, never sent anywhere as a setting): it only
+  // decides what this one import considers, nothing about the app
+  // itself. Empty means no filter (every row visible), same as before
+  // this feature existed.
+  const [periodFrom, setPeriodFrom] = useState("");
+  const [periodTo, setPeriodTo] = useState("");
   // React state updates from setCategorizing don't flush synchronously,
   // so two clicks arriving in the same tick (a fast double-click, or a
   // script) can both read categorizing as still false before either
@@ -162,18 +171,37 @@ export function ImportReviewTable({
     setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)));
   }
 
+  // Date-string comparison works directly since both the row's own
+  // dateValue and the period bounds are "YYYY-MM-DD" (native <input
+  // type="date"> format) — lexicographic order matches chronological
+  // order for that format, no need to parse Date objects. An unset
+  // bound doesn't constrain that side of the range.
+  function isRowInPeriod(row: EditableRow): boolean {
+    if (periodFrom && row.dateValue < periodFrom) return false;
+    if (periodTo && row.dateValue > periodTo) return false;
+    return true;
+  }
+
+  // The one gate every downstream step reads through — review table,
+  // AI categorization and the final commit. A row outside the selected
+  // period simply isn't in this array, so it can't be edited, sent to
+  // the categorizer, or submitted; it's still sitting in `rows`
+  // untouched, so narrowing the period back out brings it right back.
+  const visibleRows = rows.filter(isRowInPeriod);
+  const excludedByPeriodCount = rows.length - visibleRows.length;
+
   // Only rows still without a category are ever sent — a manual pick or
   // a category the spreadsheet already provided is never touched
   // (requirement 17), and this is also what makes the button correctly
   // do nothing the second time for rows it already resolved.
-  const uncategorizedCount = rows.filter((r) => r.categoryId === "").length;
+  const uncategorizedCount = visibleRows.filter((r) => r.categoryId === "").length;
 
   function handleCategorize() {
     if (categorizingRef.current || uncategorizedCount === 0) return;
     categorizingRef.current = true;
     setCategorizing(true);
     setCategorizeResult(null);
-    const requestRows = rows
+    const requestRows = visibleRows
       .filter((r) => r.categoryId === "")
       .map((r) => ({ rowId: r.rowId, description: r.description, type: r.type }));
 
@@ -210,7 +238,7 @@ export function ImportReviewTable({
     })).filter((group) => group.items.length > 0);
   }
 
-  const includedRows = rows.filter((r) => r.include);
+  const includedRows = visibleRows.filter((r) => r.include);
   const invalidIncludedCount = includedRows.filter((r) => rowError(r) !== null).length;
   const totalCents = includedRows.reduce((sum, r) => sum + (parseMoneyToCents(r.amountText) ?? 0), 0);
 
@@ -265,7 +293,7 @@ export function ImportReviewTable({
         </div>
         <div className="text-right text-sm">
           <p className="font-medium text-[var(--text-primary)]">
-            {includedRows.length} de {rows.length} selecionados
+            {includedRows.length} de {visibleRows.length} selecionados
           </p>
           <p className="text-[var(--muted)]">Total: {formatCentsToBRL(totalCents)}</p>
         </div>
@@ -287,7 +315,46 @@ export function ImportReviewTable({
             sistema e, quando necessário, em pesquisa. Totalmente opcional — você sempre pode categorizar
             manualmente.
           </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-medium whitespace-nowrap text-[var(--text-secondary)]">
+              Período da importação
+            </span>
+            <input
+              type="date"
+              value={periodFrom}
+              onChange={(e) => setPeriodFrom(e.target.value)}
+              aria-label="Data inicial do período da importação"
+              className="field-input w-auto py-1 text-xs"
+            />
+            <span className="text-xs text-[var(--muted)]">até</span>
+            <input
+              type="date"
+              value={periodTo}
+              onChange={(e) => setPeriodTo(e.target.value)}
+              aria-label="Data final do período da importação"
+              className="field-input w-auto py-1 text-xs"
+            />
+            {(periodFrom || periodTo) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodFrom("");
+                  setPeriodTo("");
+                }}
+                className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
         </div>
+        {(periodFrom || periodTo) && (
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            {excludedByPeriodCount > 0
+              ? `${excludedByPeriodCount} de ${rows.length} lançamento(s) do arquivo estão fora do período selecionado e não aparecem na revisão.`
+              : "Todos os lançamentos do arquivo estão dentro do período selecionado."}
+          </p>
+        )}
         {categorizeResult && (
           <p className="mt-2 text-xs text-[var(--text-secondary)]">
             Categorização concluída: {categorizeResult.summary.history} pelo histórico,{" "}
@@ -328,7 +395,7 @@ export function ImportReviewTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {visibleRows.map((row) => {
               const error = rowError(row);
               const commitError = rowErrors[row.rowId];
               return (
