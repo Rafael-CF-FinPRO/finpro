@@ -70,11 +70,11 @@ export function BudgetCategoryDistribution({ categories }: { categories: Categor
             onMouseLeave={() => setActive(null)}
             onClick={() => setActive((prev) => (prev?.categoryId === slice.categoryId ? null : slice))}
           >
-            <title>{`${slice.name}: ${slice.percentage}% (${formatCentsToBRL(slice.budgetedCents)})`}</title>
+            <title>{`${slice.name}: ${slice.percentage.toLocaleString("pt-BR")}% (${formatCentsToBRL(slice.budgetedCents)})`}</title>
           </path>
         ))}
         <text x={cx} y={cy - 6} textAnchor="middle" className="fill-[var(--text-primary)] text-sm font-semibold">
-          {active ? `${active.percentage}%` : "Orçamento"}
+          {active ? `${active.percentage.toLocaleString("pt-BR")}%` : "Orçamento"}
         </text>
         <text x={cx} y={cy + 14} textAnchor="middle" className="fill-[var(--muted)] text-xs">
           {active ? formatCentsToBRL(active.budgetedCents) : `${configured.length} categorias`}
@@ -98,7 +98,7 @@ export function BudgetCategoryDistribution({ categories }: { categories: Categor
             <div className="leading-tight">
               <p className="text-[var(--text-secondary)]">{slice.name}</p>
               <p className="font-medium text-[var(--text-primary)]">
-                {slice.percentage}% · {formatCentsToBRL(slice.budgetedCents)}
+                {slice.percentage.toLocaleString("pt-BR")}% · {formatCentsToBRL(slice.budgetedCents)}
               </p>
             </div>
           </li>

@@ -230,7 +230,7 @@ function IndicatorBar({
       <div className="flex items-center gap-2">
         <div
           className="relative h-4 flex-1 cursor-help"
-          title={`% Valor (do usuário): ${clampPct(userValue)}%`}
+          title={`% Valor (do usuário): ${clampPct(userValue).toLocaleString("pt-BR")}%`}
         >
           <div className="h-full overflow-hidden rounded-full bg-[var(--control-track)]">
             <div
@@ -243,7 +243,7 @@ function IndicatorBar({
               key={tick.key}
               className="absolute top-1/2 flex w-3 -translate-x-1/2 -translate-y-1/2 cursor-help items-center justify-center"
               style={{ left: `${clampPct(tick.value)}%`, height: 22 }}
-              title={`Valor ${tick.refLabel}: ${clampPct(tick.value)}%`}
+              title={`Valor ${tick.refLabel}: ${clampPct(tick.value).toLocaleString("pt-BR")}%`}
             >
               <span
                 className="h-full w-0.5 rounded-full"
@@ -256,7 +256,7 @@ function IndicatorBar({
           className="w-10 shrink-0 text-right text-xs font-semibold tabular-nums"
           style={{ color: barColor }}
         >
-          {clampPct(userValue)}%
+          {clampPct(userValue).toLocaleString("pt-BR")}%
         </span>
       </div>
     </div>

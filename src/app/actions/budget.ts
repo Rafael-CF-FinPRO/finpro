@@ -56,9 +56,9 @@ export async function updateIncomeAction(
 }
 
 /**
- * Saves the whole edit session (all six classification percentages, plus
- * every category percentage touched across them) in one go, applying it
- * either:
+ * Saves the whole edit session (every category percentage touched
+ * across all 3 classifications — classification percentages are never
+ * submitted by the user, only derived) in one go, applying it either:
  *  - "month": only to the selected month (creates/updates that month's
  *    own override; the standing default is untouched).
  *  - "default": updates the standing default AND makes the selected
@@ -106,7 +106,8 @@ export async function saveBudgetDistributionAction(input: {
   const categoryClassificationMap = new Map(userCategories.map((c) => [c.id, c.classification]));
 
   // Inactive categories don't need a budget share going forward — only
-  // active ones are required to sum to 100% per classification.
+  // active ones must be present in the submission (see the completeness
+  // check below).
   const categoriesByClassification = new Map<Classification, string[]>();
   for (const cat of userCategories) {
     if (!cat.isActive) continue;
@@ -129,17 +130,17 @@ export async function saveBudgetDistributionAction(input: {
     submittedByClassification.set(classification, list);
   }
 
-  // Every Category percentage is a direct share of total income — a
-  // Classification's percentage is just the sum of its own Categories'
-  // percentages (tracked independently, see schema.prisma). So instead
-  // of requiring the categories under a classification to sum to
-  // exactly 100%, they must sum to at most that classification's own
-  // percentage: under-distributing is fine (nothing forces every dollar
-  // of a classification's budget onto a named category yet), but
-  // exceeding it is rejected outright.
-  const classificationPctMap = new Map(
-    classifications.map((c) => [c.classification as Classification, c.percentage])
-  );
+  // A Classification's percentage is never taken from the client — it's
+  // always the sum of its own (active) Categories' submitted
+  // percentages, computed fresh here. The client-submitted
+  // classifications[].percentage is only checked for shape above
+  // (every classification present, once each); its actual value is
+  // ignored from this point on. Categories are still required to be a
+  // complete set per classification (none silently dropped), but
+  // there's no longer a per-classification ceiling to enforce — the
+  // only remaining limit is the whole-budget 100% cap, already
+  // rejected by budgetDistributionSchema before this action body runs.
+  const computedClassificationPct = new Map<Classification, number>();
 
   for (const classification of BUDGET_CLASSIFICATIONS) {
     const expectedIds = (categoriesByClassification.get(classification) ?? []).slice().sort();
@@ -155,13 +156,10 @@ export async function saveBudgetDistributionAction(input: {
       };
     }
 
-    const distributed = submitted.reduce((s, c) => s + c.percentage, 0);
-    const meta = classificationPctMap.get(classification) ?? 0;
-    if (distributed > meta) {
-      return {
-        error: `As categorias de ${CLASSIFICATION_LABELS[classification]} ultrapassam o orçamento definido para esta classificação. Meta: ${meta}% · Distribuído: ${distributed}% · Excedente: ${distributed - meta}%.`,
-      };
-    }
+    computedClassificationPct.set(
+      classification,
+      submitted.reduce((s, c) => s + c.percentage, 0)
+    );
   }
 
   const targetMonthKey = applyScope === "month" ? monthKey : "default";
@@ -171,10 +169,10 @@ export async function saveBudgetDistributionAction(input: {
       where: { budgetProfileId: profile.id, monthKey: targetMonthKey },
     });
     await tx.budgetClassificationAllocation.createMany({
-      data: classifications.map((c) => ({
+      data: BUDGET_CLASSIFICATIONS.map((classification) => ({
         budgetProfileId: profile.id,
-        classification: c.classification as Classification,
-        percentage: c.percentage,
+        classification,
+        percentage: computedClassificationPct.get(classification) ?? 0,
         monthKey: targetMonthKey,
       })),
     });

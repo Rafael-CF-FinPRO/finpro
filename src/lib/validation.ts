@@ -161,7 +161,7 @@ export const incomeSchema = z.object({
 
 const percentageSchema = z
   .number("Percentual inválido.")
-  .int("Percentual inválido.")
+  .multipleOf(0.5, "Percentual deve ser em passos de 0,5%.")
   .min(0, "Percentual não pode ser negativo.")
   .max(100, "Percentual não pode ser maior que 100%.");
 
@@ -178,27 +178,38 @@ const allClassificationEnum = z.enum(
 // One combined save for the whole edit session (classifications + every
 // category touched across them), plus how to apply it — see
 // src/app/actions/budget.ts for what "month" vs "default" actually do.
-export const budgetDistributionSchema = z.object({
-  applyScope: z.enum(["month", "default"], "Escolha como aplicar a alteração."),
-  monthKey: z.string().refine(isValidMonthKey, { message: "Mês inválido." }),
-  classifications: z
-    .array(
+// A Classification no longer has a percentage of its own to validate —
+// it's purely the sum of its Categories' percentages (the action
+// recomputes and persists that sum itself, ignoring whatever the
+// classifications[].percentage the client sent actually says), so the
+// only distribution rule left is on the Categories: their percentages,
+// all together, must never exceed 100% of income. Reaching exactly
+// 100% isn't required to save — an in-progress, partially-distributed
+// budget is a perfectly valid thing to persist and keep refining later;
+// only overshooting 100% is rejected.
+export const budgetDistributionSchema = z
+  .object({
+    applyScope: z.enum(["month", "default"], "Escolha como aplicar a alteração."),
+    monthKey: z.string().refine(isValidMonthKey, { message: "Mês inválido." }),
+    classifications: z
+      .array(
+        z.object({
+          classification: budgetClassificationEnum,
+          percentage: percentageSchema,
+        })
+      )
+      .min(1, "Informe ao menos uma classificação."),
+    categories: z.array(
       z.object({
-        classification: budgetClassificationEnum,
+        categoryId: z.string().min(1, "Categoria inválida."),
         percentage: percentageSchema,
       })
-    )
-    .min(1, "Informe ao menos uma classificação.")
-    .refine((items) => items.reduce((sum, item) => sum + item.percentage, 0) === 100, {
-      message: "As classificações precisam totalizar 100%.",
-    }),
-  categories: z.array(
-    z.object({
-      categoryId: z.string().min(1, "Categoria inválida."),
-      percentage: percentageSchema,
-    })
-  ),
-});
+    ),
+  })
+  .refine((data) => data.categories.reduce((sum, c) => sum + c.percentage, 0) <= 100, {
+    message: "A distribuição das categorias não pode ultrapassar 100% da renda.",
+    path: ["categories"],
+  });
 
 export const monthOverrideSchema = z.object({
   monthKey: z.string().refine(isValidMonthKey, { message: "Mês inválido." }),

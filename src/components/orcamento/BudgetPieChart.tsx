@@ -63,7 +63,7 @@ export function BudgetPieChart({ slices }: { slices: Slice[] }) {
             onMouseLeave={() => setActive(null)}
             onClick={() => setActive((prev) => (prev?.classification === slice.classification ? null : slice))}
           >
-            <title>{`${CLASSIFICATION_LABELS[slice.classification]}: ${slice.percentage}% (${formatCentsToBRL(slice.budgetedCents)})`}</title>
+            <title>{`${CLASSIFICATION_LABELS[slice.classification]}: ${slice.percentage.toLocaleString("pt-BR")}% (${formatCentsToBRL(slice.budgetedCents)})`}</title>
           </path>
         ))}
         <text
@@ -72,7 +72,7 @@ export function BudgetPieChart({ slices }: { slices: Slice[] }) {
           textAnchor="middle"
           className="fill-[var(--text-primary)] text-sm font-semibold"
         >
-          {active ? `${active.percentage}%` : "Orçamento"}
+          {active ? `${active.percentage.toLocaleString("pt-BR")}%` : "Orçamento"}
         </text>
         <text x={cx} y={cy + 14} textAnchor="middle" className="fill-[var(--muted)] text-xs">
           {active
@@ -97,7 +97,7 @@ export function BudgetPieChart({ slices }: { slices: Slice[] }) {
             <div className="leading-tight">
               <p className="text-[var(--text-secondary)]">{CLASSIFICATION_LABELS[slice.classification]}</p>
               <p className="font-medium text-[var(--text-primary)]">
-                {slice.percentage}% · {formatCentsToBRL(slice.budgetedCents)}
+                {slice.percentage.toLocaleString("pt-BR")}% · {formatCentsToBRL(slice.budgetedCents)}
               </p>
             </div>
           </li>

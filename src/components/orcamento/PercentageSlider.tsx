@@ -40,7 +40,12 @@ export function PercentageSlider({
     if (canTypeAmount) {
       const cents = parseMoneyToCents(text, { allowZero: true });
       if (cents !== null) {
-        const pct = Math.max(0, Math.min(100, Math.round((cents / monthlyIncomeCents) * 100)));
+        // Snapped to the nearest 0.5 point (not a whole percent) so a
+        // typed R$ amount can land within half a percentage-point step
+        // of its true share of income, matching the slider's own
+        // granularity below.
+        const rawPct = (cents / monthlyIncomeCents) * 100;
+        const pct = Math.max(0, Math.min(100, Math.round(rawPct * 2) / 2));
         onChange(pct);
       }
     }
@@ -53,14 +58,14 @@ export function PercentageSlider({
         type="range"
         min={0}
         max={100}
-        step={1}
+        step={0.5}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         aria-label={ariaLabel ?? label}
         className="h-2 w-full min-w-[120px] cursor-pointer appearance-none rounded-full bg-[var(--control-track)] accent-[var(--primary)]"
       />
       <span className="w-14 shrink-0 text-right text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-        {value}%
+        {value.toLocaleString("pt-BR")}%
       </span>
       {canTypeAmount && (
         <div className="relative shrink-0">

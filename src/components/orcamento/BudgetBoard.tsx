@@ -20,7 +20,6 @@ import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
 import { getCategoryIcon } from "@/lib/category-icons";
 import type { ClassificationBudgetRow } from "@/lib/budget";
 import type { Classification } from "@/generated/prisma/enums";
-import { PercentageSlider } from "./PercentageSlider";
 import { StatusBadge } from "./StatusBadge";
 import { IconBadge } from "./IconBadge";
 import { CategoryAllocationEditor } from "./CategoryAllocationEditor";
@@ -37,10 +36,6 @@ type NonReceita = Exclude<Classification, "RECEITA" | "NEUTRA">;
 // per-browser UI preference, not user data, so localStorage is the
 // right place for it (same pattern as the sidebar's own collapse state).
 const CHARTS_COLLAPSE_KEY = "finpro:orcamento-charts-collapsed";
-
-function buildClassificationPctMap(classifications: ClassificationBudgetRow[]) {
-  return Object.fromEntries(classifications.map((c) => [c.classification, c.percentage]));
-}
 
 function buildCategoryPctMap(classifications: ClassificationBudgetRow[]) {
   return Object.fromEntries(
@@ -81,9 +76,6 @@ export function BudgetBoard({
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"view" | "edit">("view");
-  const [pctByClassification, setPctByClassification] = useState<Record<string, number>>(() =>
-    buildClassificationPctMap(classifications)
-  );
   const [pctByCategory, setPctByCategory] = useState<Record<string, number>>(() =>
     buildCategoryPctMap(classifications)
   );
@@ -123,32 +115,34 @@ export function BudgetBoard({
     });
   }
 
-  const classificationTotal = sumPercentages(Object.values(pctByClassification));
-  const isValidClassificationTotal = classificationTotal === 100;
-  const distributionRemaining = 100 - classificationTotal;
-
-  // Every Category's percentage is a direct share of total income, so a
-  // Classification's own percentage is only ever a ceiling for the sum
-  // of its Categories, never a total they must exactly hit — under-
-  // distributing is fine (nothing forces every point of a
-  // classification's budget onto a named category), only exceeding it
-  // is invalid.
-  function categoryTotalFor(classification: Classification): number {
+  // A Classification no longer has its own directly-editable percentage
+  // — it's purely the sum of its own (active) Categories' percentages,
+  // computed fresh from whatever's currently on the sliders. This one
+  // function is the single source of that derivation, used for the
+  // classification cards' display, the pie/donut charts, and the health
+  // indicators alike — never a separately-tracked value that could
+  // drift from the categories underneath it.
+  function classificationTotalFor(classification: Classification): number {
     const cls = classifications.find((c) => c.classification === classification);
     const activeIds = (cls?.categories ?? []).filter((c) => c.isActive).map((c) => c.categoryId);
     return sumPercentages(activeIds.map((id) => pctByCategory[id] ?? 0));
   }
 
-  const categoryTotalsValid = classifications.every((cls) => {
-    const distributed = categoryTotalFor(cls.classification);
-    const meta = pctByClassification[cls.classification] ?? 0;
-    return distributed <= meta;
-  });
-
-  const canSave = isValidClassificationTotal && categoryTotalsValid;
+  // The only distribution total that matters now is the grand total
+  // across every category, in every classification — 100% of income
+  // split among named categories, full stop. A category sitting at 0%
+  // is completely normal and never blocks this; only exceeding 100%
+  // does.
+  const allActiveCategoryIds = classifications.flatMap((cls) =>
+    cls.categories.filter((c) => c.isActive).map((c) => c.categoryId)
+  );
+  const categoryGrandTotal = sumPercentages(allActiveCategoryIds.map((id) => pctByCategory[id] ?? 0));
+  const isFullyDistributed = categoryGrandTotal === 100;
+  const isOverDistributed = categoryGrandTotal > 100;
+  const distributionRemaining = 100 - categoryGrandTotal;
+  const canSave = !isOverDistributed;
 
   function enterEdit() {
-    setPctByClassification(buildClassificationPctMap(classifications));
     setPctByCategory(buildCategoryPctMap(classifications));
     setError(null);
     setMode("edit");
@@ -180,9 +174,12 @@ export function BudgetBoard({
       const result = await saveBudgetDistributionAction({
         applyScope,
         monthKey,
+        // The server recomputes and persists this same sum itself
+        // (never trusts a client-submitted classification percentage) —
+        // sent here only to keep the existing payload shape intact.
         classifications: classifications.map((c) => ({
           classification: c.classification,
-          percentage: pctByClassification[c.classification] ?? 0,
+          percentage: classificationTotalFor(c.classification),
         })),
         categories: categoriesPayload,
       });
@@ -210,7 +207,7 @@ export function BudgetBoard({
   }
 
   const pieSlices = classifications.map((c) => {
-    const percentage = mode === "edit" ? pctByClassification[c.classification] ?? 0 : c.percentage;
+    const percentage = mode === "edit" ? classificationTotalFor(c.classification) : c.percentage;
     return {
       classification: c.classification as NonReceita,
       percentage,
@@ -239,7 +236,7 @@ export function BudgetBoard({
   );
 
   function classificationPercentage(classification: Classification): number {
-    if (mode === "edit") return pctByClassification[classification] ?? 0;
+    if (mode === "edit") return classificationTotalFor(classification);
     return classifications.find((c) => c.classification === classification)?.percentage ?? 0;
   }
 
@@ -376,8 +373,7 @@ export function BudgetBoard({
 
       <div className="space-y-3">
         {classifications.map((cls) => {
-          const clsPct =
-            mode === "edit" ? pctByClassification[cls.classification] ?? 0 : cls.percentage;
+          const clsPct = classificationPercentage(cls.classification);
           const liveBudgeted = centsFromPercentage(monthlyIncomeCents, clsPct);
           const isGoal = isGoalClassification(cls.classification);
           const liveDiferenca = liveBudgeted - cls.realizedCents;
@@ -386,11 +382,6 @@ export function BudgetBoard({
           const liveGoalStatus = isGoal ? computeGoalStatus(cls.realizedCents, liveBudgeted) : undefined;
           const isExpanded = Boolean(expanded[cls.classification]);
           const activeCategories = cls.categories.filter((c) => c.isActive);
-          const distributed =
-            mode === "edit"
-              ? categoryTotalFor(cls.classification)
-              : activeCategories.reduce((sum, c) => sum + c.percentage, 0);
-          const isOverDistributed = distributed > clsPct;
 
           return (
             <div key={cls.classification} className="card overflow-hidden">
@@ -413,20 +404,18 @@ export function BudgetBoard({
                   <StatusBadge status={liveStatus} goalStatus={liveGoalStatus} />
                 </div>
 
-                {mode === "edit" ? (
-                  <div className="mt-3">
-                    <PercentageSlider
-                      label={CLASSIFICATION_LABELS[cls.classification]}
-                      value={clsPct}
-                      onChange={(v) =>
-                        setPctByClassification((prev) => ({ ...prev, [cls.classification]: v }))
-                      }
-                      monthlyIncomeCents={monthlyIncomeCents}
-                    />
-                  </div>
-                ) : (
-                  <p className="mt-1 text-sm font-medium text-[var(--text-secondary)]">{clsPct}%</p>
-                )}
+                {/* No slider here anymore — a Classification's percentage
+                    is purely the sum of its own Categories' percentages
+                    (classificationTotalFor above), never a value the user
+                    sets directly. */}
+                <p className="mt-1 text-sm font-medium text-[var(--text-secondary)]">
+                  {clsPct.toLocaleString("pt-BR")}%
+                  {mode === "edit" && (
+                    <span className="ml-1.5 font-normal text-[var(--text-faint)]">
+                      · soma das categorias abaixo
+                    </span>
+                  )}
+                </p>
 
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                   <div>
@@ -475,27 +464,6 @@ export function BudgetBoard({
                 >
                   {isExpanded ? "Ocultar categorias ▲" : "Ver categorias ▼"}
                 </button>
-
-                <div className="mt-2 text-xs">
-                  {isOverDistributed && (
-                    <p className="font-medium text-[var(--danger)]">
-                      As categorias de {CLASSIFICATION_LABELS[cls.classification]} ultrapassam o
-                      orçamento definido para esta classificação.
-                    </p>
-                  )}
-                  <p
-                    className={
-                      isOverDistributed
-                        ? "font-medium text-[var(--danger)]"
-                        : "text-[var(--muted)]"
-                    }
-                  >
-                    Meta: {clsPct}% · Distribuído: {distributed}%
-                    {isOverDistributed
-                      ? ` · Excedente: ${distributed - clsPct}%`
-                      : ` · Não distribuído: ${clsPct - distributed}%`}
-                  </p>
-                </div>
               </div>
 
               {isExpanded &&
@@ -589,14 +557,18 @@ export function BudgetBoard({
         <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
           <p
             className={`text-sm font-medium ${
-              isValidClassificationTotal ? "text-[var(--success)]" : "text-[var(--danger)]"
+              isOverDistributed
+                ? "text-[var(--danger)]"
+                : isFullyDistributed
+                  ? "text-[var(--success)]"
+                  : "text-[var(--muted)]"
             }`}
           >
-            {isValidClassificationTotal
-              ? `Total distribuído: ${classificationTotal}%`
-              : distributionRemaining > 0
-                ? `Distribuição restante: ${distributionRemaining}%`
-                : `Distribuição excede o limite em ${Math.abs(distributionRemaining)}%.`}
+            {isOverDistributed
+              ? `Distribuição excede 100% em ${Math.abs(distributionRemaining).toLocaleString("pt-BR")}%.`
+              : isFullyDistributed
+                ? `Total distribuído: ${categoryGrandTotal.toLocaleString("pt-BR")}%`
+                : `Distribuição restante: ${distributionRemaining.toLocaleString("pt-BR")}%`}
           </p>
           <button
             type="button"

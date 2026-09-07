@@ -292,15 +292,25 @@ model BudgetProfile {
 }
 
 // Level 1 of the budget: how much of the income (%) goes to each
-// Classification. `monthKey` is either the literal "default" (the
-// standing budget applied to every month) or "YYYY-MM" for a one-off
-// override of that specific month — never both at once for the same
-// classification, enforced by the unique constraint below.
+// Classification — never set directly by the user, always computed
+// server-side as the sum of that Classification's own Categories'
+// percentages below (src/app/actions/budget.ts's
+// saveBudgetDistributionAction) and persisted here purely so the rest
+// of the app (Dashboard, compliance scoring, etc.) can keep reading a
+// per-classification percentage without re-deriving it every time.
+// `monthKey` is either the literal "default" (the standing budget
+// applied to every month) or "YYYY-MM" for a one-off override of that
+// specific month — never both at once for the same classification,
+// enforced by the unique constraint below.
 model BudgetClassificationAllocation {
   id              String         @id @default(cuid())
   budgetProfileId String
   classification  Classification
-  percentage      Int
+  // Half-percentage-point steps (12.5, not just 12 or 13) — Float
+  // rather than Int/Decimal so it stays a plain JS number everywhere
+  // it's already used in arithmetic, no Decimal.js wrapper to unwrap.
+  // Always a multiple of 0.5, enforced in src/lib/validation.ts.
+  percentage      Float
   monthKey        String
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -311,20 +321,22 @@ model BudgetClassificationAllocation {
   @@index([budgetProfileId, monthKey])
 }
 
-// Level 2 of the budget: how much of the TOTAL monthly income (%) is
-// budgeted to each Category — computed directly against
-// BudgetProfile.monthlyIncomeCents, not against its parent
-// Classification's share (a Category's percentage is not a fraction of
-// its Classification's percentage; the Classification's percentage is
-// simply the sum of its Categories' percentages, and the two are
-// tracked independently so a Classification can be under- or, until
-// saved, over-distributed by its Categories). Same "default" vs
-// "YYYY-MM" convention as above.
+// Level 2 of the budget — and the only level the user actually sets: how
+// much of the TOTAL monthly income (%) is budgeted to each Category,
+// computed directly against BudgetProfile.monthlyIncomeCents, never as
+// a fraction of its parent Classification's percentage (that one is
+// just the sum of these, see BudgetClassificationAllocation above). A
+// Category is free to sit at 0% — nothing requires every category, or
+// even every classification, to be distributed; the only real ceiling
+// is that every Category together can never exceed 100%. Same
+// "default" vs "YYYY-MM" convention as above.
 model BudgetCategoryAllocation {
   id              String   @id @default(cuid())
   budgetProfileId String
   categoryId      String
-  percentage      Int
+  // Same half-percentage-point convention as
+  // BudgetClassificationAllocation.percentage above.
+  percentage      Float
   monthKey        String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
