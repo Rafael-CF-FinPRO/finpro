@@ -1,6 +1,6 @@
 import { formatCentsToBRL } from "@/lib/money";
 import { computeBudgetStatus, computeGoalStatus, isGoalClassification } from "@/lib/budget-calc";
-import { countMonthsWithData } from "@/lib/budget";
+import { countMonthsWithData } from "@/lib/history-utils";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
@@ -22,31 +22,51 @@ const ROWS: {
 ];
 
 /** The 3 classification cards, right below the period's 4 headline
- * averages — same goal-vs-limit rules as everywhere else on the
+ * figures — same goal-vs-limit rules as everywhere else on the
  * Dashboard (Custos Obrigatórios/Prazeres e Confortos have a ceiling,
- * Investimentos has a floor, never penalized for exceeding it). Values
- * are period averages (Orçado/Meta Médio, Realizado Médio), derived
- * here from the already-computed per-month rows — no new data, no
- * change to how any of those figures are calculated. Averaged over
- * months that actually had activity (countMonthsWithData), not the raw
- * length of the selected period, so a wide period with little real
- * history isn't diluted by empty months — same rule the backend uses
- * for the summary strip above. */
-export function HistoricalClassificationCards({ months }: { months: BudgetHistoryMonthRow[] }) {
+ * Investimentos has a floor, never penalized for exceeding it). Toggled
+ * by the parent HistoricalOverviewCards between the period's monthly
+ * average and its raw total — both derived here from the already-
+ * computed per-month rows, no new data, no change to how any of those
+ * figures are calculated. The average is over months that actually had
+ * activity (countMonthsWithData), not the raw length of the selected
+ * period, so a wide period with little real history isn't diluted by
+ * empty months — same rule the backend uses for the summary strip
+ * above; the total is unaffected by that (it's just a sum). Status
+ * (Dentro/Fora, or the Investimentos goal tier) is computed from
+ * whichever pair — média or total — is on screen: since both scale by
+ * the same month count, the ratio between budgeted and realized is
+ * identical either way, so the badge never flips with the toggle. */
+export function HistoricalClassificationCards({
+  months,
+  view,
+}: {
+  months: BudgetHistoryMonthRow[];
+  view: "media" | "total";
+}) {
   const monthCount = countMonthsWithData(months);
+  const suffix = view === "total" ? "Total" : "Médio";
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       {ROWS.map(({ classification, budgeted, realized }) => {
-        const avgBudgeted = Math.round(
-          months.reduce((sum, m) => sum + (m[budgeted] as number), 0) / monthCount
-        );
-        const avgRealized = Math.round(
-          months.reduce((sum, m) => sum + (m[realized] as number), 0) / monthCount
-        );
+        const totalBudgeted = months.reduce((sum, m) => sum + (m[budgeted] as number), 0);
+        const totalRealized = months.reduce((sum, m) => sum + (m[realized] as number), 0);
+        const budgetedValue = view === "total" ? totalBudgeted : Math.round(totalBudgeted / monthCount);
+        const realizedValue = view === "total" ? totalRealized : Math.round(totalRealized / monthCount);
         const isGoal = isGoalClassification(classification);
-        const diffCents = avgBudgeted - avgRealized;
+        const diffCents = budgetedValue - realizedValue;
         const color = CLASSIFICATION_COLORS[classification as NonReceita];
+        // The single source of truth for "is this good" — reused for
+        // both the badge and the detail row below, so the two can never
+        // disagree the way they used to when the row re-derived its own
+        // achieved/not-achieved reading from diffCents alone (that
+        // treated a not-yet-configured, R$0 meta with R$0 invested as
+        // "atingida" even though computeGoalStatus — driving the badge
+        // — correctly reads a genuine zero/zero as "Em progresso", not
+        // an achievement).
+        const goalStatus = isGoal ? computeGoalStatus(realizedValue, budgetedValue) : null;
+        const goalAchieved = goalStatus === "META_ATINGIDA";
 
         return (
           <div key={classification} className="card p-4">
@@ -56,31 +76,31 @@ export function HistoricalClassificationCards({ months }: { months: BudgetHistor
                 {CLASSIFICATION_LABELS[classification]}
               </span>
               {isGoal ? (
-                <StatusBadge goalStatus={computeGoalStatus(avgRealized, avgBudgeted)} />
+                <StatusBadge goalStatus={goalStatus!} />
               ) : (
-                <StatusBadge status={computeBudgetStatus(avgRealized, avgBudgeted)} />
+                <StatusBadge status={computeBudgetStatus(realizedValue, budgetedValue)} />
               )}
             </div>
 
-            <p className="mt-2 text-sm text-[var(--muted)]">{isGoal ? "Meta Média" : "Orçado Médio"}</p>
-            <p className="text-lg font-semibold text-[var(--text-primary)]">{formatCentsToBRL(avgBudgeted)}</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">{isGoal ? `Meta ${suffix}` : `Orçado ${suffix}`}</p>
+            <p className="text-lg font-semibold text-[var(--text-primary)]">{formatCentsToBRL(budgetedValue)}</p>
 
-            <p className="mt-1 text-sm text-[var(--muted)]">Realizado Médio</p>
-            <p className="text-lg font-semibold text-[var(--text-primary)]">{formatCentsToBRL(avgRealized)}</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">Realizado {suffix}</p>
+            <p className="text-lg font-semibold text-[var(--text-primary)]">{formatCentsToBRL(realizedValue)}</p>
 
             <p className="mt-1 text-sm text-[var(--muted)]">
               {isGoal
-                ? diffCents === 0
-                  ? "Status"
-                  : diffCents < 0
-                    ? "Meta superada em"
-                    : "Falta para a meta"
+                ? goalAchieved
+                  ? diffCents === 0
+                    ? "Status"
+                    : "Meta superada em"
+                  : "Falta para a meta"
                 : "Diferença"}
             </p>
             <p
               className={`text-lg font-semibold ${
                 isGoal
-                  ? diffCents <= 0
+                  ? goalAchieved
                     ? "text-[var(--success)]"
                     : "text-[var(--text-primary)]"
                   : diffCents < 0
@@ -88,7 +108,7 @@ export function HistoricalClassificationCards({ months }: { months: BudgetHistor
                     : "text-[var(--text-primary)]"
               }`}
             >
-              {isGoal && diffCents === 0 ? "Meta atingida" : formatCentsToBRL(Math.abs(diffCents))}
+              {isGoal && goalAchieved && diffCents === 0 ? "Meta atingida" : formatCentsToBRL(Math.abs(diffCents))}
             </p>
           </div>
         );

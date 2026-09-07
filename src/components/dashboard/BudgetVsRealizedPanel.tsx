@@ -36,7 +36,13 @@ type Row = {
  * flips between a limit classification (negative = over budget, bad)
  * and Investimentos (negative = goal surpassed, celebrated) — see
  * isGoalClassification in src/lib/budget-calc.ts. Matches the exact
- * wording asked for: "faltam", "Meta atingida", "Meta superada". */
+ * wording asked for: "faltam", "Meta atingida", "Meta superada".
+ * "Achieved" is read from computeGoalStatus (the same function driving
+ * StatusCell's badge below) rather than re-derived from diffCents here
+ * — diffCents alone got a genuine R$0 meta with R$0 invested wrong
+ * (reading straight "meta atingida" from a 0-0 subtraction), while
+ * computeGoalStatus correctly treats that as "not configured yet", the
+ * same as the badge does. */
 function DiferencaCell({ row }: { row: Row }) {
   const diffCents = row.budgetedCents - row.realizedCents;
   if (!isGoalClassification(row.classification)) {
@@ -46,7 +52,8 @@ function DiferencaCell({ row }: { row: Row }) {
       </span>
     );
   }
-  if (diffCents > 0) {
+  const achieved = computeGoalStatus(row.realizedCents, row.budgetedCents) === "META_ATINGIDA";
+  if (!achieved) {
     return <span className="text-[var(--text-primary)]">Faltam {formatCentsToBRL(diffCents)}</span>;
   }
   if (diffCents === 0) {

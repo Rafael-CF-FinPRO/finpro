@@ -5,6 +5,7 @@ import {
   formatMonthKeyShortLabel,
   toDateInputValue,
 } from "@/lib/dates";
+import { countMonthsWithData } from "@/lib/history-utils";
 import {
   BUDGET_CLASSIFICATIONS,
   computeBudgetPct,
@@ -310,25 +311,13 @@ export type BudgetHistory = {
   };
 };
 
-/** Whether a month (or any object exposing these 4 realized totals) had
- * any real activity at all — see monthsWithDataCount above for why this
- * is the averaging denominator instead of the raw number of months in
- * the selected period. Exported so components that derive their own
- * averages from `months` (e.g. the classification cards) use the exact
- * same rule instead of re-deriving it. */
-export function countMonthsWithData(
-  months: {
-    receitaCents: number;
-    custosCents: number;
-    prazeresCents: number;
-    investimentosCents: number;
-  }[]
-): number {
-  const withData = months.filter(
-    (m) => m.receitaCents > 0 || m.custosCents > 0 || m.prazeresCents > 0 || m.investimentosCents > 0
-  ).length;
-  return Math.max(withData, 1);
-}
+// Re-exported for backward compatibility with existing `import {
+// countMonthsWithData } from "@/lib/budget"` call sites — the
+// definition itself lives in src/lib/history-utils.ts (a Prisma-free
+// module) so components that end up bundled for the client (e.g. under
+// HistoricalOverviewCards.tsx) can import it directly from there
+// instead, without pulling this file's `prisma` import along.
+export { countMonthsWithData };
 
 const EMPTY_BUDGET_HISTORY_TOTALS = {
   receitaCents: 0,

@@ -5,34 +5,44 @@ import { CLASSIFICATION_ICONS } from "@/lib/classification-icons";
 import { IconBadge } from "@/components/orcamento/IconBadge";
 import type { BudgetHistory } from "@/lib/budget";
 
-/** "Resumo Histórico" — the period's 4 headline averages, same card
+/** "Resumo Histórico" — the period's 4 headline figures, same card
  * style and same Receita/Despesas/Investimentos/Saldo split as the
- * monthly view's MonthSummaryStrip, just averaged across the selected
- * range instead of a single month's figures. */
-export function HistoricalSummaryStrip({ history }: { history: BudgetHistory }) {
-  const { averages } = history;
+ * monthly view's MonthSummaryStrip. Toggled by the parent
+ * HistoricalOverviewCards between the period's monthly average
+ * (history.averages) and its raw total (history.totals) — both already
+ * computed server-side, so this only ever picks which one to display. */
+export function HistoricalSummaryStrip({
+  history,
+  view,
+}: {
+  history: BudgetHistory;
+  view: "media" | "total";
+}) {
+  const values = view === "total" ? history.totals : history.averages;
+  const suffix = view === "total" ? "Total" : "Média";
+  const period = view === "total" ? "no período" : "mensal no período";
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <div className="card p-4">
         <div className="flex items-center gap-2">
           <IconBadge icon={Wallet} color="var(--success)" variant="soft" size="sm" />
-          <p className="text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Receita Média</p>
+          <p className="text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Receita {suffix}</p>
         </div>
         <p className="mt-2 text-xl font-semibold text-[var(--success)]">
-          {formatCentsToBRL(averages.receitaCents)}
+          {formatCentsToBRL(values.receitaCents)}
         </p>
-        <p className="mt-1 text-xs text-[var(--text-faint)]">Média mensal recebida no período</p>
+        <p className="mt-1 text-xs text-[var(--text-faint)]">Total recebido {period}</p>
       </div>
       <div className="card p-4">
         <div className="flex items-center gap-2">
           <IconBadge icon={TrendingDown} color="var(--danger)" variant="soft" size="sm" />
-          <p className="text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Despesas Médias</p>
+          <p className="text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Despesas {suffix === "Total" ? "Totais" : "Médias"}</p>
         </div>
         <p className="mt-2 text-xl font-semibold text-[var(--danger)]">
-          {formatCentsToBRL(averages.despesasCents)}
+          {formatCentsToBRL(values.despesasCents)}
         </p>
-        <p className="mt-1 text-xs text-[var(--text-faint)]">Média mensal gasta no período</p>
+        <p className="mt-1 text-xs text-[var(--text-faint)]">Total gasto {period}</p>
       </div>
       <div className="card p-4">
         <div className="flex items-center gap-2">
@@ -42,26 +52,26 @@ export function HistoricalSummaryStrip({ history }: { history: BudgetHistory }) 
             variant="soft"
             size="sm"
           />
-          <p className="text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Investimentos Médios</p>
+          <p className="text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Investimentos {suffix === "Total" ? "Totais" : "Médios"}</p>
         </div>
         <p className="mt-2 text-xl font-semibold" style={{ color: CLASSIFICATION_COLORS.INVESTIMENTOS }}>
-          {formatCentsToBRL(averages.investimentosCents)}
+          {formatCentsToBRL(values.investimentosCents)}
         </p>
-        <p className="mt-1 text-xs text-[var(--text-faint)]">Média mensal investida no período</p>
+        <p className="mt-1 text-xs text-[var(--text-faint)]">Total investido {period}</p>
       </div>
       <div className="card p-4">
         <div className="flex items-center gap-2">
           <IconBadge icon={Scale} color="var(--primary)" variant="soft" size="sm" />
-          <p className="text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Saldo Médio</p>
+          <p className="text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Saldo {suffix}</p>
         </div>
         <p
           className={`mt-2 text-xl font-semibold ${
-            averages.saldoCents < 0 ? "text-[var(--danger)]" : "text-[var(--text-primary)]"
+            values.saldoCents < 0 ? "text-[var(--danger)]" : "text-[var(--text-primary)]"
           }`}
         >
-          {formatCentsToBRL(averages.saldoCents)}
+          {formatCentsToBRL(values.saldoCents)}
         </p>
-        <p className="mt-1 text-xs text-[var(--text-faint)]">Saldo médio mensal no período</p>
+        <p className="mt-1 text-xs text-[var(--text-faint)]">Saldo {period}</p>
       </div>
     </div>
   );

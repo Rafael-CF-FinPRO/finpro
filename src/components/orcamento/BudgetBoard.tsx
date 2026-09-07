@@ -441,7 +441,11 @@ export function BudgetBoard({
                   </div>
                   <div>
                     <p className="text-[var(--muted)]">
-                      {isGoal ? (liveDiferenca <= 0 ? "Meta superada em" : "Falta para a meta") : "Diferença"}
+                      {isGoal
+                        ? liveGoalStatus === "META_ATINGIDA"
+                          ? "Meta superada em"
+                          : "Falta para a meta"
+                        : "Diferença"}
                     </p>
                     <p
                       className={`font-medium ${
