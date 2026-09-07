@@ -296,7 +296,7 @@ export function TransactionsBoard({
         <button
           type="button"
           onClick={() => setModal({ mode: "create", type: "ENTRADA" })}
-          className="btn-primary flex-1"
+          className="btn-secondary flex-1 border-[var(--success-border)] text-[var(--success)] hover:bg-[var(--success-bg)]"
         >
           + Registrar Entrada
         </button>

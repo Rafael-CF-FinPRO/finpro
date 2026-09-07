@@ -102,10 +102,7 @@ async function DashboardMonthlyView({
             receitaCents={overview.realizedIncomeCents}
             classifications={overview.classifications}
           />
-          <ValueDistributionDonut
-            realizedIncomeCents={overview.realizedIncomeCents}
-            classifications={overview.classifications}
-          />
+          <ValueDistributionDonut classifications={overview.classifications} />
         </div>
         <BudgetVsRealizedPanel classifications={overview.classifications} />
         <TopCategoriesRanking classifications={overview.classifications} />
@@ -141,10 +138,8 @@ async function DashboardHistoricalView({
       </div>
       <div className="mt-4 space-y-4">
         <HistoricalOverviewCards history={history} />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <BudgetEvolutionChart months={history.months} />
-          <SpendingDistributionChart months={history.months} />
-        </div>
+        <BudgetEvolutionChart months={history.months} />
+        <SpendingDistributionChart months={history.months} />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ComplianceEvolutionChart months={history.months} />
           <HistoricalInvestmentsPanel history={history} />

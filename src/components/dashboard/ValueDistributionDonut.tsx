@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Wallet } from "lucide-react";
 import { formatCentsToBRL } from "@/lib/money";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
@@ -15,8 +14,6 @@ import type { Classification } from "@/generated/prisma/enums";
 
 type NonReceita = Exclude<Classification, "RECEITA" | "NEUTRA">;
 
-const RECEITAS_COLOR = "var(--primary)";
-
 type Slice = {
   key: string;
   name: string;
@@ -26,36 +23,26 @@ type Slice = {
   variant: "solid" | "soft";
 };
 
-/** "Distribuição dos Valores" — a donut that puts Receitas (all of this
- * month's income) alongside the 3 classifications' Realizado, so the
- * relationship between what came in and where it went reads at a
- * glance. Toggles to a per-category breakdown the same way Orçamento ×
- * Realizado does; Receitas stays a single slice in both views — only
- * the 3 classifications get replaced by their categories.
+/** "Distribuição das Despesas" — a donut showing how this month's
+ * expenses split across the 3 budget classifications (Custos
+ * Obrigatórios, Prazeres e Confortos, Investimentos), or per-category
+ * within them. Receitas plays no part here — this chart is exclusively
+ * about where the money that left the account in the period went, so
+ * the total always represents 100% of the period's expenses.
  * Investimentos (classification or category) is a destination for
  * money, never grouped with Custos Obrigatórios/Prazeres e Confortos as
- * if it were consumption — it's simply its own slice/color, same as
- * everywhere else in the app. Reads only from the BudgetOverview
- * already fetched by the Dashboard page (Realizado + realizedIncomeCents)
- * — no new data, no changes to the budget's own logic. */
+ * if it were consumption — but it's still a realized outflow for the
+ * period, so it keeps its own slice/color, same as everywhere else in
+ * the app. Reads only from the BudgetOverview already fetched by the
+ * Dashboard page (Realizado per classification) — no new data, no
+ * changes to the budget's own logic. */
 export function ValueDistributionDonut({
-  realizedIncomeCents,
   classifications,
 }: {
-  realizedIncomeCents: number;
   classifications: ClassificationBudgetRow[];
 }) {
   const [view, setView] = useState<"classificacoes" | "categorias">("classificacoes");
   const [active, setActive] = useState<Slice | null>(null);
-
-  const receitasSlice: Slice = {
-    key: "receitas",
-    name: "Receitas",
-    valueCents: realizedIncomeCents,
-    color: RECEITAS_COLOR,
-    icon: Wallet,
-    variant: "solid",
-  };
 
   const classificationSlices: Slice[] = classifications.map((cls) => ({
     key: cls.classification,
@@ -81,7 +68,7 @@ export function ValueDistributionDonut({
     variant: "soft",
   }));
 
-  const slices = [receitasSlice, ...(view === "classificacoes" ? classificationSlices : categorySlices)];
+  const slices = view === "classificacoes" ? classificationSlices : categorySlices;
   const total = slices.reduce((sum, s) => sum + s.valueCents, 0);
 
   const size = 220;
@@ -103,7 +90,7 @@ export function ValueDistributionDonut({
   return (
     <div className="card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-[var(--text-secondary)]">Distribuição dos Valores</p>
+        <p className="text-sm font-medium text-[var(--text-secondary)]">Distribuição das Despesas</p>
         <div className="inline-flex rounded-lg border border-[var(--surface-border)] p-0.5 text-xs">
           <button
             type="button"
@@ -138,7 +125,7 @@ export function ValueDistributionDonut({
 
       {total === 0 ? (
         <p className="mt-6 text-center text-sm text-[var(--muted)]">
-          Nenhum valor registrado neste mês.
+          Nenhuma despesa registrada neste mês.
         </p>
       ) : (
         <div className="mt-4 flex flex-col items-center">
@@ -147,7 +134,7 @@ export function ValueDistributionDonut({
             height={size}
             viewBox={`0 0 ${size} ${size}`}
             role="img"
-            aria-label="Distribuição dos valores do mês"
+            aria-label="Distribuição das despesas do mês"
           >
             {segments.map(({ slice, startAngle, endAngle }) => (
               <path

@@ -6,14 +6,26 @@ import { formatMonthKeyLabel } from "@/lib/dates";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import type { BudgetHistoryMonthRow } from "@/lib/budget";
 
-const SALDO_COLOR = "var(--chart-saldo)";
+const RECEITA_COLOR = "var(--primary)";
+const SALDO_POSITIVE_COLOR = "var(--chart-saldo)";
+const SALDO_NEGATIVE_COLOR = "var(--danger)";
 
-const SERIES: { key: keyof BudgetHistoryMonthRow; label: string; color: string }[] = [
-  { key: "receitaCents", label: "Receita", color: "var(--primary)" },
+/** Bottom-to-top stacking order for the column — same priority order
+ * used everywhere else in the app (Visão Geral, Orçamento × Realizado):
+ * Custos Obrigatórios, Prazeres e Confortos, Investimentos, then
+ * whatever's left over as Saldo. Because saldoCents is defined as
+ * receita − custos − prazeres − investimentos (src/lib/budget.ts), the
+ * four segments always sum back to exactly receitaCents — so the
+ * column's own top edge is Receita, with no separate segment needed for
+ * it (it shows in the legend/tooltip only). */
+const SEGMENT_KEYS = ["custosCents", "prazeresCents", "investimentosCents", "saldoCents"] as const;
+
+const LEGEND: { key: keyof BudgetHistoryMonthRow; label: string; color: string }[] = [
+  { key: "receitaCents", label: "Receita", color: RECEITA_COLOR },
   { key: "custosCents", label: "Custos Obrigatórios", color: CLASSIFICATION_COLORS.CUSTOS_OBRIGATORIOS },
   { key: "prazeresCents", label: "Prazeres e Confortos", color: CLASSIFICATION_COLORS.PRAZERES_E_CONFORTOS },
   { key: "investimentosCents", label: "Investimentos", color: CLASSIFICATION_COLORS.INVESTIMENTOS },
-  { key: "saldoCents", label: "Saldo", color: SALDO_COLOR },
+  { key: "saldoCents", label: "Saldo", color: SALDO_POSITIVE_COLOR },
 ];
 
 const WIDTH = 480;
@@ -22,23 +34,45 @@ const PAD_LEFT = 46;
 const PAD_RIGHT = 6;
 const PAD_TOP = 10;
 const PAD_BOTTOM = 20;
-const Y_TICKS = 3;
+const Y_TICKS = 4;
+const BAR_FRACTION = 0.62;
+const MIN_BAR_WIDTH = 4;
+const MAX_BAR_WIDTH = 34;
+const BAR_RADIUS = 3;
 /** At most this many X labels — beyond it, only every Nth month is
- * labeled, so a 12-month view doesn't crowd the axis with overlapping
- * text (section 3: eixos discretos, sem excesso de marcações). */
+ * labeled, so a 12-month (or longer custom) view doesn't crowd the axis
+ * with overlapping text. */
 const MAX_X_LABELS = 6;
 
-/** "Evolução Financeira" — Receita, Custos Obrigatórios, Prazeres e
- * Confortos, Investimentos and Saldo, one line each, over the selected
- * period. A light Y axis (a few gridlines, compact R$ labels) and
- * sparse month labels on X keep values and trend readable without
- * clutter; a dashed zero-reference line only appears when Saldo
- * actually dips negative somewhere in the range. Hovering any month
- * shows every series' value for that month at once, as one small card
- * — not an isolated per-point value. The legend below names every line
- * since color alone shouldn't carry 5-way identity. Sized for a 2-up
- * grid (viewBox scales down responsively) — see Visão Histórica's
- * layout in src/app/(app)/dashboard/page.tsx. */
+/** Path for a bar segment with rounded top corners and a square bottom
+ * — applied only to the Saldo segment, which (see SEGMENT_KEYS above)
+ * always sits at the column's true visual peak whether it's a surplus
+ * stacked on top or a deficit notched back down from an overspend
+ * peak. */
+function roundedTopBarPath(x: number, y: number, width: number, height: number, radius: number): string {
+  const r = Math.min(radius, width / 2, height);
+  if (r <= 0) return `M${x},${y} h${width} v${height} h${-width} Z`;
+  return `M${x},${y + height} V${y + r} Q${x},${y} ${x + r},${y} H${x + width - r} Q${x + width},${y} ${x + width},${y + r} V${y + height} Z`;
+}
+
+/** "Evolução Financeira" — one stacked column per month showing how
+ * that month's Receita split into Custos Obrigatórios, Prazeres e
+ * Confortos, Investimentos and Saldo. Segments stack as a *signed*
+ * running total (not four independent bars) — in a surplus month Saldo
+ * adds on top of Investimentos and the stack's peak lands exactly on
+ * Receita; in a deficit month Custos+Prazeres+Investimentos alone
+ * already exceeds Receita, so Saldo is negative and gets drawn as a
+ * red notch descending from that overspend peak back down to the
+ * Receita line — the red area *is* the size of the deficit. This only
+ * works because saldoCents is defined as the remainder
+ * (receita − custos − prazeres − investimentos), so the four segments
+ * always sum back to receitaCents exactly, in both directions.
+ * Investimentos keeps its own segment (never folded into Custos/
+ * Prazeres) since it's a destination for money, not consumption — same
+ * framing as ValueDistributionDonut and SpendingDistributionChart.
+ * Hovering a column shows every value for that month as one card. Sized
+ * for a 2-up grid (viewBox scales down responsively) — see Visão
+ * Histórica's layout in src/app/(app)/dashboard/page.tsx. */
 export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow[] }) {
   const [hovered, setHovered] = useState<number | null>(null);
 
@@ -53,18 +87,21 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
   const chartWidth = WIDTH - PAD_LEFT - PAD_RIGHT;
   const chartHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
 
-  const allValues = months.flatMap((m) => SERIES.map((s) => m[s.key] as number));
-  const maxValue = Math.max(...allValues, 0);
-  const minValue = Math.min(...allValues, 0);
-  const range = maxValue - minValue || 1;
+  // The column's peak is Receita on a surplus month but the (taller)
+  // Custos+Prazeres+Investimentos total on a deficit month — the Y
+  // domain has to cover whichever is tallest across the period.
+  const maxValue = Math.max(
+    ...months.flatMap((m) => [m.receitaCents, m.custosCents + m.prazeresCents + m.investimentosCents]),
+    1
+  );
 
-  const xFor = (i: number) =>
-    PAD_LEFT + (months.length <= 1 ? chartWidth / 2 : (i / (months.length - 1)) * chartWidth);
-  const yFor = (value: number) => PAD_TOP + chartHeight - ((value - minValue) / range) * chartHeight;
+  const slotWidth = chartWidth / months.length;
+  const barWidth = Math.min(MAX_BAR_WIDTH, Math.max(MIN_BAR_WIDTH, slotWidth * BAR_FRACTION));
+  const xFor = (i: number) => PAD_LEFT + slotWidth * (i + 0.5);
+  const yFor = (value: number) => PAD_TOP + chartHeight - (value / maxValue) * chartHeight;
 
-  const yTicks = Array.from({ length: Y_TICKS + 1 }, (_, i) => minValue + (range * i) / Y_TICKS);
+  const yTicks = Array.from({ length: Y_TICKS + 1 }, (_, i) => (maxValue * i) / Y_TICKS);
   const xLabelStep = Math.max(1, Math.ceil(months.length / MAX_X_LABELS));
-  const slotWidth = months.length > 1 ? chartWidth / (months.length - 1) : chartWidth;
 
   return (
     <div className="card p-4">
@@ -91,58 +128,46 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
               </text>
             </g>
           ))}
-          {minValue < 0 && (
-            <line
-              x1={PAD_LEFT}
-              x2={WIDTH - PAD_RIGHT}
-              y1={yFor(0)}
-              y2={yFor(0)}
-              stroke="var(--muted)"
-              strokeWidth={1}
-              strokeDasharray="4 3"
-            />
-          )}
 
-          {SERIES.map((series) => {
-            const points = months.map((m, i) => `${xFor(i)},${yFor(m[series.key] as number)}`).join(" ");
-            const isNet = series.key === "saldoCents";
+          {months.map((m, i) => {
+            const x = xFor(i) - barWidth / 2;
+            const opacity = hovered === null || hovered === i ? 1 : 0.45;
+            const cumulative = [0];
+            for (const key of SEGMENT_KEYS) cumulative.push(cumulative[cumulative.length - 1] + m[key]);
+
             return (
-              <g key={series.key}>
-                <polyline
-                  points={points}
-                  fill="none"
-                  stroke={series.color}
-                  strokeWidth={2}
-                  strokeDasharray={isNet ? "1 4" : undefined}
-                  strokeLinecap={isNet ? "round" : undefined}
-                />
-                {months.map((m, i) => (
-                  <circle
-                    key={m.monthKey}
-                    cx={xFor(i)}
-                    cy={yFor(m[series.key] as number)}
-                    r={hovered === i ? 3.5 : 2.5}
-                    fill={series.color}
-                  />
-                ))}
+              <g key={m.monthKey}>
+                {SEGMENT_KEYS.map((key, segIndex) => {
+                  const from = cumulative[segIndex];
+                  const to = cumulative[segIndex + 1];
+                  const yFrom = yFor(from);
+                  const yTo = yFor(to);
+                  const y = Math.min(yFrom, yTo);
+                  const height = Math.abs(yFrom - yTo);
+                  if (height <= 0) return null;
+
+                  const isSaldo = key === "saldoCents";
+                  const color = isSaldo ? (m.saldoCents >= 0 ? SALDO_POSITIVE_COLOR : SALDO_NEGATIVE_COLOR) : LEGEND[segIndex + 1].color;
+
+                  return isSaldo ? (
+                    <path
+                      key={key}
+                      d={roundedTopBarPath(x, y, barWidth, height, BAR_RADIUS)}
+                      fill={color}
+                      opacity={opacity}
+                    />
+                  ) : (
+                    <rect key={key} x={x} y={y} width={barWidth} height={height} fill={color} opacity={opacity} />
+                  );
+                })}
+                {i % xLabelStep === 0 && (
+                  <text x={xFor(i)} y={HEIGHT - 5} textAnchor="middle" className="fill-[var(--muted)] text-[8px]">
+                    {m.shortLabel}
+                  </text>
+                )}
               </g>
             );
           })}
-
-          {months.map(
-            (m, i) =>
-              i % xLabelStep === 0 && (
-                <text
-                  key={m.monthKey}
-                  x={xFor(i)}
-                  y={HEIGHT - 5}
-                  textAnchor="middle"
-                  className="fill-[var(--muted)] text-[8px]"
-                >
-                  {m.shortLabel}
-                </text>
-              )
-          )}
 
           {months.map((m, i) => (
             <rect
@@ -167,26 +192,29 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
           >
             <p className="mb-1 font-semibold text-[var(--text-primary)]">{formatMonthKeyLabel(months[hovered].monthKey)}</p>
             <div className="space-y-0.5">
-              {SERIES.map((series) => (
-                <div key={series.key} className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: series.color }} />
-                    {series.label}
-                  </span>
-                  <span className="font-medium text-[var(--text-primary)]">
-                    {formatCentsToBRL(months[hovered][series.key] as number)}
-                  </span>
-                </div>
-              ))}
+              {LEGEND.map((item) => {
+                const value = months[hovered][item.key] as number;
+                const color =
+                  item.key === "saldoCents" ? (value >= 0 ? SALDO_POSITIVE_COLOR : SALDO_NEGATIVE_COLOR) : item.color;
+                return (
+                  <div key={item.key} className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                      {item.label}
+                    </span>
+                    <span className="font-medium text-[var(--text-primary)]">{formatCentsToBRL(value)}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--muted)]">
-        {SERIES.map((series) => (
-          <span key={series.key} className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: series.color }} />
-            {series.label}
+        {LEGEND.map((item) => (
+          <span key={item.key} className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: item.color }} />
+            {item.label}
           </span>
         ))}
       </div>
