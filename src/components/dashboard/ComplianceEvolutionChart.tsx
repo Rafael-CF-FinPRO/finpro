@@ -26,6 +26,18 @@ function tierColorFor(pct: number): string {
   return "var(--danger)";
 }
 
+type Tier = "critico" | "atencao" | "bom";
+
+function tierFor(pct: number): Tier {
+  if (pct >= 80) return "bom";
+  if (pct >= 50) return "atencao";
+  return "critico";
+}
+
+function monthLabel(count: number): string {
+  return count === 1 ? "mês" : "meses";
+}
+
 /** "Cumprimento do Orçamento" evolution — one point per month, using the
  * exact same index as the monthly view's speedometer
  * (computeOverallCompliancePct in src/lib/budget-calc.ts): Custos
@@ -62,6 +74,21 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
   const slotWidth = months.length > 1 ? chartWidth / (months.length - 1) : chartWidth;
 
   const hoveredMonth = hovered === null ? null : months[hovered];
+
+  // How many of the charted months land in each Crítico/Atenção/Bom
+  // tier — the exact same tier a month's own point is colored by above,
+  // just tallied instead of plotted. Counts the full `months` array
+  // (the period actually selected, already clamped to the user's real
+  // usage window), so the 3 totals always sum to the number of bars/
+  // points on the chart — same convention as the chart itself, not
+  // restricted to months with realized activity.
+  const tierCounts = months.reduce(
+    (acc, m) => {
+      acc[tierFor(m.compliancePct)] += 1;
+      return acc;
+    },
+    { critico: 0, atencao: 0, bom: 0 } as Record<Tier, number>
+  );
 
   return (
     <div className="card p-4">
@@ -186,7 +213,7 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
           </div>
         )}
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--muted)]">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "var(--danger)" }} />
           Crítico (&lt;50%)
@@ -199,6 +226,27 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "var(--success)" }} />
           Bom (≥80%)
         </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="rounded-lg border border-[var(--surface-border)] px-3 py-2">
+          <p className="text-xs text-[var(--muted)]">Crítico (&lt;50%)</p>
+          <p className="text-lg font-semibold" style={{ color: "var(--danger)" }}>
+            {tierCounts.critico} {monthLabel(tierCounts.critico)}
+          </p>
+        </div>
+        <div className="rounded-lg border border-[var(--surface-border)] px-3 py-2">
+          <p className="text-xs text-[var(--muted)]">Atenção (50-79%)</p>
+          <p className="text-lg font-semibold" style={{ color: "var(--warning)" }}>
+            {tierCounts.atencao} {monthLabel(tierCounts.atencao)}
+          </p>
+        </div>
+        <div className="rounded-lg border border-[var(--surface-border)] px-3 py-2">
+          <p className="text-xs text-[var(--muted)]">Bom (≥80%)</p>
+          <p className="text-lg font-semibold" style={{ color: "var(--success)" }}>
+            {tierCounts.bom} {monthLabel(tierCounts.bom)}
+          </p>
+        </div>
       </div>
     </div>
   );
