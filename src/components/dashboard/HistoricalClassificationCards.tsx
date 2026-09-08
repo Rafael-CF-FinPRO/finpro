@@ -1,5 +1,5 @@
 import { formatCentsToBRL } from "@/lib/money";
-import { computeBudgetStatus, computeGoalStatus, isGoalClassification } from "@/lib/budget-calc";
+import { computeBudgetPct, computeBudgetStatus, computeGoalStatus, isGoalClassification } from "@/lib/budget-calc";
 import { countMonthsWithData } from "@/lib/history-utils";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
@@ -10,6 +10,63 @@ import type { BudgetHistoryMonthRow } from "@/lib/budget";
 import type { Classification } from "@/generated/prisma/enums";
 
 type NonReceita = Exclude<Classification, "RECEITA" | "NEUTRA">;
+
+const RING_SIZE = 64;
+const RING_STROKE = 6;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+/** A compact "how much of the budget/meta" ring — the same percentage
+ * already on the card (realizado ÷ orçado/meta), just made visual
+ * instead of read only from R$ figures. Sized to sit beside the card's
+ * existing text column (never below it), so the card's height is
+ * whatever that text column already needs — the ring never grows it.
+ * `pct` beyond 100 still fills the ring only up to a full circle (it
+ * can't sweep past 360°), but the center label keeps showing the real
+ * number, since going over is exactly what "Fora do orçamento" needs to
+ * communicate. `pct === null` (no orçado/meta configured) renders an
+ * empty track with "—" instead of a divide-by-zero percentage. */
+function ProgressRing({ pct, color }: { pct: number | null; color: string }) {
+  const clamped = pct === null ? 0 : Math.min(Math.max(pct, 0), 100);
+  const dashOffset = RING_CIRCUMFERENCE * (1 - clamped / 100);
+
+  return (
+    <div className="relative shrink-0" style={{ width: RING_SIZE, height: RING_SIZE }}>
+      <svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
+        <g transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}>
+          <circle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_RADIUS}
+            fill="none"
+            stroke="var(--surface-border)"
+            strokeWidth={RING_STROKE}
+          />
+          {pct !== null && (
+            <circle
+              cx={RING_SIZE / 2}
+              cy={RING_SIZE / 2}
+              r={RING_RADIUS}
+              fill="none"
+              stroke={color}
+              strokeWidth={RING_STROKE}
+              strokeLinecap="round"
+              strokeDasharray={RING_CIRCUMFERENCE}
+              strokeDashoffset={dashOffset}
+            />
+          )}
+        </g>
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        {pct === null ? (
+          <span className="text-sm font-semibold text-[var(--text-faint)]">—</span>
+        ) : (
+          <span className="text-sm font-bold text-[var(--text-primary)]">{Math.round(pct)}%</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const ROWS: {
   classification: Classification;
@@ -67,6 +124,21 @@ export function HistoricalClassificationCards({
         // an achievement).
         const goalStatus = isGoal ? computeGoalStatus(realizedValue, budgetedValue) : null;
         const goalAchieved = goalStatus === "META_ATINGIDA";
+        const budgetStatus = !isGoal ? computeBudgetStatus(realizedValue, budgetedValue) : null;
+        // Same realizado/orçado ratio already driving the badge above —
+        // null (not formatted as 0%) whenever there's nothing budgeted/
+        // metado to divide by, so the ring reads "—" instead of a
+        // fabricated percentage.
+        const pct = computeBudgetPct(realizedValue, budgetedValue);
+        const ringColor = isGoal
+          ? goalStatus === "META_ATINGIDA"
+            ? "var(--success)"
+            : goalStatus === "QUASE_LA"
+              ? "var(--warning)"
+              : "var(--neutral)"
+          : budgetStatus === "DENTRO"
+            ? "var(--success)"
+            : "var(--danger)";
 
         return (
           <div key={classification} className="card p-4">
@@ -75,41 +147,42 @@ export function HistoricalClassificationCards({
                 <IconBadge icon={CLASSIFICATION_ICONS[classification as NonReceita]} color={color} size="sm" />
                 {CLASSIFICATION_LABELS[classification]}
               </span>
-              {isGoal ? (
-                <StatusBadge goalStatus={goalStatus!} />
-              ) : (
-                <StatusBadge status={computeBudgetStatus(realizedValue, budgetedValue)} />
-              )}
+              {isGoal ? <StatusBadge goalStatus={goalStatus!} /> : <StatusBadge status={budgetStatus!} />}
             </div>
 
-            <p className="mt-2 text-sm text-[var(--muted)]">{isGoal ? `Meta ${suffix}` : `Orçado ${suffix}`}</p>
-            <p className="text-lg font-semibold text-[var(--text-primary)]">{formatCentsToBRL(budgetedValue)}</p>
+            <div className="mt-2 flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-[var(--muted)]">{isGoal ? `Meta ${suffix}` : `Orçado ${suffix}`}</p>
+                <p className="text-lg font-semibold text-[var(--text-primary)]">{formatCentsToBRL(budgetedValue)}</p>
 
-            <p className="mt-1 text-sm text-[var(--muted)]">Realizado {suffix}</p>
-            <p className="text-lg font-semibold text-[var(--text-primary)]">{formatCentsToBRL(realizedValue)}</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">Realizado {suffix}</p>
+                <p className="text-lg font-semibold text-[var(--text-primary)]">{formatCentsToBRL(realizedValue)}</p>
 
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              {isGoal
-                ? goalAchieved
-                  ? diffCents === 0
-                    ? "Status"
-                    : "Meta superada em"
-                  : "Falta para a meta"
-                : "Diferença"}
-            </p>
-            <p
-              className={`text-lg font-semibold ${
-                isGoal
-                  ? goalAchieved
-                    ? "text-[var(--success)]"
-                    : "text-[var(--text-primary)]"
-                  : diffCents < 0
-                    ? "text-[var(--danger)]"
-                    : "text-[var(--text-primary)]"
-              }`}
-            >
-              {isGoal && goalAchieved && diffCents === 0 ? "Meta atingida" : formatCentsToBRL(Math.abs(diffCents))}
-            </p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  {isGoal
+                    ? goalAchieved
+                      ? diffCents === 0
+                        ? "Status"
+                        : "Meta superada em"
+                      : "Falta para a meta"
+                    : "Diferença"}
+                </p>
+                <p
+                  className={`text-lg font-semibold ${
+                    isGoal
+                      ? goalAchieved
+                        ? "text-[var(--success)]"
+                        : "text-[var(--text-primary)]"
+                      : diffCents < 0
+                        ? "text-[var(--danger)]"
+                        : "text-[var(--text-primary)]"
+                  }`}
+                >
+                  {isGoal && goalAchieved && diffCents === 0 ? "Meta atingida" : formatCentsToBRL(Math.abs(diffCents))}
+                </p>
+              </div>
+              <ProgressRing pct={pct} color={ringColor} />
+            </div>
           </div>
         );
       })}
