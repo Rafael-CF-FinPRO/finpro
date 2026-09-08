@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatCentsToBRL, formatCentsCompactBRL } from "@/lib/money";
 import { formatMonthKeyLabel } from "@/lib/dates";
-import { BUDGET_CLASSIFICATIONS } from "@/lib/budget-calc";
+import { BUDGET_CLASSIFICATIONS, computeBudgetPct } from "@/lib/budget-calc";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import { CLASSIFICATION_LABELS } from "@/lib/transaction-labels";
 import { withCategoryDisplayName } from "@/lib/category-display";
@@ -24,10 +24,14 @@ const PAD_RIGHT = 6;
 const PAD_TOP = 8;
 const PAD_BOTTOM = 16;
 const Y_TICKS = 3;
-const BAR_FRACTION = 0.62;
-const MIN_BAR_WIDTH = 4;
-const MAX_BAR_WIDTH = 34;
-const BAR_RADIUS = 3;
+/** Fraction of each month's slot given to the Realizado+Orçado pair
+ * together (the rest is breathing room between months). */
+const PAIR_FRACTION = 0.7;
+/** Gap between the two bars within one month's pair. */
+const PAIR_GAP = 3;
+const MIN_BAR_WIDTH = 3;
+const MAX_BAR_WIDTH = 18;
+const BAR_RADIUS = 2;
 const LEGEND_CAP = 10;
 /** At most this many X labels — same decluttering rule as the other
  * historical charts (section 3: eixos sem excesso de marcações); a long
@@ -36,33 +40,32 @@ const LEGEND_CAP = 10;
 const MAX_X_LABELS = 12;
 
 /** Path for a bar segment with rounded top corners and a square bottom
- * — used only for a column's topmost visible segment, so a stack reads
- * as one rounded pill made of colored bands rather than a sharp block.
- * Every lower segment keeps rendering as a plain <rect> (same geometry
- * either way, just a different SVG element). */
+ * — used only for a bar's topmost visible segment, so a stack reads as
+ * one rounded pill made of colored bands rather than a sharp block.
+ * Every lower segment keeps rendering as a plain <rect>. */
 function roundedTopBarPath(x: number, y: number, width: number, height: number, radius: number): string {
   const r = Math.min(radius, width / 2, height);
+  if (r <= 0) return `M${x},${y} h${width} v${height} h${-width} Z`;
   return `M${x},${y + height} V${y + r} Q${x},${y} ${x + r},${y} H${x + width - r} Q${x + width},${y} ${x + width},${y + r} V${y + height} Z`;
 }
 
-/** "Distribuição dos Gastos" — for each month, how the money actually
- * spent/invested that month broke down, as a stacked column in R$ (not
- * %, and no Saldo segment — this chart is only about the 3 gasto/
- * destinação categories, income and leftover live in the other
- * sections). Investimentos is included as one of the 3 segments — it's
- * a destination for money, not consumption, but it still counts toward
- * "how this month's realized values were distributed", same framing as
- * the monthly view's own ValueDistributionDonut. Toggles to a
- * per-category breakdown the same way Orçamento × Realizado and
- * ValueDistributionDonut do. Hovering a column shows every segment's
- * value for that month as one card (not per-segment isolated tooltips),
- * including the individual category breakdown when in Categorias mode.
- * `useChartWidth` keeps the SVG's internal coordinate system matched
- * 1:1 to real screen pixels regardless of the card's width (see that
- * hook's own doc) — bar width is a proportion of each month's slot
- * rather than a fixed pixel value, so the chart fills the available
- * width at any month count instead of leaving it mostly empty or
- * overflowing it. */
+/** "Distribuição dos Gastos" — for each month, two side-by-side stacked
+ * columns on the same R$ scale: Realizado (what was actually spent/
+ * invested) and Orçado (what was budgeted for that same classification/
+ * category that month) — Custos Obrigatórios, Prazeres e Confortos and
+ * Investimentos, no Saldo segment, same framing as the monthly view's
+ * own ValueDistributionDonut. Investimentos keeps its own segment
+ * (never folded into Custos/Prazeres) — it's a destination for money,
+ * not consumption, but still counts as "distributed" that month.
+ * Toggles to a per-category breakdown the same way Orçamento ×
+ * Realizado does; a category shows up as soon as it has either
+ * Realizado or Orçado that month, so a budgeted-but-unspent category
+ * still gets its (empty) Realizado bar and its Orçado bar. Hovering a
+ * month shows one combined card comparing every segment's Realizado ×
+ * Orçado, their difference and % de utilização — not two separate
+ * tooltips for the two bars. `useChartWidth` keeps the SVG's internal
+ * coordinate system matched 1:1 to real screen pixels regardless of the
+ * card's width (see that hook's own doc). */
 export function SpendingDistributionChart({ months }: { months: BudgetHistoryMonthRow[] }) {
   const [view, setView] = useState<ViewMode>("classificacoes");
   const [hovered, setHovered] = useState<number | null>(null);
@@ -82,10 +85,10 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
     color: CLASSIFICATION_COLORS[classification as NonReceita],
   }));
 
-  // Every category with any realized spending across the period, kept
-  // in a fixed order (grouped by classification, biggest first) so the
-  // same category occupies a similar band from one month's bar to the
-  // next instead of shuffling around.
+  // Every category with any realized spending and/or budget allocation
+  // across the period, kept in a fixed order (grouped by classification,
+  // biggest realized first) so the same category occupies a similar
+  // band from one month's bars to the next instead of shuffling around.
   const categoryTotals = new Map<
     string,
     { categoryId: string; name: string; classification: Classification; total: number }
@@ -112,7 +115,7 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
 
   const segments = view === "classificacoes" ? classificationSegments : categorySegments;
 
-  function valueFor(m: BudgetHistoryMonthRow, segmentKey: string): number {
+  function realizedFor(m: BudgetHistoryMonthRow, segmentKey: string): number {
     if (view === "classificacoes") {
       if (segmentKey === "CUSTOS_OBRIGATORIOS") return m.custosCents;
       if (segmentKey === "PRAZERES_E_CONFORTOS") return m.prazeresCents;
@@ -121,14 +124,26 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
     return m.categories.find((c) => c.categoryId === segmentKey)?.realizedCents ?? 0;
   }
 
-  const monthTotals = months.map((m) => segments.reduce((sum, seg) => sum + valueFor(m, seg.key), 0));
-  const maxTotal = Math.max(...monthTotals, 1);
+  function budgetedFor(m: BudgetHistoryMonthRow, segmentKey: string): number {
+    if (view === "classificacoes") {
+      if (segmentKey === "CUSTOS_OBRIGATORIOS") return m.custosBudgetedCents;
+      if (segmentKey === "PRAZERES_E_CONFORTOS") return m.prazeresBudgetedCents;
+      return m.investimentosMetaCents;
+    }
+    return m.categories.find((c) => c.categoryId === segmentKey)?.budgetedCents ?? 0;
+  }
+
+  const monthRealizedTotals = months.map((m) => segments.reduce((sum, seg) => sum + realizedFor(m, seg.key), 0));
+  const monthBudgetedTotals = months.map((m) => segments.reduce((sum, seg) => sum + budgetedFor(m, seg.key), 0));
+  const maxTotal = Math.max(...monthRealizedTotals, ...monthBudgetedTotals, 1);
 
   const chartWidth = WIDTH - PAD_LEFT - PAD_RIGHT;
   const chartHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
   const slotWidth = chartWidth / months.length;
-  const barWidth = Math.min(MAX_BAR_WIDTH, Math.max(MIN_BAR_WIDTH, slotWidth * BAR_FRACTION));
+  const barWidth = Math.min(MAX_BAR_WIDTH, Math.max(MIN_BAR_WIDTH, (slotWidth * PAIR_FRACTION - PAIR_GAP) / 2));
   const xFor = (i: number) => PAD_LEFT + slotWidth * (i + 0.5);
+  const realizedXFor = (i: number) => xFor(i) - PAIR_GAP / 2 - barWidth;
+  const budgetedXFor = (i: number) => xFor(i) + PAIR_GAP / 2;
   const yFor = (value: number) => PAD_TOP + chartHeight - (value / maxTotal) * chartHeight;
   const yTicks = Array.from({ length: Y_TICKS + 1 }, (_, i) => (maxTotal * i) / Y_TICKS);
   const xLabelStep = Math.max(1, Math.ceil(months.length / MAX_X_LABELS));
@@ -137,16 +152,34 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
     hovered === null
       ? []
       : segments
-          .map((seg) => ({ ...seg, value: valueFor(months[hovered], seg.key) }))
-          .filter((seg) => seg.value > 0)
-          .sort((a, b) => b.value - a.value);
+          .map((seg) => ({
+            ...seg,
+            realized: realizedFor(months[hovered], seg.key),
+            budgeted: budgetedFor(months[hovered], seg.key),
+          }))
+          .filter((seg) => seg.realized > 0 || seg.budgeted > 0)
+          .sort((a, b) => b.realized - a.realized);
 
-  // Share of that month's total despesas — recomputed from
-  // monthTotals[hovered], which is itself already derived from
-  // `segments`, so switching Classificações ↔ Categorias or hovering a
-  // different month updates every percentage automatically.
-  const pctOfMonthTotal = (value: number) =>
-    hovered !== null && monthTotals[hovered] > 0 ? Math.round((value / monthTotals[hovered]) * 100) : 0;
+  /** One bar's stacked segments for a given month — shared between the
+   * Realizado and Orçado columns, only the value-lookup function and X
+   * position differ. */
+  function renderBar(m: BudgetHistoryMonthRow, x: number, i: number, valueFor: (m: BudgetHistoryMonthRow, key: string) => number) {
+    let cumulative = 0;
+    const topSegmentKey = segments.filter((seg) => valueFor(m, seg.key) > 0).at(-1)?.key;
+    const opacity = hovered === null || hovered === i ? 1 : 0.45;
+    return segments.map((seg) => {
+      const value = valueFor(m, seg.key);
+      if (value <= 0) return null;
+      const y = yFor(cumulative + value);
+      const segHeight = yFor(cumulative) - y;
+      cumulative += value;
+      return seg.key === topSegmentKey ? (
+        <path key={seg.key} d={roundedTopBarPath(x, y, barWidth, segHeight, BAR_RADIUS)} fill={seg.color} opacity={opacity} />
+      ) : (
+        <rect key={seg.key} x={x} y={y} width={barWidth} height={segHeight} fill={seg.color} opacity={opacity} />
+      );
+    });
+  }
 
   return (
     <div className="card p-4">
@@ -174,13 +207,22 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
         </div>
       </div>
 
-      <div ref={containerRef} className="relative mt-3">
+      <div className="mt-2 flex items-center gap-3 text-xs text-[var(--muted)]">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-[var(--text-tertiary)]" /> Realizado
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-[var(--text-tertiary)] opacity-35" /> Orçado
+        </span>
+      </div>
+
+      <div ref={containerRef} className="relative mt-2">
         <svg
           width={WIDTH}
           height={HEIGHT}
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           role="img"
-          aria-label="Distribuição mensal dos gastos e investimentos realizados"
+          aria-label="Distribuição mensal dos gastos realizados comparados ao orçamento"
         >
           {yTicks.map((tick) => (
             <g key={tick}>
@@ -198,46 +240,17 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
             </g>
           ))}
 
-          {months.map((m, i) => {
-            const x = xFor(i) - barWidth / 2;
-            let cumulative = 0;
-            const topSegmentKey = segments.filter((seg) => valueFor(m, seg.key) > 0).at(-1)?.key;
-            return (
-              <g key={m.monthKey}>
-                {segments.map((seg) => {
-                  const value = valueFor(m, seg.key);
-                  if (value <= 0) return null;
-                  const y = yFor(cumulative + value);
-                  const segHeight = yFor(cumulative) - y;
-                  cumulative += value;
-                  const opacity = hovered === null || hovered === i ? 1 : 0.45;
-                  return seg.key === topSegmentKey ? (
-                    <path
-                      key={seg.key}
-                      d={roundedTopBarPath(x, y, barWidth, segHeight, BAR_RADIUS)}
-                      fill={seg.color}
-                      opacity={opacity}
-                    />
-                  ) : (
-                    <rect
-                      key={seg.key}
-                      x={x}
-                      y={y}
-                      width={barWidth}
-                      height={segHeight}
-                      fill={seg.color}
-                      opacity={opacity}
-                    />
-                  );
-                })}
-                {i % xLabelStep === 0 && (
-                  <text x={xFor(i)} y={HEIGHT - 4} textAnchor="middle" className="fill-[var(--muted)] text-[8px]">
-                    {m.shortLabel}
-                  </text>
-                )}
-              </g>
-            );
-          })}
+          {months.map((m, i) => (
+            <g key={m.monthKey}>
+              {renderBar(m, realizedXFor(i), i, realizedFor)}
+              <g opacity={0.35}>{renderBar(m, budgetedXFor(i), i, budgetedFor)}</g>
+              {i % xLabelStep === 0 && (
+                <text x={xFor(i)} y={HEIGHT - 4} textAnchor="middle" className="fill-[var(--muted)] text-[8px]">
+                  {m.shortLabel}
+                </text>
+              )}
+            </g>
+          ))}
 
           {months.map((m, i) => (
             <rect
@@ -255,32 +268,51 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
 
         {hovered !== null && (
           <div
-            className={`pointer-events-none absolute top-1 z-10 max-h-[220px] overflow-y-auto rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] p-2.5 text-[11px] shadow-lg ${
-              view === "categorias" ? "w-52" : "w-44"
-            } ${hovered <= 1 ? "" : hovered >= months.length - 2 ? "-translate-x-full" : "-translate-x-1/2"}`}
+            className={`pointer-events-none absolute top-1 z-10 max-h-[260px] w-64 overflow-y-auto rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] p-2.5 text-[11px] shadow-lg ${
+              hovered <= 1 ? "" : hovered >= months.length - 2 ? "-translate-x-full" : "-translate-x-1/2"
+            }`}
             style={{ left: `${(xFor(hovered) / WIDTH) * 100}%` }}
           >
             <p className="mb-1 font-semibold text-[var(--text-primary)]">{formatMonthKeyLabel(months[hovered].monthKey)}</p>
-            <div className="space-y-0.5">
+            <div className="space-y-1.5">
               {hoveredSegments.length === 0 ? (
                 <p className="text-[var(--muted)]">Sem valores no mês.</p>
               ) : (
-                hoveredSegments.map((seg) => (
-                  <div key={seg.key} className="flex items-center justify-between gap-2">
-                    <span className="flex min-w-0 items-center gap-1 text-[var(--text-tertiary)]">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
-                      <span className={view === "categorias" ? "truncate" : ""}>{seg.label}</span>
-                    </span>
-                    <span className="shrink-0 font-medium text-[var(--text-primary)]">
-                      {formatCentsToBRL(seg.value)} — {pctOfMonthTotal(seg.value)}%
-                    </span>
-                  </div>
-                ))
+                hoveredSegments.map((seg) => {
+                  const diffCents = seg.budgeted - seg.realized;
+                  const pct = computeBudgetPct(seg.realized, seg.budgeted);
+                  return (
+                    <div key={seg.key}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1 text-[var(--text-tertiary)]">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
+                          <span className={view === "categorias" ? "truncate" : ""}>{seg.label}</span>
+                        </span>
+                        <span className="shrink-0 font-medium text-[var(--text-primary)]">{formatCentsToBRL(seg.realized)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 pl-2.5 text-[var(--muted)]">
+                        <span>
+                          Orçado {formatCentsToBRL(seg.budgeted)}
+                          {pct !== null ? ` · ${pct.toLocaleString("pt-BR")}%` : ""}
+                        </span>
+                        <span className={diffCents < 0 ? "text-[var(--danger)]" : "text-[var(--text-secondary)]"}>
+                          {formatCentsToBRL(diffCents)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
-            <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--surface-border)] pt-1 font-semibold text-[var(--text-primary)]">
-              <span>Total</span>
-              <span>{formatCentsToBRL(monthTotals[hovered])}</span>
+            <div className="mt-1.5 space-y-0.5 border-t border-[var(--surface-border)] pt-1">
+              <div className="flex items-center justify-between gap-2 font-semibold text-[var(--text-primary)]">
+                <span>Total realizado</span>
+                <span>{formatCentsToBRL(monthRealizedTotals[hovered])}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-[var(--muted)]">
+                <span>Total orçado</span>
+                <span>{formatCentsToBRL(monthBudgetedTotals[hovered])}</span>
+              </div>
             </div>
           </div>
         )}
