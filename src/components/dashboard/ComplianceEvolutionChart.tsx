@@ -80,7 +80,7 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
                 strokeWidth={1}
                 strokeDasharray={ref === 0 || ref === 100 ? undefined : "4 3"}
               />
-              <text x={PAD_LEFT - 6} y={yFor(ref) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[8px]">
+              <text x={PAD_LEFT - 6} y={yFor(ref) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[11px]">
                 {ref}%
               </text>
             </g>
@@ -105,7 +105,7 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
                   x={xFor(i)}
                   y={HEIGHT - 5}
                   textAnchor="middle"
-                  className="fill-[var(--muted)] text-[8px]"
+                  className="fill-[var(--muted)] text-[11px]"
                 >
                   {m.shortLabel}
                 </text>

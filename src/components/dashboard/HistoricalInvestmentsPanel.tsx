@@ -160,7 +160,7 @@ function InvestmentsChart({
               stroke="var(--surface-border)"
               strokeWidth={1}
             />
-            <text x={PAD_LEFT - 6} y={yFor(tick) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[8px]">
+            <text x={PAD_LEFT - 6} y={yFor(tick) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[11px]">
               {formatCentsCompactBRL(tick)}
             </text>
           </g>
@@ -194,7 +194,7 @@ function InvestmentsChart({
                 </text>
               )}
               {i % xLabelStep === 0 && (
-                <text x={xFor(i)} y={HEIGHT - 4} textAnchor="middle" className="fill-[var(--muted)] text-[8px]">
+                <text x={xFor(i)} y={HEIGHT - 4} textAnchor="middle" className="fill-[var(--muted)] text-[11px]">
                   {m.shortLabel}
                 </text>
               )}

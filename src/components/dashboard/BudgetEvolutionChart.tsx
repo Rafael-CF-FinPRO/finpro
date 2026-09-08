@@ -130,7 +130,7 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
                   );
                 })}
                 {i % xLabelStep === 0 && (
-                  <text x={xFor(i)} y={HEIGHT - 4} textAnchor="middle" className="fill-[var(--muted)] text-[8px]">
+                  <text x={xFor(i)} y={HEIGHT - 4} textAnchor="middle" className="fill-[var(--muted)] text-[11px]">
                     {m.shortLabel}
                   </text>
                 )}
