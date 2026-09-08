@@ -4,9 +4,12 @@ import { useState } from "react";
 import { formatCentsToBRL } from "@/lib/money";
 import { formatMonthKeyLabel } from "@/lib/dates";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
+import { useChartWidth } from "@/lib/use-chart-width";
 import type { BudgetHistoryMonthRow } from "@/lib/budget";
 
-const WIDTH = 480;
+/** Only used for the very first paint, before useChartWidth has
+ * measured the card's real width. */
+const FALLBACK_WIDTH = 480;
 const HEIGHT = 140;
 const PAD_LEFT = 30;
 const PAD_RIGHT = 8;
@@ -37,6 +40,7 @@ function tierColorFor(pct: number): string {
  * src/app/(app)/dashboard/page.tsx. */
 export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMonthRow[] }) {
   const [hovered, setHovered] = useState<number | null>(null);
+  const { containerRef, width: WIDTH } = useChartWidth(FALLBACK_WIDTH);
 
   if (months.length === 0) {
     return (
@@ -62,10 +66,11 @@ export function ComplianceEvolutionChart({ months }: { months: BudgetHistoryMont
   return (
     <div className="card p-4">
       <p className="text-sm font-medium text-[var(--text-secondary)]">Cumprimento do Orçamento</p>
-      <div className="relative mt-3">
+      <div ref={containerRef} className="relative mt-3">
         <svg
+          width={WIDTH}
+          height={HEIGHT}
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          className="w-full"
           role="img"
           aria-label="Evolução mensal do Cumprimento do Orçamento"
         >

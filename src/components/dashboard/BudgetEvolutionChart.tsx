@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatCentsToBRL } from "@/lib/money";
+import { formatCentsToBRL, formatCentsCompactBRL } from "@/lib/money";
 import { formatMonthKeyLabel } from "@/lib/dates";
 import { CLASSIFICATION_COLORS } from "@/lib/classification-colors";
 import { useChartWidth } from "@/lib/use-chart-width";
@@ -11,71 +11,61 @@ const RECEITA_COLOR = "var(--primary)";
 const SALDO_POSITIVE_COLOR = "var(--success)";
 const SALDO_NEGATIVE_COLOR = "var(--danger)";
 
-/** Top-to-bottom funnel order — Receita is always the mouth (100% of
- * itself), each classification narrows it further, Saldo is whatever's
- * left. Same order/semantics as the single-month "Visão Geral" funnel
- * (src/components/dashboard/IncomeFlowFunnel.tsx) this chart recovers
- * the visual language of, just repeated once per month instead of
- * showing only the selected month. */
-const STAGE_DEFS = [
+const SERIES: { key: keyof BudgetHistoryMonthRow; label: string; color: string }[] = [
   { key: "receitaCents", label: "Receita", color: RECEITA_COLOR },
   { key: "custosCents", label: "Custos Obrigatórios", color: CLASSIFICATION_COLORS.CUSTOS_OBRIGATORIOS },
   { key: "prazeresCents", label: "Prazeres e Confortos", color: CLASSIFICATION_COLORS.PRAZERES_E_CONFORTOS },
   { key: "investimentosCents", label: "Investimentos", color: CLASSIFICATION_COLORS.INVESTIMENTOS },
   { key: "saldoCents", label: "Saldo", color: SALDO_POSITIVE_COLOR },
-] as const satisfies { key: keyof BudgetHistoryMonthRow; label: string; color: string }[];
+];
 
 /** Only used for the very first paint, before useChartWidth has
  * measured the card's real width. */
 const FALLBACK_WIDTH = 480;
 const HEIGHT = 140;
-const PAD_LEFT = 6;
+const PAD_LEFT = 42;
 const PAD_RIGHT = 6;
-const PAD_TOP = 4;
+const PAD_TOP = 8;
 const PAD_BOTTOM = 16;
-const STAGE_GAP = 2;
-const BAR_FRACTION = 0.7;
-const MIN_MOUTH_WIDTH = 10;
-const MAX_MOUTH_WIDTH = 40;
-/** A stage never fully disappears even at 0% — a hairline sliver stays
- * hoverable/visible instead of vanishing, e.g. a month with no
- * Investimentos at all. */
-const MIN_STAGE_WIDTH = 2;
+const Y_TICKS = 4;
+/** Fraction of each month's slot given to the whole 5-bar group
+ * together (the rest is breathing room between months). */
+const GROUP_FRACTION = 0.78;
+const BAR_GAP = 1.5;
+const MIN_BAR_WIDTH = 2;
+const MAX_BAR_WIDTH = 11;
+const BAR_RADIUS = 2;
 /** At most this many X labels — beyond it, only every Nth month is
  * labeled, so a 12-month (or longer custom) view doesn't crowd the axis
  * with overlapping text. */
 const MAX_X_LABELS = 6;
 
-/** One month's funnel: each stage's own value plus the running
- * remainder of Receita after it — the remainder (as a % of Receita)
- * drives that stage's width, so the shape narrows monotonically the
- * same way IncomeFlowFunnel's vertical bars do. Clamped to [0, 100] so
- * a deficit month (remainder goes negative) collapses to the width
- * floor instead of rendering "outside" the funnel — the real negative
- * value still shows in the tooltip regardless of the bar's width. */
-function stagesFor(m: BudgetHistoryMonthRow) {
-  const receita = m.receitaCents;
-  let remainder = receita;
-  return STAGE_DEFS.map((def) => {
-    const value = m[def.key] as number;
-    if (def.key !== "receitaCents") remainder -= def.key === "saldoCents" ? 0 : value;
-    const pct = receita > 0 ? Math.min(Math.max((remainder / receita) * 100, 0), 100) : 0;
-    const color = def.key === "saldoCents" ? (m.saldoCents >= 0 ? SALDO_POSITIVE_COLOR : SALDO_NEGATIVE_COLOR) : def.color;
-    return { key: def.key, label: def.label, color, value, pct };
-  });
+/** A bar's rounded corners sit at its "outer" end — the top for a
+ * positive value, the bottom for a negative one (Saldo can go either
+ * way) — so every bar still reads as reaching away from the zero line,
+ * regardless of sign. */
+function roundedBarPath(x: number, y: number, width: number, height: number, radius: number, roundTop: boolean): string {
+  const r = Math.min(radius, width / 2, height);
+  if (r <= 0) return `M${x},${y} h${width} v${height} h${-width} Z`;
+  if (roundTop) {
+    return `M${x},${y + height} V${y + r} Q${x},${y} ${x + r},${y} H${x + width - r} Q${x + width},${y} ${x + width},${y + r} V${y + height} Z`;
+  }
+  return `M${x},${y} H${x + width} V${y + height - r} Q${x + width},${y + height} ${x + width - r},${y + height} H${x + r} Q${x},${y + height} ${x},${y + height - r} Z`;
 }
 
-/** "Evolução Financeira" — the "Visão Geral" income funnel
- * (IncomeFlowFunnel), recovered as a compact monthly strip: each month
- * gets its own miniature funnel (Receita → Custos Obrigatórios →
- * Prazeres e Confortos → Investimentos → Saldo, narrowing top to
- * bottom, each stage's width its remaining % of that month's own
- * Receita), and every month's funnel shares the same "mouth" width —
- * comparing the *shapes* left to right across the period is the point,
- * not comparing absolute R$ magnitude between months (that's what the
- * tooltip and the other historical cards are for). `useChartWidth`
- * keeps the SVG's internal coordinate system matched 1:1 to real screen
- * pixels regardless of the card's width (see that hook's own doc). */
+/** "Evolução Financeira" — a grouped (not stacked) bar chart: each month
+ * gets 5 independent bars side by side, one per série (Receita, Custos
+ * Obrigatórios, Prazeres e Confortos, Investimentos, Saldo), all sharing
+ * one R$ Y-scale so their heights are directly comparable at a glance —
+ * unlike a stacked column, no bar's position depends on any other's
+ * value. Saldo is the one série that can go negative, so the Y domain
+ * always includes 0 and a dashed zero-reference line appears whenever
+ * it does (a bar for a negative value extends down from that line
+ * instead of up). Hovering a month shows every série's value as one
+ * card. `useChartWidth` keeps the SVG's internal coordinate system
+ * matched 1:1 to real screen pixels regardless of the card's width (see
+ * that hook's own doc), and the axis text stays a fixed 11px — the
+ * Visão Histórica's standard — instead of scaling with it. */
 export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow[] }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const { containerRef, width: WIDTH } = useChartWidth(FALLBACK_WIDTH);
@@ -90,11 +80,20 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
 
   const chartWidth = WIDTH - PAD_LEFT - PAD_RIGHT;
   const chartHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
-  const stageHeight = (chartHeight - (STAGE_DEFS.length - 1) * STAGE_GAP) / STAGE_DEFS.length;
+
+  const allValues = months.flatMap((m) => SERIES.map((s) => m[s.key] as number));
+  const minValue = Math.min(0, ...allValues);
+  const maxValue = Math.max(0, ...allValues, 1);
+  const range = maxValue - minValue || 1;
 
   const slotWidth = chartWidth / months.length;
-  const mouthWidth = Math.min(MAX_MOUTH_WIDTH, Math.max(MIN_MOUTH_WIDTH, slotWidth * BAR_FRACTION));
+  const barWidth = Math.min(MAX_BAR_WIDTH, Math.max(MIN_BAR_WIDTH, (slotWidth * GROUP_FRACTION - (SERIES.length - 1) * BAR_GAP) / SERIES.length));
+  const groupWidth = SERIES.length * barWidth + (SERIES.length - 1) * BAR_GAP;
   const xFor = (i: number) => PAD_LEFT + slotWidth * (i + 0.5);
+  const barXFor = (i: number, seriesIndex: number) => xFor(i) - groupWidth / 2 + seriesIndex * (barWidth + BAR_GAP);
+  const yFor = (value: number) => PAD_TOP + chartHeight - ((value - minValue) / range) * chartHeight;
+
+  const yTicks = Array.from({ length: Y_TICKS + 1 }, (_, i) => minValue + (range * i) / Y_TICKS);
   const xLabelStep = Math.max(1, Math.ceil(months.length / MAX_X_LABELS));
 
   return (
@@ -106,25 +105,52 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
           height={HEIGHT}
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           role="img"
-          aria-label="Funil mensal de Receita, Custos Obrigatórios, Prazeres e Confortos, Investimentos e Saldo"
+          aria-label="Evolução mensal de Receita, Custos Obrigatórios, Prazeres e Confortos, Investimentos e Saldo"
         >
+          {yTicks.map((tick) => (
+            <g key={tick}>
+              <line
+                x1={PAD_LEFT}
+                x2={WIDTH - PAD_RIGHT}
+                y1={yFor(tick)}
+                y2={yFor(tick)}
+                stroke="var(--surface-border)"
+                strokeWidth={1}
+              />
+              <text x={PAD_LEFT - 6} y={yFor(tick) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[11px]">
+                {formatCentsCompactBRL(tick)}
+              </text>
+            </g>
+          ))}
+          {minValue < 0 && (
+            <line
+              x1={PAD_LEFT}
+              x2={WIDTH - PAD_RIGHT}
+              y1={yFor(0)}
+              y2={yFor(0)}
+              stroke="var(--muted)"
+              strokeWidth={1}
+              strokeDasharray="4 3"
+            />
+          )}
+
           {months.map((m, i) => {
             const opacity = hovered === null || hovered === i ? 1 : 0.45;
-            const stages = stagesFor(m);
             return (
               <g key={m.monthKey}>
-                {stages.map((stage, s) => {
-                  const width = Math.max(MIN_STAGE_WIDTH, (stage.pct / 100) * mouthWidth);
-                  const y = PAD_TOP + s * (stageHeight + STAGE_GAP);
+                {SERIES.map((series, s) => {
+                  const value = m[series.key] as number;
+                  const isNegative = value < 0;
+                  const yTop = isNegative ? yFor(0) : yFor(value);
+                  const yBottom = isNegative ? yFor(value) : yFor(0);
+                  const height = yBottom - yTop;
+                  if (height <= 0) return null;
+                  const color = series.key === "saldoCents" ? (value >= 0 ? SALDO_POSITIVE_COLOR : SALDO_NEGATIVE_COLOR) : series.color;
                   return (
-                    <rect
-                      key={stage.key}
-                      x={xFor(i) - width / 2}
-                      y={y}
-                      width={width}
-                      height={stageHeight}
-                      rx={stageHeight / 2}
-                      fill={stage.color}
+                    <path
+                      key={series.key}
+                      d={roundedBarPath(barXFor(i, s), yTop, barWidth, height, BAR_RADIUS, !isNegative)}
+                      fill={color}
                       opacity={opacity}
                     />
                   );
@@ -161,24 +187,29 @@ export function BudgetEvolutionChart({ months }: { months: BudgetHistoryMonthRow
           >
             <p className="mb-1 font-semibold text-[var(--text-primary)]">{formatMonthKeyLabel(months[hovered].monthKey)}</p>
             <div className="space-y-0.5">
-              {stagesFor(months[hovered]).map((stage) => (
-                <div key={stage.key} className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: stage.color }} />
-                    {stage.label}
-                  </span>
-                  <span className="font-medium text-[var(--text-primary)]">{formatCentsToBRL(stage.value)}</span>
-                </div>
-              ))}
+              {SERIES.map((series) => {
+                const value = months[hovered][series.key] as number;
+                const color =
+                  series.key === "saldoCents" ? (value >= 0 ? SALDO_POSITIVE_COLOR : SALDO_NEGATIVE_COLOR) : series.color;
+                return (
+                  <div key={series.key} className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                      {series.label}
+                    </span>
+                    <span className="font-medium text-[var(--text-primary)]">{formatCentsToBRL(value)}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--muted)]">
-        {STAGE_DEFS.map((def) => (
-          <span key={def.key} className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: def.color }} />
-            {def.label}
+        {SERIES.map((series) => (
+          <span key={series.key} className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: series.color }} />
+            {series.label}
           </span>
         ))}
       </div>
