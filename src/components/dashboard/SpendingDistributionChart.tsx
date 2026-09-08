@@ -280,7 +280,14 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
               ) : (
                 hoveredSegments.map((seg) => {
                   const diffCents = seg.budgeted - seg.realized;
-                  const pct = computeBudgetPct(seg.realized, seg.budgeted);
+                  // Participação do item no total do mês — não a mesma
+                  // coisa que "% utilizado do próprio orçamento do item"
+                  // (essa métrica não aparece mais aqui): realizedPct usa
+                  // o total realizado do mês como denominador,
+                  // budgetedPct usa o total orçado do mês, cada um "—"
+                  // quando esse total é R$ 0,00.
+                  const realizedPct = computeBudgetPct(seg.realized, monthRealizedTotals[hovered]);
+                  const budgetedPct = computeBudgetPct(seg.budgeted, monthBudgetedTotals[hovered]);
                   return (
                     <div key={seg.key}>
                       <div className="flex items-center justify-between gap-2">
@@ -288,12 +295,14 @@ export function SpendingDistributionChart({ months }: { months: BudgetHistoryMon
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
                           <span className={view === "categorias" ? "truncate" : ""}>{seg.label}</span>
                         </span>
-                        <span className="shrink-0 font-medium text-[var(--text-primary)]">{formatCentsToBRL(seg.realized)}</span>
+                        <span className="shrink-0 font-medium text-[var(--text-primary)]">
+                          {formatCentsToBRL(seg.realized)} — {realizedPct === null ? "—" : `${realizedPct.toLocaleString("pt-BR")}%`}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between gap-2 pl-2.5 text-[var(--muted)]">
                         <span>
-                          Orçado {formatCentsToBRL(seg.budgeted)}
-                          {pct !== null ? ` · ${pct.toLocaleString("pt-BR")}%` : ""}
+                          Orçado {formatCentsToBRL(seg.budgeted)} —{" "}
+                          {budgetedPct === null ? "—" : `${budgetedPct.toLocaleString("pt-BR")}%`}
                         </span>
                         <span className={diffCents < 0 ? "text-[var(--danger)]" : "text-[var(--text-secondary)]"}>
                           {formatCentsToBRL(diffCents)}
