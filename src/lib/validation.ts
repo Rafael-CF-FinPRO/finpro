@@ -28,6 +28,15 @@ export const newClientSchema = z.object({
 
 export const newConsultorSchema = newClientSchema;
 
+// Editing an existing cliente's profile from the Consultor/Admin
+// Clientes table — same name/e-mail rules as cadastro, no password
+// field (that stays the cliente's own via "Esqueci minha senha").
+export const updateClientProfileSchema = z.object({
+  id: z.string().min(1, "Cliente inválido."),
+  name: z.string().trim().min(2, "Informe o nome completo."),
+  email: z.email("Informe um e-mail válido.").trim().toLowerCase(),
+});
+
 export const transactionSchema = z.object({
   type: z.enum(["ENTRADA", "SAIDA", "NEUTRO"], "Tipo inválido."),
   amountCents: z

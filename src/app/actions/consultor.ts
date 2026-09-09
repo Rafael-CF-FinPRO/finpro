@@ -8,7 +8,7 @@ import { getSession, startImpersonation, stopImpersonation } from "@/lib/session
 import { requireRole, requireOwnClient, homeForRole } from "@/lib/rbac";
 import { DEFAULT_CATEGORY_TEMPLATE } from "@/lib/default-categories";
 import { DEFAULT_PAYMENT_METHODS } from "@/lib/default-payment-methods";
-import { newClientSchema } from "@/lib/validation";
+import { newClientSchema, updateClientProfileSchema } from "@/lib/validation";
 
 export type ConsultorActionState = {
   error?: string;
@@ -91,4 +91,65 @@ export async function stopImpersonationAction() {
   const session = await getSession();
   await stopImpersonation();
   redirect(session ? homeForRole(session.role) : "/login");
+}
+
+/** "Editar" on the Consultor's own Clientes table and the Admin's
+ * global one — requireOwnClient gives the same CONSULTOR-own-portfolio-
+ * only / ADMIN-any-cliente split every other cliente-targeting action
+ * here uses. Unlike createClientAction/startImpersonationAction this
+ * never touches the cliente's own session, so it's logged directly
+ * (not through logAudit, which is a no-op outside of impersonation —
+ * this edit happens from the Consultor/Admin's own environment, not
+ * while "atuando como" the cliente, but the spec still wants it on
+ * record). */
+export async function updateClientProfileAction(
+  _prevState: ConsultorActionState,
+  formData: FormData
+): Promise<ConsultorActionState> {
+  const session = await requireRole("CONSULTOR", "ADMIN");
+
+  const parsed = updateClientProfileSchema.safeParse({
+    id: formData.get("id"),
+    name: formData.get("name"),
+    email: formData.get("email"),
+  });
+  if (!parsed.success) {
+    return { error: "Verifique os campos informados.", fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+  const { id, name, email } = parsed.data;
+
+  await requireOwnClient(session, id);
+
+  const cliente = await prisma.user.findUnique({ where: { id } });
+  if (!cliente || cliente.role !== "CLIENTE") {
+    return { error: "Cliente não encontrado." };
+  }
+
+  if (email !== cliente.email) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return {
+        error: "Este e-mail já está cadastrado.",
+        fieldErrors: { email: ["Este e-mail já está cadastrado."] },
+      };
+    }
+  }
+
+  await prisma.user.update({ where: { id }, data: { name, email } });
+
+  await prisma.auditLog.create({
+    data: {
+      consultorId: session.realUserId,
+      clienteId: id,
+      action: "cliente.updateProfile",
+      entityType: "User",
+      entityId: id,
+      previousValue: { name: cliente.name, email: cliente.email },
+      newValue: { name, email },
+    },
+  });
+
+  revalidatePath("/consultor/clientes");
+  revalidatePath("/admin/clientes");
+  return { success: true };
 }

@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/rbac";
 import { getClientRows, formatDaysSinceLastAccess, type ConsultorClientRow } from "@/lib/consultor";
 import { startImpersonationAction } from "@/app/actions/consultor";
 import { ActivityStatusBadge, ComplianceTierBadge } from "@/components/app/ClienteStatusBadges";
+import { EditClienteButton } from "@/components/app/EditClienteButton";
 import { NewClienteButton } from "@/components/consultor/NewClienteButton";
 
 export const metadata: Metadata = {
@@ -141,15 +142,22 @@ export default async function ConsultorClientesPage({
                     <ComplianceTierBadge tier={cliente.complianceTier} pct={cliente.compliancePct} />
                   </td>
                   <td className="px-4 py-3">
-                    <form action={startImpersonationAction}>
-                      <input type="hidden" name="clienteId" value={cliente.id} />
-                      <button
-                        type="submit"
-                        className="text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
-                      >
-                        Entrar
-                      </button>
-                    </form>
+                    <div className="flex items-center gap-3">
+                      <form action={startImpersonationAction}>
+                        <input type="hidden" name="clienteId" value={cliente.id} />
+                        <button
+                          type="submit"
+                          className="text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
+                        >
+                          Entrar
+                        </button>
+                      </form>
+                      <EditClienteButton
+                        clienteId={cliente.id}
+                        initialName={cliente.name}
+                        initialEmail={cliente.email}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))
