@@ -7,13 +7,46 @@ datasource db {
   provider = "postgresql"
 }
 
+// Every existing account predates this — the default keeps every one of
+// them behaving exactly as a CLIENTE (the only role that existed until
+// now), see the migration that backfills `role` explicitly for extra
+// safety. CONSULTOR/ADMIN are only ever created through the new
+// consultor/admin server actions, never through the public register
+// form (registerAction never sets `role`, so it always lands on the
+// default).
+enum Role {
+  ADMIN
+  CONSULTOR
+  CLIENTE
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
   email        String   @unique
   passwordHash String
+  role         Role     @default(CLIENTE)
+  // A deactivated CONSULTOR is treated as having no session at all (see
+  // getSession in src/lib/session.ts) — not used for CLIENTE today, but
+  // kept on the same model rather than a CONSULTOR-only table so the
+  // session check doesn't need a second lookup.
+  isActive     Boolean  @default(true)
+  // Set only by a real, direct login (loginAction) — never touched by a
+  // CONSULTOR/ADMIN impersonating this user, so it reflects the
+  // CLIENTE's own actual usage for src/lib/consultor.ts's "dias desde o
+  // último acesso".
+  lastLoginAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  // Self-relation: a CONSULTOR's own portfolio of CLIENTE accounts.
+  // Null for a CLIENTE not managed by any consultor, and always null for
+  // ADMIN/CONSULTOR themselves. onDelete: SetNull so removing a
+  // consultor account (not exposed in the UI yet) never cascades into
+  // deleting its clients' financial data.
+  consultorId String?
+  consultor   User?  @relation("ConsultorClientes", fields: [consultorId], references: [id], onDelete: SetNull)
+  clientes    User[] @relation("ConsultorClientes")
 
   passwordResetTokens PasswordResetToken[]
   transactions        Transaction[]
@@ -22,6 +55,34 @@ model User {
   categories          Category[]
   paymentMethods      PaymentMethod[]
   tags                Tag[]
+  auditLogsAsConsultor AuditLog[] @relation("AuditConsultor")
+  auditLogsAsCliente   AuditLog[] @relation("AuditCliente")
+
+  @@index([consultorId])
+}
+
+// One row per write a CONSULTOR/ADMIN makes while impersonating a
+// CLIENTE (src/lib/audit.ts) — never written for a CLIENTE's own direct
+// usage. previousValue/newValue are deliberately loose JSON rather than
+// typed per action: the set of audited actions is expected to grow, and
+// this table only needs to be human-readable in a log, never queried by
+// field.
+model AuditLog {
+  id            String   @id @default(cuid())
+  consultorId   String
+  clienteId     String
+  action        String
+  entityType    String
+  entityId      String?
+  previousValue Json?
+  newValue      Json?
+  createdAt     DateTime @default(now())
+
+  consultor User @relation("AuditConsultor", fields: [consultorId], references: [id], onDelete: Cascade)
+  cliente   User @relation("AuditCliente", fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([consultorId])
+  @@index([clienteId])
 }
 
 model PasswordResetToken {

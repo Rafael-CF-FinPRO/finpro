@@ -192,3 +192,17 @@ export function computeOverallCompliancePct(classifications: ComplianceClassific
     }))
   );
 }
+
+export type ComplianceTier = "CRITICO" | "ATENCAO" | "BOM";
+
+// Same 50/80 boundaries already drawn independently in
+// ComplianceEvolutionChart.tsx's tierColorFor and
+// BudgetComplianceScore.tsx's own tier logic (both untouched — this
+// isn't a refactor of either) — the single source of truth for any
+// *new* consumer of the same three-tier reading, so it never drifts
+// from what those charts already show.
+export function complianceTier(pct: number): ComplianceTier {
+  if (pct >= 80) return "BOM";
+  if (pct >= 50) return "ATENCAO";
+  return "CRITICO";
+}

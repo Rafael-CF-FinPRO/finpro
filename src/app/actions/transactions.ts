@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { transactionSchema } from "@/lib/validation";
+import { getSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import {
   formString,
   formType,
@@ -68,7 +70,7 @@ export async function createTransactionAction(
     };
   }
 
-  await prisma.transaction.create({
+  const transaction = await prisma.transaction.create({
     data: {
       userId,
       type: parsed.data.type,
@@ -87,6 +89,22 @@ export async function createTransactionAction(
       status: "PAGO",
     },
   });
+
+  const session = await getSession();
+  if (session) {
+    await logAudit(session, {
+      action: "transaction.create",
+      entityType: "Transaction",
+      entityId: transaction.id,
+      newValue: {
+        type: transaction.type,
+        amountCents: transaction.amountCents,
+        description: transaction.description,
+        categoryId: transaction.categoryId,
+        date: transaction.date,
+      },
+    });
+  }
 
   revalidatePath("/lancamentos");
   return { success: true };
@@ -158,7 +176,7 @@ export async function updateTransactionAction(
   // "somente esta" also lands here (same shape as a normal edit), so
   // status/seriesId/installmentNumber are simply left untouched by
   // omitting them from `data` below.
-  await prisma.transaction.update({
+  const updated = await prisma.transaction.update({
     where: { id },
     data: {
       type: parsed.data.type,
@@ -173,6 +191,29 @@ export async function updateTransactionAction(
     },
   });
 
+  const session = await getSession();
+  if (session) {
+    await logAudit(session, {
+      action: "transaction.update",
+      entityType: "Transaction",
+      entityId: id,
+      previousValue: {
+        type: existing.type,
+        amountCents: existing.amountCents,
+        description: existing.description,
+        categoryId: existing.categoryId,
+        date: existing.date,
+      },
+      newValue: {
+        type: updated.type,
+        amountCents: updated.amountCents,
+        description: updated.description,
+        categoryId: updated.categoryId,
+        date: updated.date,
+      },
+    });
+  }
+
   revalidatePath("/lancamentos");
   return { success: true };
 }
@@ -185,9 +226,31 @@ export async function deleteTransactionAction(formData: FormData) {
     return;
   }
 
+  const session = await getSession();
+  const previous = session?.isImpersonating
+    ? await prisma.transaction.findUnique({ where: { id } })
+    : null;
+
   await prisma.transaction.deleteMany({
     where: { id, userId },
   });
+
+  if (session) {
+    await logAudit(session, {
+      action: "transaction.delete",
+      entityType: "Transaction",
+      entityId: id,
+      previousValue: previous
+        ? {
+            type: previous.type,
+            amountCents: previous.amountCents,
+            description: previous.description,
+            categoryId: previous.categoryId,
+            date: previous.date,
+          }
+        : undefined,
+    });
+  }
 
   revalidatePath("/lancamentos");
 }
@@ -201,10 +264,25 @@ export async function markTransactionPaidStatusAction(input: { id: string; statu
   const userId = await requireUserId();
   const { id, status } = input;
 
+  const session = await getSession();
+  const previous = session?.isImpersonating
+    ? await prisma.transaction.findUnique({ where: { id }, select: { status: true } })
+    : null;
+
   await prisma.transaction.updateMany({
     where: { id, userId },
     data: { status },
   });
+
+  if (session) {
+    await logAudit(session, {
+      action: "transaction.updateStatus",
+      entityType: "Transaction",
+      entityId: id,
+      previousValue: previous ? { status: previous.status } : undefined,
+      newValue: { status },
+    });
+  }
 
   revalidatePath("/lancamentos");
 }

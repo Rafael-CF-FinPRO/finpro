@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSession, destroySession } from "@/lib/session";
+import { homeForRole } from "@/lib/rbac";
 import { DEFAULT_CATEGORY_TEMPLATE } from "@/lib/default-categories";
 import { DEFAULT_PAYMENT_METHODS } from "@/lib/default-payment-methods";
 import {
@@ -93,7 +94,7 @@ export async function loginAction(
   const user = await prisma.user.findUnique({ where: { email } });
   const genericError = "E-mail ou senha inválidos.";
 
-  if (!user) {
+  if (!user || !user.isActive) {
     return { error: genericError };
   }
 
@@ -102,8 +103,13 @@ export async function loginAction(
     return { error: genericError };
   }
 
+  // Only a real, direct login touches this — never a CONSULTOR/ADMIN
+  // impersonating the account — so it reflects the CLIENTE's own actual
+  // usage for src/lib/consultor.ts's "dias desde o último acesso".
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+
   await createSession(user.id);
-  redirect("/dashboard");
+  redirect(homeForRole(user.role));
 }
 
 export async function logoutAction() {

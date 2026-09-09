@@ -16,6 +16,18 @@ export const registerSchema = z
     path: ["confirmPassword"],
   });
 
+// Cadastro de cliente pelo Consultor/Admin — mesmas regras de nome/senha
+// do registerSchema acima, sem confirmPassword (o consultor digita a
+// senha provisória uma única vez e a repassa ao cliente por fora do
+// sistema).
+export const newClientSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome completo."),
+  email: z.email("Informe um e-mail válido.").trim().toLowerCase(),
+  password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres."),
+});
+
+export const newConsultorSchema = newClientSchema;
+
 export const transactionSchema = z.object({
   type: z.enum(["ENTRADA", "SAIDA", "NEUTRO"], "Tipo inválido."),
   amountCents: z

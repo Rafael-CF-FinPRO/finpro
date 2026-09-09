@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import {
   budgetDistributionSchema,
   incomeSchema,
@@ -45,11 +46,26 @@ export async function updateIncomeAction(
     };
   }
 
+  const session = await getSession();
+  const previous = session?.isImpersonating
+    ? await prisma.budgetProfile.findUnique({ where: { userId }, select: { monthlyIncomeCents: true } })
+    : null;
+
   await prisma.budgetProfile.upsert({
     where: { userId },
     update: { monthlyIncomeCents: parsed.data.monthlyIncomeCents },
     create: { userId, monthlyIncomeCents: parsed.data.monthlyIncomeCents },
   });
+
+  if (session) {
+    await logAudit(session, {
+      action: "budget.updateIncome",
+      entityType: "BudgetProfile",
+      entityId: userId,
+      previousValue: previous ? { monthlyIncomeCents: previous.monthlyIncomeCents } : undefined,
+      newValue: { monthlyIncomeCents: parsed.data.monthlyIncomeCents },
+    });
+  }
 
   revalidatePath("/orcamento");
   return { success: true };
@@ -204,6 +220,21 @@ export async function saveBudgetDistributionAction(input: {
     }
   });
 
+  const session = await getSession();
+  if (session) {
+    await logAudit(session, {
+      action: "budget.saveDistribution",
+      entityType: "BudgetProfile",
+      entityId: profile.id,
+      newValue: {
+        applyScope,
+        monthKey: targetMonthKey,
+        classifications: Object.fromEntries(computedClassificationPct),
+        categoryCount: categories.length,
+      },
+    });
+  }
+
   revalidatePath("/orcamento");
   return { success: true };
 }
@@ -231,6 +262,16 @@ export async function removeMonthOverrideAction(input: {
       where: { budgetProfileId: profile.id, monthKey: parsed.data.monthKey },
     }),
   ]);
+
+  const session = await getSession();
+  if (session) {
+    await logAudit(session, {
+      action: "budget.removeMonthOverride",
+      entityType: "BudgetProfile",
+      entityId: profile.id,
+      previousValue: { monthKey: parsed.data.monthKey },
+    });
+  }
 
   revalidatePath("/orcamento");
   return { success: true };

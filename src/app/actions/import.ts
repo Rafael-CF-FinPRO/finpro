@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { getCategories, getPaymentMethods, getTags } from "@/lib/transactions";
 import { importCommitSchema } from "@/lib/validation";
 import { MAX_IMPORT_FILE_BYTES, type ParseResult } from "@/lib/import/types";
@@ -316,6 +317,18 @@ export async function importTransactionsAction(input: {
   if (knowledgeEntries.length > 0) {
     const { recordConfirmedMerchantKnowledge } = await import("@/lib/import/merchant-resolver");
     await recordConfirmedMerchantKnowledge(knowledgeEntries);
+  }
+
+  const session = await getSession();
+  if (session) {
+    await logAudit(session, {
+      action: "import.commit",
+      entityType: "Transaction",
+      newValue: {
+        importedCount: validRows.length,
+        reconciledCount: validRows.filter((r) => r.reconcileId).length,
+      },
+    });
   }
 
   revalidatePath("/lancamentos");

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import {
   createCategorySchema,
   setCategoryActiveSchema,
@@ -76,7 +77,7 @@ export async function createCategoryAction(input: {
     _max: { order: true },
   });
 
-  await prisma.category.create({
+  const created = await prisma.category.create({
     data: {
       userId,
       name: parsed.data.name,
@@ -86,6 +87,16 @@ export async function createCategoryAction(input: {
       order: (maxOrder._max.order ?? 0) + 1,
     },
   });
+
+  const session = await getSession();
+  if (session) {
+    await logAudit(session, {
+      action: "category.create",
+      entityType: "Category",
+      entityId: created.id,
+      newValue: { name: created.name, type: created.type, classification: created.classification },
+    });
+  }
 
   revalidatePath("/orcamento");
   revalidatePath("/lancamentos");
@@ -161,6 +172,17 @@ export async function updateCategoryAction(input: {
     }
   });
 
+  const session = await getSession();
+  if (session) {
+    await logAudit(session, {
+      action: "category.update",
+      entityType: "Category",
+      entityId: category.id,
+      previousValue: { name: category.name, classification: category.classification },
+      newValue: { name: parsed.data.name, classification: parsed.data.classification },
+    });
+  }
+
   revalidatePath("/orcamento");
   revalidatePath("/lancamentos");
   return { success: true };
@@ -195,6 +217,16 @@ export async function deleteCategoryAction(input: {
 
   await prisma.category.delete({ where: { id: category.id } });
 
+  const session = await getSession();
+  if (session) {
+    await logAudit(session, {
+      action: "category.delete",
+      entityType: "Category",
+      entityId: category.id,
+      previousValue: { name: category.name, classification: category.classification },
+    });
+  }
+
   revalidatePath("/orcamento");
   revalidatePath("/lancamentos");
   return { success: true };
@@ -220,6 +252,17 @@ export async function setCategoryActiveAction(input: {
     where: { id: category.id },
     data: { isActive: parsed.data.isActive },
   });
+
+  const session = await getSession();
+  if (session) {
+    await logAudit(session, {
+      action: "category.setActive",
+      entityType: "Category",
+      entityId: category.id,
+      previousValue: { isActive: category.isActive },
+      newValue: { isActive: parsed.data.isActive },
+    });
+  }
 
   revalidatePath("/orcamento");
   revalidatePath("/lancamentos");
