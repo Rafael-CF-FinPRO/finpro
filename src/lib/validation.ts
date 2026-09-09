@@ -37,6 +37,24 @@ export const updateClientProfileSchema = z.object({
   email: z.email("Informe um e-mail válido.").trim().toLowerCase(),
 });
 
+// "Meu Perfil" — every role edits only their own name/telefone here;
+// e-mail/login is shown but never changed through this schema.
+export const updateProfileSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome completo."),
+  phone: z.string().trim().max(30, "Telefone muito longo.").optional().or(z.literal("")),
+});
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Informe a senha atual."),
+    newPassword: z.string().min(8, "A nova senha deve ter pelo menos 8 caracteres."),
+    confirmNewPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    message: "As senhas não coincidem.",
+    path: ["confirmNewPassword"],
+  });
+
 export const transactionSchema = z.object({
   type: z.enum(["ENTRADA", "SAIDA", "NEUTRO"], "Tipo inválido."),
   amountCents: z

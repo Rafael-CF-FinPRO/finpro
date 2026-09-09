@@ -25,6 +25,8 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
+  // Free-text, optional — shown/edited on "Meu Perfil" only.
+  phone        String?
   role         Role     @default(CLIENTE)
   // A deactivated CONSULTOR is treated as having no session at all (see
   // getSession in src/lib/session.ts) — not used for CLIENTE today, but

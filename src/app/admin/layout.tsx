@@ -17,7 +17,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   });
 
   return (
-    <BackofficeShell roleLabel="Administrador" navItems={ADMIN_NAV_ITEMS} userName={user?.name ?? ""}>
+    <BackofficeShell
+      roleLabel="Administrador"
+      navItems={ADMIN_NAV_ITEMS}
+      userName={user?.name ?? ""}
+      profileHref="/admin/perfil"
+    >
       {children}
     </BackofficeShell>
   );

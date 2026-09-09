@@ -20,11 +20,13 @@ export function BackofficeShell({
   roleLabel,
   navItems,
   userName,
+  profileHref,
   children,
 }: {
   roleLabel: string;
   navItems: BackofficeNavItem[];
   userName: string;
+  profileHref: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -58,7 +60,13 @@ export function BackofficeShell({
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-[var(--muted)] sm:inline">{userName}</span>
+            <Link
+              href={profileHref}
+              title="Meu Perfil"
+              className="hidden text-sm text-[var(--muted)] transition-colors hover:text-[var(--text-primary)] sm:inline"
+            >
+              {userName}
+            </Link>
             <ThemeToggle />
             <LogoutButton />
           </div>

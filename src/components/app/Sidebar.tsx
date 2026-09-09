@@ -125,18 +125,23 @@ export function Sidebar({
       <div className="shrink-0 border-t border-[var(--surface-border)] p-4">
         {collapsed ? (
           <div className="flex flex-col items-center gap-3">
-            <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary)]/10 text-sm font-semibold text-[var(--primary)]"
-              title={`${userName} · ${userEmail}`}
+            <Link
+              href="/perfil"
+              title={`${userName} · ${userEmail} · Meu Perfil`}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary)]/10 text-sm font-semibold text-[var(--primary)] transition-opacity hover:opacity-80"
             >
               {initial}
-            </div>
+            </Link>
             <ThemeToggle collapsed />
             <LogoutButton collapsed />
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3">
+            <Link
+              href="/perfil"
+              title="Meu Perfil"
+              className="flex items-center gap-3 rounded-lg p-1 -m-1 transition-colors hover:bg-[var(--surface-hover)]"
+            >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary)]/10 text-sm font-semibold text-[var(--primary)]">
                 {initial}
               </div>
@@ -144,7 +149,7 @@ export function Sidebar({
                 <p className="truncate text-sm font-medium text-[var(--text-primary)]">{userName}</p>
                 <p className="truncate text-xs text-[var(--muted)]">{userEmail}</p>
               </div>
-            </div>
+            </Link>
             <div className="mt-3 flex items-center justify-between gap-2">
               <ThemeToggle />
               <LogoutButton />

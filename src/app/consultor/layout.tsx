@@ -19,7 +19,12 @@ export default async function ConsultorLayout({ children }: { children: React.Re
   });
 
   return (
-    <BackofficeShell roleLabel="Consultor" navItems={CONSULTOR_NAV_ITEMS} userName={user?.name ?? ""}>
+    <BackofficeShell
+      roleLabel="Consultor"
+      navItems={CONSULTOR_NAV_ITEMS}
+      userName={user?.name ?? ""}
+      profileHref="/consultor/perfil"
+    >
       {children}
     </BackofficeShell>
   );
