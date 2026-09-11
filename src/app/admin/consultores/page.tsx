@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/rbac";
 import { getConsultorRows } from "@/lib/admin";
-import { toggleConsultorActiveAction } from "@/app/actions/admin";
+import { setConsultorStatusAction } from "@/app/actions/admin";
 import { NewConsultorButton } from "@/components/admin/NewConsultorButton";
+import { EditConsultorButton } from "@/components/admin/EditConsultorButton";
+import { ResetConsultorPasswordButton } from "@/components/admin/ResetConsultorPasswordButton";
+import { UserStatusControl } from "@/components/app/UserStatusControl";
 
 export const metadata: Metadata = {
   title: "Consultores | Admin | FinPRO",
@@ -32,7 +35,7 @@ export default async function AdminConsultoresPage() {
             <tr className="border-b border-[var(--surface-border)] text-xs tracking-wide text-[var(--muted)] uppercase">
               <th className="px-4 py-3 font-medium">Consultor</th>
               <th className="px-4 py-3 font-medium">Clientes</th>
-              <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Status da conta</th>
               <th className="px-4 py-3 font-medium">Ações</th>
             </tr>
           </thead>
@@ -52,27 +55,25 @@ export default async function AdminConsultoresPage() {
                   </td>
                   <td className="px-4 py-3 text-[var(--text-secondary)]">{consultor.clientCount}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
-                        consultor.isActive
-                          ? "bg-[var(--success-bg)] text-[var(--success)]"
-                          : "bg-[var(--danger-bg)] text-[var(--danger)]"
-                      }`}
-                    >
-                      {consultor.isActive ? "Ativo" : "Desativado"}
-                    </span>
+                    <UserStatusControl
+                      userId={consultor.id}
+                      currentStatus={consultor.status}
+                      options={["ATIVO", "INATIVO", "BLOQUEADO"]}
+                      action={setConsultorStatusAction}
+                    />
                   </td>
                   <td className="px-4 py-3">
-                    <form action={toggleConsultorActiveAction}>
-                      <input type="hidden" name="id" value={consultor.id} />
-                      <input type="hidden" name="nextIsActive" value={(!consultor.isActive).toString()} />
-                      <button
-                        type="submit"
-                        className="text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
-                      >
-                        {consultor.isActive ? "Desativar" : "Ativar"}
-                      </button>
-                    </form>
+                    <div className="flex items-center gap-3">
+                      <EditConsultorButton
+                        consultorId={consultor.id}
+                        initialName={consultor.name}
+                        initialEmail={consultor.email}
+                      />
+                      <ResetConsultorPasswordButton
+                        consultorId={consultor.id}
+                        consultorName={consultor.name}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))

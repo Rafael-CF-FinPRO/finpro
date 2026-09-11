@@ -8,13 +8,19 @@ import { getSession, startImpersonation, stopImpersonation } from "@/lib/session
 import { requireRole, requireOwnClient, homeForRole } from "@/lib/rbac";
 import { DEFAULT_CATEGORY_TEMPLATE } from "@/lib/default-categories";
 import { DEFAULT_PAYMENT_METHODS } from "@/lib/default-payment-methods";
-import { newClientSchema, updateClientProfileSchema } from "@/lib/validation";
+import { newClientSchema, updateClientProfileSchema, resetUserPasswordSchema } from "@/lib/validation";
+import type { UserStatus } from "@/generated/prisma/enums";
 
 export type ConsultorActionState = {
   error?: string;
   fieldErrors?: Record<string, string[]>;
   success?: boolean;
 };
+
+// A CONSULTOR may only park their own cliente as ATIVO/INATIVO —
+// BLOQUEADO is reserved for an ADMIN (see setClientStatusAction below).
+const CONSULTOR_ALLOWED_STATUSES: UserStatus[] = ["ATIVO", "INATIVO"];
+const ALL_STATUSES: UserStatus[] = ["ATIVO", "INATIVO", "BLOQUEADO"];
 
 /** Same shape as registerAction (src/app/actions/auth.ts): create the
  * User, seed the exact same starter categories/payment methods a
@@ -33,12 +39,13 @@ export async function createClientAction(
   const parsed = newClientSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
+    phone: formData.get("phone"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
     return { error: "Verifique os campos informados.", fieldErrors: parsed.error.flatten().fieldErrors };
   }
-  const { name, email, password } = parsed.data;
+  const { name, email, phone, password } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -53,6 +60,7 @@ export async function createClientAction(
     data: {
       name,
       email,
+      phone: phone || null,
       passwordHash,
       role: "CLIENTE",
       consultorId: session.role === "CONSULTOR" ? session.realUserId : null,
@@ -151,5 +159,58 @@ export async function updateClientProfileAction(
 
   revalidatePath("/consultor/clientes");
   revalidatePath("/admin/clientes");
+  return { success: true };
+}
+
+/** "Status da conta" control on the Consultor's own Clientes table and
+ * the Admin's global one — same requireOwnClient split as every other
+ * cliente-targeting action here. A CONSULTOR is restricted to
+ * ATIVO/INATIVO server-side too (never trusts the <select> alone —
+ * see CONSULTOR_ALLOWED_STATUSES above); an ADMIN may set any of the
+ * three. */
+export async function setClientStatusAction(formData: FormData) {
+  const session = await requireRole("CONSULTOR", "ADMIN");
+
+  const id = formData.get("id");
+  const status = formData.get("status");
+  const allowed = session.role === "ADMIN" ? ALL_STATUSES : CONSULTOR_ALLOWED_STATUSES;
+  if (typeof id !== "string" || !id || typeof status !== "string" || !allowed.includes(status as UserStatus)) {
+    throw new Error("Cliente ou status inválido.");
+  }
+
+  await requireOwnClient(session, id);
+
+  await prisma.user.update({ where: { id }, data: { status: status as UserStatus } });
+  revalidatePath("/consultor/clientes");
+  revalidatePath("/admin/clientes");
+}
+
+/** "Redefinir senha" on the Consultor's own Clientes table and the
+ * Admin's global one — same requireOwnClient split. No current-password
+ * check: the superior, not the account owner, is doing this. */
+export async function resetClientPasswordAction(
+  _prevState: ConsultorActionState,
+  formData: FormData
+): Promise<ConsultorActionState> {
+  const session = await requireRole("CONSULTOR", "ADMIN");
+
+  const parsed = resetUserPasswordSchema.safeParse({
+    id: formData.get("id"),
+    newPassword: formData.get("newPassword"),
+    confirmNewPassword: formData.get("confirmNewPassword"),
+  });
+  if (!parsed.success) {
+    return {
+      error: "Verifique os campos informados.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+  const { id, newPassword } = parsed.data;
+
+  await requireOwnClient(session, id);
+
+  const passwordHash = await hashPassword(newPassword);
+  await prisma.user.update({ where: { id }, data: { passwordHash } });
+
   return { success: true };
 }

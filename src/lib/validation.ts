@@ -2,27 +2,16 @@ import { z } from "zod";
 import { parseMoneyToCents } from "@/lib/money";
 import { isValidMonthKey, parseDateInputValue } from "@/lib/dates";
 
-export const registerSchema = z
-  .object({
-    name: z.string().trim().min(2, "Informe seu nome completo."),
-    email: z.email("Informe um e-mail válido.").trim().toLowerCase(),
-    password: z
-      .string()
-      .min(8, "A senha deve ter pelo menos 8 caracteres."),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "As senhas não coincidem.",
-    path: ["confirmPassword"],
-  });
+const phoneSchema = z.string().trim().max(30, "Telefone muito longo.").optional().or(z.literal(""));
 
-// Cadastro de cliente pelo Consultor/Admin — mesmas regras de nome/senha
-// do registerSchema acima, sem confirmPassword (o consultor digita a
-// senha provisória uma única vez e a repassa ao cliente por fora do
-// sistema).
+// Cadastro de cliente pelo Consultor/Admin, ou de consultor pelo Admin —
+// não há cadastro público (seção 1 do pedido de estrutura de usuários);
+// toda conta nasce pelas mãos de um superior, que já define a senha
+// inicial diretamente (repassada ao usuário por fora do sistema).
 export const newClientSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome completo."),
   email: z.email("Informe um e-mail válido.").trim().toLowerCase(),
+  phone: phoneSchema,
   password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres."),
 });
 
@@ -30,23 +19,34 @@ export const newConsultorSchema = newClientSchema;
 
 // Editing an existing cliente's profile from the Consultor/Admin
 // Clientes table — same name/e-mail rules as cadastro, no password
-// field (that stays the cliente's own via "Esqueci minha senha").
+// field (senha é redefinida separadamente, via resetUserPasswordSchema).
 export const updateClientProfileSchema = z.object({
   id: z.string().min(1, "Cliente inválido."),
   name: z.string().trim().min(2, "Informe o nome completo."),
   email: z.email("Informe um e-mail válido.").trim().toLowerCase(),
 });
 
-// "Meu Perfil" — every role edits only their own name/telefone here;
-// e-mail/login is shown but never changed through this schema.
-export const updateProfileSchema = z.object({
+// Same shape, for the Admin editing a Consultor's own cadastro.
+export const updateConsultorProfileSchema = z.object({
+  id: z.string().min(1, "Consultor inválido."),
   name: z.string().trim().min(2, "Informe o nome completo."),
-  phone: z.string().trim().max(30, "Telefone muito longo.").optional().or(z.literal("")),
+  email: z.email("Informe um e-mail válido.").trim().toLowerCase(),
 });
 
-export const changePasswordSchema = z
+// "Meu Perfil" — every role edits only their own name/telefone here;
+// e-mail/login is shown but never changed through this schema. Password
+// isn't here either — it's always set by a superior (resetUserPasswordSchema).
+export const updateProfileSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome completo."),
+  phone: phoneSchema,
+});
+
+// A superior (Admin over a Consultor/Cliente, or Consultor over their
+// own Cliente) setting a brand-new password directly — no current
+// password to check, since it isn't the account owner doing this.
+export const resetUserPasswordSchema = z
   .object({
-    currentPassword: z.string().min(1, "Informe a senha atual."),
+    id: z.string().min(1, "Usuário inválido."),
     newPassword: z.string().min(8, "A nova senha deve ter pelo menos 8 caracteres."),
     confirmNewPassword: z.string(),
   })
@@ -319,20 +319,3 @@ export const loginSchema = z.object({
   email: z.email("Informe um e-mail válido.").trim().toLowerCase(),
   password: z.string().min(1, "Informe sua senha."),
 });
-
-export const forgotPasswordSchema = z.object({
-  email: z.email("Informe um e-mail válido.").trim().toLowerCase(),
-});
-
-export const resetPasswordSchema = z
-  .object({
-    token: z.string().min(1),
-    password: z
-      .string()
-      .min(8, "A senha deve ter pelo menos 8 caracteres."),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "As senhas não coincidem.",
-    path: ["confirmPassword"],
-  });

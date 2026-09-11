@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/rbac";
 import { getClientRows, formatDaysSinceLastAccess, type ConsultorClientRow } from "@/lib/consultor";
-import { startImpersonationAction } from "@/app/actions/consultor";
+import { startImpersonationAction, setClientStatusAction } from "@/app/actions/consultor";
 import { ActivityStatusBadge, ComplianceTierBadge } from "@/components/app/ClienteStatusBadges";
 import { EditClienteButton } from "@/components/app/EditClienteButton";
+import { UserStatusControl } from "@/components/app/UserStatusControl";
 import { NewClienteButton } from "@/components/consultor/NewClienteButton";
+import { ResetClientPasswordButton } from "@/components/consultor/ResetClientPasswordButton";
 
 export const metadata: Metadata = {
   title: "Clientes | Consultor | FinPRO",
@@ -115,13 +117,14 @@ export default async function ConsultorClientesPage({
               <th className="px-4 py-3 font-medium">Dias desde o último acesso</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Cumprimento do orçamento</th>
+              <th className="px-4 py-3 font-medium">Status da conta</th>
               <th className="px-4 py-3 font-medium">Ações</th>
             </tr>
           </thead>
           <tbody>
             {clientes.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-[var(--muted)]">
+                <td colSpan={6} className="px-4 py-8 text-center text-[var(--muted)]">
                   Nenhum cliente encontrado.
                 </td>
               </tr>
@@ -142,6 +145,14 @@ export default async function ConsultorClientesPage({
                     <ComplianceTierBadge tier={cliente.complianceTier} pct={cliente.compliancePct} />
                   </td>
                   <td className="px-4 py-3">
+                    <UserStatusControl
+                      userId={cliente.id}
+                      currentStatus={cliente.accountStatus}
+                      options={["ATIVO", "INATIVO"]}
+                      action={setClientStatusAction}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <form action={startImpersonationAction}>
                         <input type="hidden" name="clienteId" value={cliente.id} />
@@ -157,6 +168,7 @@ export default async function ConsultorClientesPage({
                         initialName={cliente.name}
                         initialEmail={cliente.email}
                       />
+                      <ResetClientPasswordButton clienteId={cliente.id} clienteName={cliente.name} />
                     </div>
                   </td>
                 </tr>

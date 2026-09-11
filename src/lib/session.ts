@@ -89,9 +89,10 @@ export type EffectiveSession = {
  * those are sometimes different things. `cache()` (React's per-request
  * memoization, not a cross-request cache) means calling this from
  * multiple pages/components during the same request only hits the
- * database once. A deactivated CONSULTOR/ADMIN (isActive: false) is
- * treated as having no session at all — logged out on their very next
- * request, no separate "disabled account" screen needed. */
+ * database once. A non-ATIVO user (any role — status: INATIVO or
+ * BLOQUEADO) is treated as having no session at all — logged out on
+ * their very next request, no separate "disabled account" screen
+ * needed. */
 export const getSession = cache(async (): Promise<EffectiveSession | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
@@ -102,9 +103,9 @@ export const getSession = cache(async (): Promise<EffectiveSession | null> => {
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, role: true, isActive: true },
+    select: { id: true, role: true, status: true },
   });
-  if (!user || !user.isActive) return null;
+  if (!user || user.status !== "ATIVO") return null;
 
   const base: EffectiveSession = {
     userId: user.id,
@@ -127,11 +128,11 @@ export const getSession = cache(async (): Promise<EffectiveSession | null> => {
   // have changed since the cookie was issued).
   const cliente = await prisma.user.findUnique({
     where: { id: impersonation.clienteId },
-    select: { id: true, name: true, role: true, isActive: true, consultorId: true },
+    select: { id: true, name: true, role: true, status: true, consultorId: true },
   });
   const ownsClient =
     user.role === "ADMIN" || cliente?.consultorId === user.id;
-  if (!cliente || !cliente.isActive || cliente.role !== "CLIENTE" || !ownsClient) {
+  if (!cliente || cliente.status !== "ATIVO" || cliente.role !== "CLIENTE" || !ownsClient) {
     return base;
   }
 

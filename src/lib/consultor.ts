@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getBudgetOverview } from "@/lib/budget";
 import { complianceTier, computeOverallCompliancePct, type ComplianceTier } from "@/lib/budget-calc";
 import { currentMonthKey } from "@/lib/dates";
+import type { UserStatus } from "@/generated/prisma/enums";
 
 /** "Dias desde o último acesso" tiers — deliberately just 3 buckets
  * (plus "nunca acessou"), kept as named constants so the boundaries are
@@ -29,7 +30,14 @@ export type ConsultorClientRow = {
   name: string;
   email: string;
   daysSinceLastAccess: number | null;
+  /** Usage recency (last login) — NOT the same thing as `accountStatus`
+   * below (an admin-controlled account state). Two different concepts
+   * that happen to share some label words. */
   activityStatus: ActivityStatus;
+  /** ATIVO/INATIVO/BLOQUEADO — controls whether the cliente can log in
+   * at all (see getSession, src/lib/session.ts). Set via
+   * setClientStatusAction. */
+  accountStatus: UserStatus;
   /** null when the cliente hasn't set up a BudgetProfile yet — nothing
    * to score, not the same as a genuinely CRITICO month. */
   complianceTier: ComplianceTier | null;
@@ -66,7 +74,7 @@ export async function getClientRows(where: { consultorId?: string }): Promise<Co
 
   return Promise.all(
     clientes.map(async (cliente) => {
-      const { status, daysSinceLastAccess } = activityStatusFor(cliente.lastLoginAt);
+      const { status: activityStatus, daysSinceLastAccess } = activityStatusFor(cliente.lastLoginAt);
       const overview = await getBudgetOverview(cliente.id, monthKey);
       const hasScore = overview.hasProfile;
       const pct = hasScore ? computeOverallCompliancePct(overview.classifications) : null;
@@ -75,7 +83,8 @@ export async function getClientRows(where: { consultorId?: string }): Promise<Co
         name: cliente.name,
         email: cliente.email,
         daysSinceLastAccess,
-        activityStatus: status,
+        activityStatus,
+        accountStatus: cliente.status,
         complianceTier: pct !== null ? complianceTier(pct) : null,
         compliancePct: pct,
         consultorName: cliente.consultor?.name ?? null,

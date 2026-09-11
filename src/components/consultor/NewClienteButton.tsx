@@ -8,11 +8,12 @@ import { SubmitButton } from "@/components/auth/SubmitButton";
 
 const initialState: ConsultorActionState = {};
 
-/** The Consultor sets the cliente's provisional password directly here
- * (confirmed with the user) rather than the existing forgot-password
- * link flow — the cliente can change it later like any other password.
- * On success the table behind this modal re-renders via createClientAction's
- * own revalidatePath, so closing the modal is all this component does. */
+/** The Consultor sets the cliente's initial password directly here —
+ * there's no self-service registration or password recovery in this
+ * version (only a superior can set/reset a password, see
+ * resetClientPasswordAction). On success the table behind this modal
+ * re-renders via createClientAction's own revalidatePath, so closing
+ * the modal is all this component does. */
 export function NewClienteButton() {
   const [open, setOpen] = useState(false);
   const [state, formAction] = useActionState(createClientAction, initialState);
@@ -64,8 +65,22 @@ export function NewClienteButton() {
             </div>
 
             <div>
+              <label htmlFor="new-cliente-phone" className="field-label">
+                Contato telefônico
+              </label>
+              <input
+                id="new-cliente-phone"
+                name="phone"
+                type="tel"
+                className="field-input"
+                placeholder="(11) 91234-5678"
+              />
+              <FieldError messages={state.fieldErrors?.phone} />
+            </div>
+
+            <div>
               <label htmlFor="new-cliente-password" className="field-label">
-                Senha provisória
+                Senha inicial
               </label>
               <input
                 id="new-cliente-password"
@@ -77,8 +92,7 @@ export function NewClienteButton() {
               />
               <FieldError messages={state.fieldErrors?.password} />
               <p className="mt-1.5 text-xs text-[var(--muted)]">
-                Compartilhe esta senha com o cliente por fora do sistema — ele poderá alterá-la
-                depois de entrar.
+                Compartilhe esta senha com o cliente por fora do sistema.
               </p>
             </div>
 

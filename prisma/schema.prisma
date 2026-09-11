@@ -10,14 +10,25 @@ datasource db {
 // Every existing account predates this — the default keeps every one of
 // them behaving exactly as a CLIENTE (the only role that existed until
 // now), see the migration that backfills `role` explicitly for extra
-// safety. CONSULTOR/ADMIN are only ever created through the new
-// consultor/admin server actions, never through the public register
-// form (registerAction never sets `role`, so it always lands on the
-// default).
+// safety. There is no public registration — every account is created by
+// an ADMIN (a CONSULTOR or, if needed, a CLIENTE) or a CONSULTOR (a
+// CLIENTE of their own), via src/app/actions/admin.ts / consultor.ts.
 enum Role {
   ADMIN
   CONSULTOR
   CLIENTE
+}
+
+// INATIVO and BLOQUEADO currently behave identically (both block
+// login/session, see getSession in src/lib/session.ts and loginAction)
+// — kept as two labels rather than one boolean because a CONSULTOR may
+// only set their own CLIENTE's status to ATIVO/INATIVO, while BLOQUEADO
+// is reserved for an ADMIN (src/app/actions/consultor.ts's
+// setClientStatusAction).
+enum UserStatus {
+  ATIVO
+  INATIVO
+  BLOQUEADO
 }
 
 model User {
@@ -28,11 +39,11 @@ model User {
   // Free-text, optional — shown/edited on "Meu Perfil" only.
   phone        String?
   role         Role     @default(CLIENTE)
-  // A deactivated CONSULTOR is treated as having no session at all (see
-  // getSession in src/lib/session.ts) — not used for CLIENTE today, but
-  // kept on the same model rather than a CONSULTOR-only table so the
-  // session check doesn't need a second lookup.
-  isActive     Boolean  @default(true)
+  // A non-ATIVO user (any role) is treated as having no session at all
+  // (see getSession in src/lib/session.ts) — kept on the same model
+  // rather than a per-role table so the session check doesn't need a
+  // second lookup.
+  status       UserStatus @default(ATIVO)
   // Set only by a real, direct login (loginAction) — never touched by a
   // CONSULTOR/ADMIN impersonating this user, so it reflects the
   // CLIENTE's own actual usage for src/lib/consultor.ts's "dias desde o
@@ -50,6 +61,10 @@ model User {
   consultor   User?  @relation("ConsultorClientes", fields: [consultorId], references: [id], onDelete: SetNull)
   clientes    User[] @relation("ConsultorClientes")
 
+  // No code path writes to this anymore — the public "esqueci minha
+  // senha" flow was removed (passwords are now always set by a
+  // superior). Left in place rather than dropped, to avoid an
+  // unnecessary destructive migration on a live database.
   passwordResetTokens PasswordResetToken[]
   transactions        Transaction[]
   transactionSeries   TransactionSeries[]

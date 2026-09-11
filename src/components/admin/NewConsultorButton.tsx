@@ -59,8 +59,22 @@ export function NewConsultorButton() {
             </div>
 
             <div>
+              <label htmlFor="new-consultor-phone" className="field-label">
+                Contato telefônico
+              </label>
+              <input
+                id="new-consultor-phone"
+                name="phone"
+                type="tel"
+                className="field-input"
+                placeholder="(11) 91234-5678"
+              />
+              <FieldError messages={state.fieldErrors?.phone} />
+            </div>
+
+            <div>
               <label htmlFor="new-consultor-password" className="field-label">
-                Senha provisória
+                Senha inicial
               </label>
               <input
                 id="new-consultor-password"

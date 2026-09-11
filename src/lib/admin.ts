@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getClientRows } from "@/lib/consultor";
+import type { UserStatus } from "@/generated/prisma/enums";
 
 export type AdminConsultorRow = {
   id: string;
   name: string;
   email: string;
-  isActive: boolean;
+  phone: string | null;
+  status: UserStatus;
   clientCount: number;
 };
 
@@ -20,7 +22,8 @@ export async function getConsultorRows(): Promise<AdminConsultorRow[]> {
     id: c.id,
     name: c.name,
     email: c.email,
-    isActive: c.isActive,
+    phone: c.phone,
+    status: c.status,
     clientCount: c._count.clientes,
   }));
 }
@@ -43,7 +46,7 @@ export type AdminDashboardCounts = {
 export async function getAdminDashboardCounts(): Promise<AdminDashboardCounts> {
   const [clientes, consultores] = await Promise.all([
     getClientRows({}),
-    prisma.user.findMany({ where: { role: "CONSULTOR" }, select: { isActive: true } }),
+    prisma.user.findMany({ where: { role: "CONSULTOR" }, select: { status: true } }),
   ]);
 
   return {
@@ -53,6 +56,6 @@ export async function getAdminDashboardCounts(): Promise<AdminDashboardCounts> {
     clientesInativos: clientes.filter(
       (c) => c.activityStatus === "INATIVO" || c.activityStatus === "NUNCA_ACESSOU"
     ).length,
-    consultoresAtivos: consultores.filter((c) => c.isActive).length,
+    consultoresAtivos: consultores.filter((c) => c.status === "ATIVO").length,
   };
 }

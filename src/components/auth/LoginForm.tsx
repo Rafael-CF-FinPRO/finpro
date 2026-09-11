@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
 import { loginAction, type ActionState } from "@/app/actions/auth";
 import { SubmitButton } from "./SubmitButton";
 import { FieldError } from "./FieldError";
@@ -32,17 +31,9 @@ export function LoginForm() {
       </div>
 
       <div>
-        <div className="flex items-center justify-between">
-          <label htmlFor="password" className="field-label">
-            Senha
-          </label>
-          <Link
-            href="/forgot-password"
-            className="text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
-          >
-            Esqueci minha senha
-          </Link>
-        </div>
+        <label htmlFor="password" className="field-label">
+          Senha
+        </label>
         <input
           id="password"
           name="password"
@@ -58,13 +49,7 @@ export function LoginForm() {
       <SubmitButton>Entrar</SubmitButton>
 
       <p className="text-center text-sm text-[var(--muted)]">
-        Ainda não tem uma conta?{" "}
-        <Link
-          href="/register"
-          className="font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
-        >
-          Criar conta
-        </Link>
+        Seu acesso é criado pelo administrador ou pelo seu consultor.
       </p>
     </form>
   );

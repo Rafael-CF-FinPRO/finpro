@@ -5,14 +5,7 @@ export const metadata: Metadata = {
   title: "Entrar | FinPRO",
 };
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const params = await searchParams;
-  const resetSuccess = params.reset === "success";
-
+export default function LoginPage() {
   return (
     <div>
       <div className="mb-6 text-center">
@@ -23,11 +16,6 @@ export default async function LoginPage({
           Acompanhe sua vida financeira em um só lugar.
         </p>
       </div>
-      {resetSuccess && (
-        <p className="alert-success mb-5">
-          Senha redefinida com sucesso. Faça login com sua nova senha.
-        </p>
-      )}
       <LoginForm />
     </div>
   );
