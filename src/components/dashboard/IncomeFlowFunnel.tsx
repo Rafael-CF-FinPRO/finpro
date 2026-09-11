@@ -12,21 +12,22 @@ type Stage = {
   icon?: LucideIcon;
   color: string;
   valueCents: number;
-  /** Running remainder of income after this stage — drives the bar's
-   * width, so the funnel narrows monotonically top to bottom. */
-  remainderCents: number;
 };
+
+// A stage this small would otherwise all but disappear — kept
+// minimally visible so a R$0 (or near-zero) stage still reads as "part
+// of the sequence, just empty" rather than vanishing from the layout.
+const MIN_VISIBLE_WIDTH_PCT = 6;
 
 /** "Visão Geral" — a funnel of where this month's real income
  * (`receitaCents`, all ENTRADA transactions — not the fixed reference
- * income used to compute Orçado elsewhere) went: each stage shows its
- * own value and % of that income, while the bar width tracks the
- * cumulative remainder so the shape actually narrows (or, if spending
- * exceeds income, bottoms out at 0 while the text still shows the real
- * negative Saldo). Purely a cash-flow view — Investimentos is a
- * destination for money, not a consumption expense, but it's still an
- * outflow from the checking account, so it still narrows the funnel
- * like any other stage. */
+ * income used to compute Orçado elsewhere) went. Each bar's width is
+ * purely a comparison between the four stages themselves (value / the
+ * largest of the four) — never a % of receita — so whichever stage is
+ * biggest (income itself, or an overspent classification) sets the
+ * funnel's full width and the rest scale against it. Saldo isn't part
+ * of this comparison: it's the period's result, not a distribution
+ * target, so it gets its own card below instead of a bar. */
 export function IncomeFlowFunnel({
   receitaCents,
   classifications,
@@ -42,51 +43,54 @@ export function IncomeFlowFunnel({
   const investido = realizedFor("INVESTIMENTOS");
   const saldo = receitaCents - custos - prazeres - investido;
 
-  let remainder = receitaCents;
   const stages: Stage[] = [
+    { key: "receita", label: "Receita Total", color: "var(--primary)", valueCents: receitaCents },
     {
-      key: "receita",
-      label: "Receita Total",
-      color: "var(--primary)",
-      valueCents: receitaCents,
-      remainderCents: receitaCents,
+      key: "CUSTOS_OBRIGATORIOS",
+      label: CLASSIFICATION_LABELS.CUSTOS_OBRIGATORIOS,
+      icon: CLASSIFICATION_ICONS.CUSTOS_OBRIGATORIOS,
+      color: CLASSIFICATION_COLORS.CUSTOS_OBRIGATORIOS,
+      valueCents: custos,
     },
-    ...(
-      [
-        ["CUSTOS_OBRIGATORIOS", custos] as const,
-        ["PRAZERES_E_CONFORTOS", prazeres] as const,
-        ["INVESTIMENTOS", investido] as const,
-      ]
-    ).map(([classification, value]) => {
-      remainder -= value;
-      return {
-        key: classification,
-        label: CLASSIFICATION_LABELS[classification],
-        icon: CLASSIFICATION_ICONS[classification],
-        color: CLASSIFICATION_COLORS[classification],
-        valueCents: value,
-        remainderCents: remainder,
-      };
-    }),
     {
-      key: "saldo",
-      label: "Saldo Atual",
-      color: saldo < 0 ? "var(--danger)" : "var(--success)",
-      valueCents: saldo,
-      remainderCents: saldo,
+      key: "PRAZERES_E_CONFORTOS",
+      label: CLASSIFICATION_LABELS.PRAZERES_E_CONFORTOS,
+      icon: CLASSIFICATION_ICONS.PRAZERES_E_CONFORTOS,
+      color: CLASSIFICATION_COLORS.PRAZERES_E_CONFORTOS,
+      valueCents: prazeres,
+    },
+    {
+      key: "INVESTIMENTOS",
+      label: CLASSIFICATION_LABELS.INVESTIMENTOS,
+      icon: CLASSIFICATION_ICONS.INVESTIMENTOS,
+      color: CLASSIFICATION_COLORS.INVESTIMENTOS,
+      valueCents: investido,
     },
   ];
 
-  const pctOf = (cents: number) =>
+  // The funnel's own reference width — the largest of the four stages
+  // themselves, not receita alone (an overspent classification can
+  // exceed receita and should still be what the funnel scales against).
+  const maxStageValue = Math.max(...stages.map((s) => Math.abs(s.valueCents)));
+
+  const widthPctFor = (valueCents: number) => {
+    if (maxStageValue <= 0) return MIN_VISIBLE_WIDTH_PCT;
+    return Math.max((Math.abs(valueCents) / maxStageValue) * 100, MIN_VISIBLE_WIDTH_PCT);
+  };
+
+  const pctOfReceita = (cents: number) =>
     receitaCents > 0 ? Math.round((cents / receitaCents) * 1000) / 10 : 0;
+
+  const saldoPositivo = saldo >= 0;
 
   return (
     <div className="card p-4 sm:p-5">
       <p className="text-sm font-medium text-[var(--text-secondary)]">Visão Geral</p>
+
       <div className="mt-4 space-y-1">
         {stages.map((stage, i) => {
-          const widthPct = Math.min(Math.max(pctOf(stage.remainderCents), 0), 100);
-          const pctValue = pctOf(stage.valueCents);
+          const widthPct = widthPctFor(stage.valueCents);
+          const pctValue = pctOfReceita(stage.valueCents);
           return (
             <div key={stage.key}>
               {i > 0 && (
@@ -94,7 +98,7 @@ export function IncomeFlowFunnel({
                   <ChevronDown size={14} />
                 </div>
               )}
-              <div className="flex items-center justify-between gap-2 text-sm">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-sm">
                 <span className="flex items-center gap-1.5 font-medium text-[var(--text-secondary)]">
                   {stage.icon && <IconBadge icon={stage.icon} color={stage.color} size="sm" />}
                   {stage.label}
@@ -106,15 +110,50 @@ export function IncomeFlowFunnel({
                   </span>
                 </span>
               </div>
-              <div className="mt-1 h-3 w-full overflow-hidden rounded-full bg-[var(--control-track)]">
+              <div className="mt-1 h-3.5 w-full overflow-hidden rounded-full bg-[var(--control-track)]">
                 <div
-                  className="h-full rounded-full transition-[width]"
-                  style={{ width: `${widthPct}%`, margin: "0 auto", backgroundColor: stage.color }}
+                  className="mx-auto h-full rounded-full transition-[width]"
+                  style={{ width: `${widthPct}%`, backgroundColor: stage.color }}
                 />
               </div>
             </div>
           );
         })}
+      </div>
+
+      <div
+        className={`mt-4 rounded-xl border p-3.5 sm:p-4 ${
+          saldoPositivo
+            ? "border-[var(--success-border)] bg-[var(--success-bg)]"
+            : "border-[var(--danger-border)] bg-[var(--danger-bg)]"
+        }`}
+      >
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+          <p
+            className={`text-xs font-medium ${
+              saldoPositivo ? "text-[var(--success)]" : "text-[var(--danger)]"
+            }`}
+          >
+            {saldoPositivo ? "Saldo disponível" : "Saldo negativo"}
+          </p>
+          {receitaCents > 0 && (
+            <p className="text-[11px] text-[var(--muted)]">
+              {pctOfReceita(saldo).toLocaleString("pt-BR")}% da receita
+            </p>
+          )}
+        </div>
+        <p
+          className={`mt-1 text-2xl font-semibold ${
+            saldoPositivo ? "text-[var(--success)]" : "text-[var(--danger)]"
+          }`}
+        >
+          {formatCentsToBRL(saldo)}
+        </p>
+        <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+          {saldoPositivo
+            ? "Valor restante após a distribuição da receita."
+            : "As despesas e destinações superaram a receita do período."}
+        </p>
       </div>
     </div>
   );
