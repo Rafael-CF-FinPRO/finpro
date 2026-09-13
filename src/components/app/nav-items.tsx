@@ -2,6 +2,10 @@ export type NavItem = {
   href: string;
   label: string;
   icon: (props: { className?: string }) => React.ReactElement;
+  /** Matches a SystemModule.key (src/lib/modules.ts) — src/app/(app)/layout.tsx
+   * filters NAV_ITEMS down to only the keys the current session can
+   * access before rendering the Sidebar/MobileNav. */
+  moduleKey: string;
 };
 
 function DashboardIcon({ className }: { className?: string }) {
@@ -82,9 +86,33 @@ function SettingsIcon({ className }: { className?: string }) {
   );
 }
 
+function PatrimonioIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M3 21h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M5 21V10.5L12 5l7 5.5V21"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <rect x="10" y="13" width="4" height="8" rx="0.5" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: DashboardIcon },
-  { href: "/lancamentos", label: "Lançamentos", icon: TransactionsIcon },
-  { href: "/orcamento", label: "Orçamento", icon: GoalsIcon },
-  { href: "/configuracoes", label: "Configurações", icon: SettingsIcon },
+  { href: "/dashboard", label: "Dashboard", icon: DashboardIcon, moduleKey: "dashboard" },
+  { href: "/lancamentos", label: "Lançamentos", icon: TransactionsIcon, moduleKey: "lancamentos" },
+  { href: "/orcamento", label: "Orçamento", icon: GoalsIcon, moduleKey: "orcamento" },
+  { href: "/patrimonio", label: "Gestão Patrimonial", icon: PatrimonioIcon, moduleKey: "gestao_patrimonial" },
+  { href: "/configuracoes", label: "Configurações", icon: SettingsIcon, moduleKey: "configuracoes" },
 ];

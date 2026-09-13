@@ -33,6 +33,16 @@ export function formatCentsToBRL(cents: number): string {
   });
 }
 
+/** Cents -> the "0,00" text a money `<input>` should default to —
+ * matches parseMoneyToCents' own comma-decimal expectation. Null/0 both
+ * render as an empty field, same convention IncomeCard already used
+ * inline before this was extracted for reuse across the Gestão
+ * Patrimonial forms (many money fields, several optional). */
+export function centsToInputValue(cents: number | null | undefined): string {
+  if (!cents) return "";
+  return (cents / 100).toFixed(2).replace(".", ",");
+}
+
 /** Short form for chart axis ticks, where the full currency format
  * (formatCentsToBRL) would crowd the labels — "R$20 mil" instead of
  * "R$ 20.000,00". Never used for a value the user needs to act on

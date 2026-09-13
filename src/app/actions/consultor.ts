@@ -8,6 +8,7 @@ import { getSession, startImpersonation, stopImpersonation } from "@/lib/session
 import { requireRole, requireOwnClient, homeForRole } from "@/lib/rbac";
 import { DEFAULT_CATEGORY_TEMPLATE } from "@/lib/default-categories";
 import { DEFAULT_PAYMENT_METHODS } from "@/lib/default-payment-methods";
+import { DEFAULT_PATRIMONIO_PROTECTIONS } from "@/lib/default-patrimonio-protections";
 import { newClientSchema, updateClientProfileSchema, resetUserPasswordSchema } from "@/lib/validation";
 import type { UserStatus } from "@/generated/prisma/enums";
 
@@ -72,6 +73,13 @@ export async function createClientAction(
   });
   await prisma.paymentMethod.createMany({
     data: DEFAULT_PAYMENT_METHODS.map((pm) => ({ ...pm, userId: cliente.id })),
+  });
+  // Gestão Patrimonial is a separate, self-contained module (src/lib/
+  // patrimonio.ts) — seeding its own starter data here, alongside
+  // categories/payment methods, costs nothing when the module itself
+  // is still gated off for everyone (src/lib/modules.ts).
+  await prisma.patrimonioProtection.createMany({
+    data: DEFAULT_PATRIMONIO_PROTECTIONS.map((p) => ({ ...p, userId: cliente.id })),
   });
 
   revalidatePath("/consultor/clientes");

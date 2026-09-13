@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { requireModuleAccess } from "@/lib/modules";
 import { getBudgetOverview } from "@/lib/budget";
 import { currentMonthKey, isValidMonthKey } from "@/lib/dates";
 import { IncomeCard } from "@/components/orcamento/IncomeCard";
@@ -33,6 +34,7 @@ export default async function OrcamentoPage({
   if (!session) {
     redirect("/login");
   }
+  await requireModuleAccess("orcamento");
 
   const params = await searchParams;
   const requestedMonth = typeof params.month === "string" ? params.month : "";

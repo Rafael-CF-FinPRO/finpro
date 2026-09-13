@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { requireModuleAccess } from "@/lib/modules";
 import { getCategories, getPaymentMethods, getTags } from "@/lib/transactions";
 import { PaymentMethodsEditor } from "@/components/configuracoes/PaymentMethodsEditor";
 import { TagsEditor } from "@/components/configuracoes/TagsEditor";
@@ -15,6 +16,7 @@ export default async function ConfiguracoesPage() {
   if (!session) {
     redirect("/login");
   }
+  await requireModuleAccess("configuracoes");
 
   const [categories, paymentMethods, tags] = await Promise.all([
     getCategories(session.userId),

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { requireModuleAccess } from "@/lib/modules";
 import { formatDateBR, toDateInputValue } from "@/lib/dates";
 import {
   getCategories,
@@ -28,6 +29,7 @@ export default async function LancamentosPage({
   if (!session) {
     redirect("/login");
   }
+  await requireModuleAccess("lancamentos");
 
   const params = await searchParams;
   const filters = parseFilters(params);

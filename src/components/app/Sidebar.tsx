@@ -15,13 +15,27 @@ import { NAV_ITEMS } from "./nav-items";
 const COLLAPSE_STORAGE_KEY = "finpro:sidebar-collapsed";
 
 function NavLinks({
+  accessibleModuleKeys,
   direction,
   collapsed,
 }: {
+  accessibleModuleKeys: "ALL" | string[];
   direction: "vertical" | "horizontal";
   collapsed?: boolean;
 }) {
   const pathname = usePathname();
+
+  // NAV_ITEMS itself (icon components included) is imported directly
+  // here rather than passed down as a prop from the server layout — a
+  // Server Component can't hand a Client Component a prop containing
+  // functions (React Server Components can't serialize them across the
+  // boundary), so only the plain string keys travel as a prop, and the
+  // filtering happens client-side against the same static list every
+  // build already has.
+  const navItems =
+    accessibleModuleKeys === "ALL"
+      ? NAV_ITEMS
+      : NAV_ITEMS.filter((item) => accessibleModuleKeys.includes(item.moduleKey));
 
   return (
     <nav
@@ -31,7 +45,7 @@ function NavLinks({
           : "flex gap-1 overflow-x-auto"
       }
     >
-      {NAV_ITEMS.map((item) => {
+      {navItems.map((item) => {
         const isActive =
           pathname === item.href || pathname.startsWith(`${item.href}/`);
         const Icon = item.icon;
@@ -60,9 +74,11 @@ function NavLinks({
 export function Sidebar({
   userName,
   userEmail,
+  accessibleModuleKeys,
 }: {
   userName: string;
   userEmail: string;
+  accessibleModuleKeys: "ALL" | string[];
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [ready, setReady] = useState(false);
@@ -119,7 +135,7 @@ export function Sidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
-        <NavLinks direction="vertical" collapsed={collapsed} />
+        <NavLinks accessibleModuleKeys={accessibleModuleKeys} direction="vertical" collapsed={collapsed} />
       </div>
 
       <div className="shrink-0 border-t border-[var(--surface-border)] p-4">
@@ -161,10 +177,10 @@ export function Sidebar({
   );
 }
 
-export function MobileNav() {
+export function MobileNav({ accessibleModuleKeys }: { accessibleModuleKeys: "ALL" | string[] }) {
   return (
     <div className="border-b border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 md:hidden">
-      <NavLinks direction="horizontal" />
+      <NavLinks accessibleModuleKeys={accessibleModuleKeys} direction="horizontal" />
     </div>
   );
 }

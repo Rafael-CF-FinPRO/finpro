@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { homeForRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { getAccessibleModuleKeys } from "@/lib/modules";
 import { Sidebar, MobileNav } from "@/components/app/Sidebar";
 import { Topbar } from "@/components/app/Topbar";
 import { ImpersonationBanner } from "@/components/app/ImpersonationBanner";
@@ -34,16 +35,26 @@ export default async function AppLayout({
     redirect("/login");
   }
 
+  // Whole-tab gating (src/lib/modules.ts) — a module not accessible to
+  // this session simply never appears in the menu, on top of each
+  // module's own page redirecting away if reached directly by URL. Only
+  // the plain module keys (never the NAV_ITEMS objects themselves, which
+  // carry icon component functions — not serializable as a prop from a
+  // Server Component to Sidebar/MobileNav, both "use client") cross the
+  // boundary; the actual filtering happens client-side in Sidebar.tsx.
+  const accessibleModuleKeysSet = await getAccessibleModuleKeys();
+  const accessibleModuleKeys = accessibleModuleKeysSet === "ALL" ? "ALL" : Array.from(accessibleModuleKeysSet);
+
   return (
     <div className="flex min-h-screen flex-col bg-[var(--background)]">
       {session.isImpersonating && session.impersonatedClientName && (
         <ImpersonationBanner clientName={session.impersonatedClientName} />
       )}
       <div className="flex min-h-0 flex-1">
-        <Sidebar userName={user.name} userEmail={user.email} />
+        <Sidebar userName={user.name} userEmail={user.email} accessibleModuleKeys={accessibleModuleKeys} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar userName={user.name} userEmail={user.email} />
-          <MobileNav />
+          <MobileNav accessibleModuleKeys={accessibleModuleKeys} />
           <main className="flex-1 p-4 md:p-8">{children}</main>
         </div>
       </div>

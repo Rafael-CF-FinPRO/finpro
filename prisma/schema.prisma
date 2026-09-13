@@ -31,6 +31,19 @@ enum UserStatus {
   BLOQUEADO
 }
 
+// Whole-tab/module gating for the Admin Master (see SystemModule below)
+// — ATIVA and EM_DESENVOLVIMENTO are distinguished only by who gets
+// default access (everyone vs specifically-granted consultores);
+// BLOQUEADA overrides any existing grant without deleting it, so
+// flipping a module back to EM_DESENVOLVIMENTO/ATIVA later restores
+// exactly what was there before (see the module-status migration note
+// on ConsultantModuleAccess).
+enum ModuleStatus {
+  ATIVA
+  EM_DESENVOLVIMENTO
+  BLOQUEADA
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -75,6 +88,20 @@ model User {
   auditLogsAsConsultor AuditLog[] @relation("AuditConsultor")
   auditLogsAsCliente   AuditLog[] @relation("AuditCliente")
 
+  // Whole-module access control (src/lib/modules.ts) — only ever
+  // populated for a CONSULTOR (a grant row's consultorId always points
+  // here); ADMIN and CLIENTE never have rows of their own.
+  moduleAccess            ConsultantModuleAccess[]
+  moduleAuditLogsAsAdmin     ModuleAuditLog[] @relation("ModuleAuditAdmin")
+  moduleAuditLogsAsConsultor ModuleAuditLog[] @relation("ModuleAuditConsultor")
+
+  // Gestão Patrimonial (src/lib/patrimonio.ts) — a completely separate,
+  // self-contained module: never joined against Transaction/BudgetProfile.
+  patrimonioAssets        PatrimonioAsset[]
+  patrimonioLiabilities   PatrimonioLiability[]
+  patrimonioProtections   PatrimonioProtection[]
+  patrimonioConfirmations PatrimonioMonthlyConfirmation[]
+
   @@index([consultorId])
 }
 
@@ -113,6 +140,76 @@ model PasswordResetToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// A whole tab/module a role can access — never a button, field, or
+// sub-action (see src/lib/modules.ts). Seeded once via a one-off script
+// (not a migration): the 4 existing tabs as ATIVA, plus a placeholder
+// "gestao_patrimonial" row as EM_DESENVOLVIMENTO with no page behind it
+// yet — the infrastructure exists before the feature does.
+model SystemModule {
+  id          String       @id @default(cuid())
+  key         String       @unique
+  name        String
+  description String?
+  status      ModuleStatus @default(ATIVA)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  consultantAccess ConsultantModuleAccess[]
+  auditLogs        ModuleAuditLog[]
+}
+
+// One row per (consultor, module) — whether that CONSULTOR (and, by
+// inheritance, every CLIENTE in their portfolio) has this module
+// unlocked. Only consulted while the module's own status is
+// EM_DESENVOLVIMENTO (src/lib/modules.ts's getAccessibleModuleKeys) —
+// a row is never deleted when a module's global status changes to
+// BLOQUEADA, so re-enabling it later (back to EM_DESENVOLVIMENTO)
+// restores exactly the same set of consultores without re-granting.
+model ConsultantModuleAccess {
+  id          String   @id @default(cuid())
+  consultorId String
+  moduleId    String
+  isEnabled   Boolean  @default(false)
+  // id of the ADMIN who last changed this row — informational only,
+  // the real trail is ModuleAuditLog below.
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  consultor User         @relation(fields: [consultorId], references: [id], onDelete: Cascade)
+  module    SystemModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([consultorId, moduleId])
+  @@index([moduleId])
+}
+
+// Admin Master's own audit trail for module management — deliberately
+// separate from AuditLog (src/lib/audit.ts), whose consultorId AND
+// clienteId are both required (it's specifically for a CONSULTOR/ADMIN
+// acting inside a CLIENTE's environment). A module-management event
+// never has a cliente, and a global status change doesn't even have a
+// consultor, so reusing that table would mean loosening its existing
+// NOT NULL columns — this new table just mirrors its shape instead.
+model ModuleAuditLog {
+  id            String   @id @default(cuid())
+  adminId       String
+  moduleId      String
+  // null for a global status change (module.setStatus) — only set for
+  // module.setConsultorAccess.
+  consultorId   String?
+  action        String
+  previousValue Json?
+  newValue      Json?
+  createdAt     DateTime @default(now())
+
+  admin     User         @relation("ModuleAuditAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  module    SystemModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  consultor User?        @relation("ModuleAuditConsultor", fields: [consultorId], references: [id], onDelete: SetNull)
+
+  @@index([moduleId])
+  @@index([consultorId])
 }
 
 // NEUTRO is for money movements that are neither real income nor a real
@@ -446,4 +543,197 @@ model MerchantKnowledge {
   sampleDescription      String
   createdAt              DateTime        @default(now())
   updatedAt              DateTime        @updatedAt
+}
+
+// ============================================================
+// Gestão Patrimonial — a self-contained module (src/lib/patrimonio.ts).
+// Never joined against Transaction/Category/BudgetProfile: this first
+// version tracks a user's own bens/dívidas/proteção independently of
+// the cash-flow side of the app. Gated behind the "gestao_patrimonial"
+// SystemModule (src/lib/modules.ts) — nobody sees this tab until an
+// ADMIN explicitly liberates it for their consultor.
+// ============================================================
+
+enum PatrimonioAssetCategory {
+  FINANCEIRO
+  BEM_MOVEL
+  BEM_IMOVEL
+  INTANGIVEL
+  COLECIONAVEL
+}
+
+enum PatrimonioLiabilityCategory {
+  EMPRESTIMO_DIVIDA
+  FINANCIAMENTO
+  CONSORCIO
+  OUTRO
+}
+
+enum PatrimonioUsageType {
+  USO_PESSOAL
+  GERADOR_RENDA
+}
+
+enum PatrimonioLocation {
+  ONSHORE
+  OFFSHORE
+}
+
+enum PatrimonioLiquidity {
+  ALTA
+  MEDIA
+  BAIXA
+}
+
+// MANUAL: the value only ever changes when the user confirms a new one
+// for a given month (src/lib/patrimonio.ts's effectiveValueFor).
+// PROJECAO_AUTOMATICA: absent a confirmation for a given month, the
+// value is compounded monthly from annualRatePct off the last known
+// base (a previous confirmation, or currentValueCents/createdAt if
+// there's never been one).
+enum PatrimonioUpdateMethod {
+  MANUAL
+  PROJECAO_AUTOMATICA
+}
+
+// One row per bem cadastrado, across all 5 categories from the
+// spreadsheet — a single model with a category discriminator (same
+// pattern Category/Transaction already use for their own type/
+// classification split) rather than 5 near-identical tables. Fields
+// that only apply to some categories (isRented/rentNetValueCents:
+// Bens Imóveis; purchaseDate/purchaseValueCents: everything except
+// Financeiro) are simply left null where not applicable — the create/
+// edit form only shows the fields relevant to the category being
+// cadastrado. No hard delete anywhere in this module — isActive is the
+// only way to retire an item, so a month's confirmation/projection
+// history is never orphaned.
+model PatrimonioAsset {
+  id                 String                   @id @default(cuid())
+  userId             String
+  category           PatrimonioAssetCategory
+  name               String
+  currentValueCents  Int
+  usageType          PatrimonioUsageType?
+  location           PatrimonioLocation?
+  liquidity          PatrimonioLiquidity?
+  updateMethod       PatrimonioUpdateMethod   @default(MANUAL)
+  // Signed — a depreciating bem móvel (a car) is a legitimate negative
+  // annual rate, not an error.
+  annualRatePct      Float?
+  // Free-text index/description shown for reference only, never parsed
+  // — "IPCA + 5% a.a", "CDI", "FIPEZAP" (the spreadsheet's "Performance"
+  // column for Financeiro, and the correction index for Bens Imóveis).
+  rateLabel          String?
+  purchaseDate       DateTime?
+  purchaseValueCents Int?
+  // Bens Imóveis only.
+  isRented           Boolean?
+  rentNetValueCents  Int?
+  isActive           Boolean                  @default(true)
+  notes              String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  user          User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  liabilities   PatrimonioLiability[]
+  confirmations PatrimonioMonthlyConfirmation[]
+
+  @@index([userId, category])
+}
+
+// Same discriminator pattern as PatrimonioAsset, covering all 4
+// liability categories. linkedAssetId is optional (spreadsheet's
+// "Vinculado a algum bem?") — e.g. a financiamento tied to the imóvel
+// it financed; onDelete: SetNull so deleting (deactivating, in
+// practice — nothing here is ever hard-deleted) the linked asset never
+// cascades into the liability itself.
+model PatrimonioLiability {
+  id                    String                       @id @default(cuid())
+  userId                String
+  category              PatrimonioLiabilityCategory
+  name                  String
+  currentBalanceCents   Int
+  installmentValueCents Int?
+  remainingInstallments Int?
+  // Free-text (SAC, PRICE...) — not modeled as an enum since this is
+  // informational only, no amortization simulator in this version.
+  amortization          String?
+  cetPct                Float?
+  correctionIndex       String?
+  // Consórcio only.
+  administrationFeePct  Float?
+  creditValueCents      Int?
+  // Outros Passivos only — free-text type, since this category is
+  // explicitly the catch-all for whatever doesn't fit the other three.
+  liabilityType         String?
+  linkedAssetId         String?
+  startDate             DateTime?
+  expectedEndDate       DateTime?
+  dueDate               DateTime?
+  isActive              Boolean                      @default(true)
+  notes                 String?
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+
+  user          User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedAsset   PatrimonioAsset?                 @relation(fields: [linkedAssetId], references: [id], onDelete: SetNull)
+  confirmations PatrimonioMonthlyConfirmation[]
+
+  @@index([userId, category])
+  @@index([linkedAssetId])
+}
+
+// The 16 suggested elements (Seguro de Vida, Holding, Reserva de
+// Emergência...) are seeded per user (src/lib/default-patrimonio-protections.ts)
+// but `element` is free text, not an enum — the user can add their own
+// beyond the suggested list. "Complementação necessária" from the spec
+// is deliberately not a stored column: it's just idealValueCents -
+// currentValueCents, computed at read time in src/lib/patrimonio.ts.
+model PatrimonioProtection {
+  id                String   @id @default(cuid())
+  userId            String
+  element           String
+  objective         String?
+  currentValueCents Int?
+  idealValueCents   Int?
+  isNeeded          Boolean?
+  isCovered         Boolean?
+  notes             String?
+  order             Int      @default(0)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// A sparse ledger — a row only exists when the user explicitly
+// confirms/adjusts a bem/dívida's value for one specific month.
+// Everything else (a month nobody has touched) is computed on the fly
+// by src/lib/patrimonio.ts's effectiveValueFor, projecting forward from
+// the most recent confirmation (or the cadastro's own currentValueCents
+// if there's never been one) — so the full monthly history is always
+// reconstructible without needing to eagerly materialize a snapshot
+// row for every month for every user. Exactly one of assetId/liabilityId
+// is set per row; both `@@unique` constraints hold independently since
+// Postgres treats NULLs as distinct for uniqueness purposes.
+model PatrimonioMonthlyConfirmation {
+  id          String   @id @default(cuid())
+  userId      String
+  monthKey    String
+  assetId     String?
+  liabilityId String?
+  valueCents  Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset     PatrimonioAsset?     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  liability PatrimonioLiability? @relation(fields: [liabilityId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, monthKey])
+  @@unique([liabilityId, monthKey])
+  @@index([userId, monthKey])
 }

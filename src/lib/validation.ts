@@ -55,6 +55,18 @@ export const resetUserPasswordSchema = z
     path: ["confirmNewPassword"],
   });
 
+// Admin Master's "Gestão de Funcionalidades" — see src/lib/modules.ts.
+export const setModuleStatusSchema = z.object({
+  id: z.string().min(1, "Módulo inválido."),
+  status: z.enum(["ATIVA", "EM_DESENVOLVIMENTO", "BLOQUEADA"], "Status inválido."),
+});
+
+export const setConsultorModuleAccessSchema = z.object({
+  moduleId: z.string().min(1, "Módulo inválido."),
+  consultorId: z.string().min(1, "Consultor inválido."),
+  isEnabled: z.enum(["true", "false"], "Valor inválido.").transform((v) => v === "true"),
+});
+
 export const transactionSchema = z.object({
   type: z.enum(["ENTRADA", "SAIDA", "NEUTRO"], "Tipo inválido."),
   amountCents: z
@@ -318,4 +330,163 @@ export const deleteTagSchema = z.object({ id: z.string().min(1, "Tag inválida."
 export const loginSchema = z.object({
   email: z.email("Informe um e-mail válido.").trim().toLowerCase(),
   password: z.string().min(1, "Informe sua senha."),
+});
+
+// ---- Gestão Patrimonial (src/lib/patrimonio.ts) -------------------------
+// Callers pre-normalize FormData into plain objects where an absent/empty
+// optional field is `undefined` (never `null`/`""`) — see
+// src/app/actions/patrimonio.ts's `f()` helper — so every optional
+// schema below can just be `.optional()`.
+
+const patrimonioAssetCategoryEnum = z.enum(
+  ["FINANCEIRO", "BEM_MOVEL", "BEM_IMOVEL", "INTANGIVEL", "COLECIONAVEL"],
+  "Categoria inválida."
+);
+const patrimonioLiabilityCategoryEnum = z.enum(
+  ["EMPRESTIMO_DIVIDA", "FINANCIAMENTO", "CONSORCIO", "OUTRO"],
+  "Categoria inválida."
+);
+const patrimonioUsageTypeEnum = z.enum(["USO_PESSOAL", "GERADOR_RENDA"], "Tipo inválido.");
+const patrimonioLocationEnum = z.enum(["ONSHORE", "OFFSHORE"], "Localização inválida.");
+const patrimonioLiquidityEnum = z.enum(["ALTA", "MEDIA", "BAIXA"], "Nível de liquidez inválido.");
+const patrimonioUpdateMethodEnum = z.enum(["MANUAL", "PROJECAO_AUTOMATICA"], "Método de atualização inválido.");
+
+const requiredMoneyCentsSchema = z
+  .string()
+  .min(1, "Informe o valor.")
+  .transform((value, ctx) => {
+    const cents = parseMoneyToCents(value, { allowZero: true });
+    if (cents === null) {
+      ctx.addIssue({ code: "custom", message: "Informe um valor válido." });
+      return z.NEVER;
+    }
+    return cents;
+  });
+
+const optionalMoneyCentsSchema = z
+  .string()
+  .optional()
+  .transform((value, ctx) => {
+    if (!value) return null;
+    const cents = parseMoneyToCents(value, { allowZero: true });
+    if (cents === null) {
+      ctx.addIssue({ code: "custom", message: "Informe um valor válido." });
+      return z.NEVER;
+    }
+    return cents;
+  });
+
+const optionalPercentSchema = z
+  .string()
+  .optional()
+  .transform((value, ctx) => {
+    if (!value) return null;
+    const n = Number(value.replace(",", "."));
+    if (Number.isNaN(n)) {
+      ctx.addIssue({ code: "custom", message: "Informe um percentual válido." });
+      return z.NEVER;
+    }
+    return n;
+  });
+
+const optionalDateInputSchema = z
+  .string()
+  .optional()
+  .transform((value, ctx) => {
+    if (!value) return null;
+    const date = parseDateInputValue(value);
+    if (!date) {
+      ctx.addIssue({ code: "custom", message: "Informe uma data válida." });
+      return z.NEVER;
+    }
+    return date;
+  });
+
+function optionalTextSchema(max: number) {
+  return z
+    .string()
+    .trim()
+    .max(max, "Texto muito longo.")
+    .optional()
+    .transform((value) => value ?? null);
+}
+
+const optionalBooleanSchema = z
+  .enum(["true", "false"])
+  .optional()
+  .transform((value) => (value === undefined ? null : value === "true"));
+
+export const patrimonioAssetSchema = z.object({
+  id: z.string().optional(),
+  category: patrimonioAssetCategoryEnum,
+  name: z.string().trim().min(1, "Informe a descrição."),
+  currentValueCents: requiredMoneyCentsSchema,
+  usageType: patrimonioUsageTypeEnum.optional(),
+  location: patrimonioLocationEnum.optional(),
+  liquidity: patrimonioLiquidityEnum.optional(),
+  updateMethod: patrimonioUpdateMethodEnum,
+  annualRatePct: optionalPercentSchema,
+  rateLabel: optionalTextSchema(80),
+  purchaseDate: optionalDateInputSchema,
+  purchaseValueCents: optionalMoneyCentsSchema,
+  isRented: optionalBooleanSchema,
+  rentNetValueCents: optionalMoneyCentsSchema,
+  notes: optionalTextSchema(500),
+});
+
+export const patrimonioLiabilitySchema = z.object({
+  id: z.string().optional(),
+  category: patrimonioLiabilityCategoryEnum,
+  name: z.string().trim().min(1, "Informe a descrição."),
+  currentBalanceCents: requiredMoneyCentsSchema,
+  installmentValueCents: optionalMoneyCentsSchema,
+  remainingInstallments: z
+    .string()
+    .optional()
+    .transform((value, ctx) => {
+      if (!value) return null;
+      const n = Number(value);
+      if (!Number.isInteger(n) || n < 0) {
+        ctx.addIssue({ code: "custom", message: "Informe um número válido." });
+        return z.NEVER;
+      }
+      return n;
+    }),
+  amortization: optionalTextSchema(60),
+  cetPct: optionalPercentSchema,
+  correctionIndex: optionalTextSchema(60),
+  administrationFeePct: optionalPercentSchema,
+  creditValueCents: optionalMoneyCentsSchema,
+  liabilityType: optionalTextSchema(60),
+  linkedAssetId: z
+    .string()
+    .optional()
+    .transform((value) => value ?? null),
+  startDate: optionalDateInputSchema,
+  expectedEndDate: optionalDateInputSchema,
+  dueDate: optionalDateInputSchema,
+  notes: optionalTextSchema(500),
+});
+
+export const patrimonioProtectionSchema = z.object({
+  id: z.string().optional(),
+  element: z.string().trim().min(1, "Informe o elemento."),
+  objective: optionalTextSchema(300),
+  currentValueCents: optionalMoneyCentsSchema,
+  idealValueCents: optionalMoneyCentsSchema,
+  isNeeded: optionalBooleanSchema,
+  isCovered: optionalBooleanSchema,
+  notes: optionalTextSchema(500),
+});
+
+export const patrimonioSetActiveSchema = z.object({
+  id: z.string().min(1, "Item inválido."),
+  isActive: z.enum(["true", "false"], "Valor inválido.").transform((value) => value === "true"),
+});
+
+export const patrimonioConfirmMonthlyValueSchema = z.object({
+  kind: z.enum(["asset", "liability"], "Tipo inválido."),
+  itemId: z.string().min(1, "Item inválido."),
+  monthKey: z.string().refine(isValidMonthKey, { message: "Mês inválido." }),
+  valueCents: requiredMoneyCentsSchema,
 });

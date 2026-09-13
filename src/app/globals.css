@@ -46,6 +46,19 @@
   --indicator-maximo: #f97316;
   --indicator-aceitavel: #16a34a;
   --indicator-ideal: #38bdf8;
+
+  /* Gestão Patrimonial (src/lib/patrimonio.ts) — one identity per
+     ativo/passivo category, same "hue never changes between themes,
+     only the shade" convention as --classification-* above. */
+  --patrimonio-financeiro: #2563eb;
+  --patrimonio-bem-movel: #0d9488;
+  --patrimonio-bem-imovel: #7c3aed;
+  --patrimonio-intangivel: #db2777;
+  --patrimonio-colecionavel: #d97706;
+  --patrimonio-liability-emprestimo: #dc2626;
+  --patrimonio-liability-financiamento: #ea580c;
+  --patrimonio-liability-consorcio: #9333ea;
+  --patrimonio-liability-outro: #64748b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -93,6 +106,16 @@
     --indicator-maximo: #fb923c;
     --indicator-aceitavel: #4ade80;
     --indicator-ideal: #7dd3fc;
+
+    --patrimonio-financeiro: #60a5fa;
+    --patrimonio-bem-movel: #2dd4bf;
+    --patrimonio-bem-imovel: #a78bfa;
+    --patrimonio-intangivel: #f472b6;
+    --patrimonio-colecionavel: #fbbf24;
+    --patrimonio-liability-emprestimo: #f87171;
+    --patrimonio-liability-financiamento: #fb923c;
+    --patrimonio-liability-consorcio: #c084fc;
+    --patrimonio-liability-outro: #94a3b8;
   }
 }
 
@@ -136,6 +159,16 @@
   --indicator-maximo: #fb923c;
   --indicator-aceitavel: #4ade80;
   --indicator-ideal: #7dd3fc;
+
+  --patrimonio-financeiro: #60a5fa;
+  --patrimonio-bem-movel: #2dd4bf;
+  --patrimonio-bem-imovel: #a78bfa;
+  --patrimonio-intangivel: #f472b6;
+  --patrimonio-colecionavel: #fbbf24;
+  --patrimonio-liability-emprestimo: #f87171;
+  --patrimonio-liability-financiamento: #fb923c;
+  --patrimonio-liability-consorcio: #c084fc;
+  --patrimonio-liability-outro: #94a3b8;
 }
 
 @theme inline {

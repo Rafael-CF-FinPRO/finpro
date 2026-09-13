@@ -6,6 +6,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/consultores", label: "Consultores" },
   { href: "/admin/clientes", label: "Clientes" },
+  { href: "/admin/modulos", label: "Gestão de Funcionalidades" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
