@@ -1,5 +1,10 @@
 import type { ProtectionDetailRow } from "@/lib/patrimonio";
 
+// "Não necessárias" is deliberately left out here — this view is about
+// what still needs attention vs. what's already handled, not a full
+// inventory (that's what the Cadastros Gerais table is for). The
+// classification itself (getProtectionDetailRows) still computes all 3
+// statuses; this component just doesn't render the third one.
 const GROUPS: { status: ProtectionDetailRow["status"]; label: string; color: string; emptyMessage: string }[] = [
   {
     status: "PENDENTE",
@@ -13,12 +18,6 @@ const GROUPS: { status: ProtectionDetailRow["status"]; label: string; color: str
     color: "var(--success)",
     emptyMessage: "Nenhum elemento marcado como necessário e coberto ainda.",
   },
-  {
-    status: "NAO_NECESSARIA",
-    label: "Não necessárias",
-    color: "var(--text-faint)",
-    emptyMessage: "Nenhum elemento marcado como não necessário.",
-  },
 ];
 
 /** Complementa o velocímetro (spec section 10) — em vez de mais um
@@ -29,7 +28,7 @@ export function ProtectionDetailBreakdown({ rows }: { rows: ProtectionDetailRow[
   return (
     <div className="card p-4 sm:p-5">
       <p className="text-sm font-medium text-[var(--text-secondary)]">Detalhamento das Proteções</p>
-      <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {GROUPS.map((group) => {
           const items = rows.filter((r) => r.status === group.status);
           return (

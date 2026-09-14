@@ -264,13 +264,15 @@ export function PatrimonioBoard({
         <div className="space-y-3">
           <h3 className="text-sm font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">Proteção Patrimonial</h3>
           <ProtectionSummaryCards summary={protectionSummary} />
-          <div className="card p-4 sm:p-5">
-            <p className="text-sm font-medium text-[var(--text-secondary)]">Velocímetro de Proteção</p>
-            <div className="mt-2 flex justify-center">
-              <ProtectionGauge pct={protectionSummary.pctCoverage} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="card p-4 sm:p-5">
+              <p className="text-sm font-medium text-[var(--text-secondary)]">Nível de Proteção</p>
+              <div className="mt-2 flex justify-center">
+                <ProtectionGauge pct={protectionSummary.pctCoverage} />
+              </div>
             </div>
+            <ProtectionDetailBreakdown rows={protectionDetailRows} />
           </div>
-          <ProtectionDetailBreakdown rows={protectionDetailRows} />
         </div>
 
         <div className="space-y-3">
