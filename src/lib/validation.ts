@@ -442,57 +442,87 @@ const optionalBooleanSchema = z
   .optional()
   .transform((value) => (value === undefined ? null : value === "true"));
 
-export const patrimonioAssetSchema = z.object({
-  id: z.string().optional(),
-  category: patrimonioAssetCategoryEnum,
-  name: z.string().trim().min(1, "Informe a descrição."),
-  currentValueCents: requiredMoneyCentsSchema,
-  usageType: patrimonioUsageTypeEnum.optional(),
-  location: patrimonioLocationEnum.optional(),
-  liquidity: patrimonioLiquidityEnum.optional(),
-  updateMethod: patrimonioUpdateMethodEnum,
-  annualRatePct: optionalPercentSchema,
-  rateLabel: optionalTextSchema(80),
-  purchaseDate: optionalDateInputSchema,
-  purchaseValueCents: optionalMoneyCentsSchema,
-  isRented: optionalBooleanSchema,
-  rentNetValueCents: optionalMoneyCentsSchema,
-  notes: optionalTextSchema(500),
-});
+const requiredBooleanSchema = z
+  .enum(["true", "false"], "Selecione uma opção.")
+  .transform((value) => value === "true");
 
-export const patrimonioLiabilitySchema = z.object({
-  id: z.string().optional(),
-  category: patrimonioLiabilityCategoryEnum,
-  name: z.string().trim().min(1, "Informe a descrição."),
-  currentBalanceCents: requiredMoneyCentsSchema,
-  installmentValueCents: optionalMoneyCentsSchema,
-  remainingInstallments: z
-    .string()
-    .optional()
-    .transform((value, ctx) => {
-      if (!value) return null;
-      const n = Number(value);
-      if (!Number.isInteger(n) || n < 0) {
-        ctx.addIssue({ code: "custom", message: "Informe um número válido." });
-        return z.NEVER;
-      }
-      return n;
-    }),
-  amortization: optionalTextSchema(60),
-  cetPct: optionalPercentSchema,
-  correctionIndex: optionalTextSchema(60),
-  administrationFeePct: optionalPercentSchema,
-  creditValueCents: optionalMoneyCentsSchema,
-  liabilityType: optionalTextSchema(60),
-  linkedAssetId: z
-    .string()
-    .optional()
-    .transform((value) => value ?? null),
-  startDate: optionalDateInputSchema,
-  expectedEndDate: optionalDateInputSchema,
-  dueDate: optionalDateInputSchema,
-  notes: optionalTextSchema(500),
-});
+// "Tipo" (usageType) is required across all 5 asset categories (spec
+// sections 5-9 each list it as obrigatório); Financeiro additionally
+// requires "Performance" (rateLabel) and "Localização" — enforced below
+// via superRefine since those two are category-conditional, while
+// usageType is simply never `.optional()`. Nível de Liquidez stays
+// optional everywhere by explicit spec instruction.
+export const patrimonioAssetSchema = z
+  .object({
+    id: z.string().optional(),
+    category: patrimonioAssetCategoryEnum,
+    name: z.string().trim().min(1, "Informe a descrição."),
+    currentValueCents: requiredMoneyCentsSchema,
+    usageType: patrimonioUsageTypeEnum,
+    location: patrimonioLocationEnum.optional(),
+    liquidity: patrimonioLiquidityEnum.optional(),
+    updateMethod: patrimonioUpdateMethodEnum,
+    annualRatePct: optionalPercentSchema,
+    rateLabel: optionalTextSchema(80),
+    purchaseDate: optionalDateInputSchema,
+    purchaseValueCents: optionalMoneyCentsSchema,
+    isRented: optionalBooleanSchema,
+    rentNetValueCents: optionalMoneyCentsSchema,
+    notes: optionalTextSchema(500),
+  })
+  .superRefine((data, ctx) => {
+    if (data.category !== "FINANCEIRO") return;
+    if (!data.location) {
+      ctx.addIssue({ code: "custom", path: ["location"], message: "Informe a localização." });
+    }
+    if (!data.rateLabel) {
+      ctx.addIssue({ code: "custom", path: ["rateLabel"], message: "Informe a performance/índice." });
+    }
+  });
+
+// "Crédito da Carta" (creditValueCents) is required for Consórcio only
+// (spec section 12) — every other field here stays optional across all
+// 4 categories, enforced via superRefine below rather than a second
+// schema per category.
+export const patrimonioLiabilitySchema = z
+  .object({
+    id: z.string().optional(),
+    category: patrimonioLiabilityCategoryEnum,
+    name: z.string().trim().min(1, "Informe a descrição."),
+    currentBalanceCents: requiredMoneyCentsSchema,
+    installmentValueCents: optionalMoneyCentsSchema,
+    remainingInstallments: z
+      .string()
+      .optional()
+      .transform((value, ctx) => {
+        if (!value) return null;
+        const n = Number(value);
+        if (!Number.isInteger(n) || n < 0) {
+          ctx.addIssue({ code: "custom", message: "Informe um número válido." });
+          return z.NEVER;
+        }
+        return n;
+      }),
+    amortization: optionalTextSchema(60),
+    cetPct: optionalPercentSchema,
+    correctionIndex: optionalTextSchema(60),
+    administrationFeePct: optionalPercentSchema,
+    creditValueCents: optionalMoneyCentsSchema,
+    liabilityType: optionalTextSchema(60),
+    linkedAssetId: z
+      .string()
+      .optional()
+      .transform((value) => value ?? null),
+    startDate: optionalDateInputSchema,
+    expectedEndDate: optionalDateInputSchema,
+    dueDate: optionalDateInputSchema,
+    notes: optionalTextSchema(500),
+  })
+  .superRefine((data, ctx) => {
+    if (data.category === "CONSORCIO" && data.creditValueCents == null) {
+      ctx.addIssue({ code: "custom", path: ["creditValueCents"], message: "Informe o crédito da carta." });
+    }
+  });
 
 export const patrimonioProtectionSchema = z.object({
   id: z.string().optional(),
@@ -500,8 +530,8 @@ export const patrimonioProtectionSchema = z.object({
   objective: optionalTextSchema(300),
   currentValueCents: optionalMoneyCentsSchema,
   idealValueCents: optionalMoneyCentsSchema,
-  isNeeded: optionalBooleanSchema,
-  isCovered: optionalBooleanSchema,
+  isNeeded: requiredBooleanSchema,
+  isCovered: requiredBooleanSchema,
   notes: optionalTextSchema(500),
 });
 

@@ -32,3 +32,22 @@ export const PATRIMONIO_LIABILITY_CATEGORY_LABELS: Record<PatrimonioLiabilityCat
   CONSORCIO: "Consórcios",
   OUTRO: "Outros Passivos",
 };
+
+// Shared by every asset table's "Tipo"/"Localização"/"Nível de
+// Liquidez" columns (view and edit) — centralized here instead of
+// duplicated per table component.
+export const PATRIMONIO_USAGE_LABELS: Record<string, string> = {
+  USO_PESSOAL: "Uso Pessoal",
+  GERADOR_RENDA: "Gerador de Renda",
+};
+
+export const PATRIMONIO_LOCATION_LABELS: Record<string, string> = {
+  ONSHORE: "Onshore",
+  OFFSHORE: "Offshore",
+};
+
+export const PATRIMONIO_LIQUIDITY_LABELS: Record<string, string> = {
+  ALTA: "Alta Liquidez",
+  MEDIA: "Média Liquidez",
+  BAIXA: "Baixa Liquidez",
+};
