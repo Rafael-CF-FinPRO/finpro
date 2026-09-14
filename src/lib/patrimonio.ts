@@ -237,6 +237,137 @@ export function getAssetDistributionByLocation(data: PatrimonioData, monthKey: s
     .map(([category, valueCents]) => ({ category, label: labels[category], valueCents }));
 }
 
+/** Liquidez is required going forward (src/lib/validation.ts), but
+ * registros anteriores to that rule can still be null — those fall
+ * into "Não informado" here rather than being excluded, same treatment
+ * Tipo/Localização already got before they had their own required
+ * rules. */
+export function getAssetDistributionByLiquidity(data: PatrimonioData, monthKey: string): CategoryComposition[] {
+  const totals = new Map<string, number>();
+  for (const asset of data.assets) {
+    if (!asset.isActive) continue;
+    const key = asset.liquidity ?? "NAO_INFORMADO";
+    const { valueCents } = assetEffectiveValue(asset, monthKey, data.confirmations);
+    totals.set(key, (totals.get(key) ?? 0) + valueCents);
+  }
+  const labels: Record<string, string> = {
+    ALTA: "Alta Liquidez",
+    MEDIA: "Média Liquidez",
+    BAIXA: "Baixa Liquidez",
+    NAO_INFORMADO: "Não informado",
+  };
+  return Array.from(totals.entries())
+    .filter(([, valueCents]) => valueCents > 0)
+    .map(([category, valueCents]) => ({ category, label: labels[category], valueCents }));
+}
+
+/** The real first month this user has anything to show — the earliest
+ * `createdAt` among their still-existing (not hard-deleted) ativos e
+ * passivos, active or not: an item later inactivated/excluded was still
+ * real patrimônio during the months it existed, so it still anchors
+ * where the history honestly begins. Returns null when there's nothing
+ * cadastrado at all yet — callers should show the chart's own empty
+ * state rather than any range. Never a fixed "últimos 12 meses" window
+ * (spec: no fabricated months, no zeros before the user's real start). */
+export function firstPatrimonioMonthKey(data: PatrimonioData): string | null {
+  const dates = [...data.assets, ...data.liabilities].map((item) => item.createdAt);
+  if (dates.length === 0) return null;
+  const earliest = dates.reduce((min, d) => (d < min ? d : min), dates[0]);
+  return monthKeyFromDate(earliest);
+}
+
+export type DebtRatio = {
+  /** 0-100, or null when there are no ativos to divide by (never a
+   * divide-by-zero NaN/Infinity reaching the UI). */
+  pct: number | null;
+  totalAssetsCents: number;
+  totalLiabilitiesCents: number;
+};
+
+/** "Nível de Endividamento" = Passivos Totais ÷ Ativos Totais — a
+ * single current-moment indicator, deliberately with no historical
+ * series (spec: not implementing an evolution chart for this one). */
+export function computeDebtRatio(totals: PatrimonioTotals): DebtRatio {
+  const pct = totals.totalAssetsCents > 0 ? (totals.totalLiabilitiesCents / totals.totalAssetsCents) * 100 : null;
+  return { pct, totalAssetsCents: totals.totalAssetsCents, totalLiabilitiesCents: totals.totalLiabilitiesCents };
+}
+
+export type ProtectionSummary = {
+  necessarias: number;
+  possuidas: number;
+  pendentes: number;
+  /** 0-100, or null when nothing is marked "Precisa" yet. */
+  pctCoverage: number | null;
+};
+
+/** Counts, not values — matches the reference spreadsheet's own
+ * "Nec"/"Cob" tally (13 necessárias, 12 cobertas -> 92.3%), not a
+ * weighted-by-value measure. A proteção only ever counts as "possuída"
+ * when it was also marked necessária (spec section 8: never count an
+ * unnecessary one as coverage), and "pendente" is exactly Necessidade=
+ * Precisa AND Coberto=Não possui (section 7's pendency rule). */
+export function computeProtectionSummary(data: PatrimonioData): ProtectionSummary {
+  const active = data.protections.filter((p) => p.isActive);
+  const necessarias = active.filter((p) => p.isNeeded === true).length;
+  const possuidas = active.filter((p) => p.isNeeded === true && p.isCovered === true).length;
+  const pendentes = necessarias - possuidas;
+  const pctCoverage = necessarias > 0 ? (possuidas / necessarias) * 100 : null;
+  return { necessarias, possuidas, pendentes, pctCoverage };
+}
+
+export type ProtectionDetailStatus = "POSSUIDA" | "PENDENTE" | "NAO_NECESSARIA";
+export type ProtectionDetailRow = { id: string; element: string; status: ProtectionDetailStatus };
+
+/** Per-elemento status for the detailed breakdown view — the same
+ * classification computeProtectionSummary tallies, just kept per-row
+ * instead of counted. */
+export function getProtectionDetailRows(data: PatrimonioData): ProtectionDetailRow[] {
+  return data.protections
+    .filter((p) => p.isActive)
+    .map((p): ProtectionDetailRow => {
+      const status: ProtectionDetailStatus =
+        p.isNeeded === true ? (p.isCovered === true ? "POSSUIDA" : "PENDENTE") : "NAO_NECESSARIA";
+      return { id: p.id, element: p.element, status };
+    });
+}
+
+const SUCCESSION_META_FRACTION = 0.2;
+// Matched by exact name (case/whitespace-insensitive) against the 5
+// canonical elementos — a renamed or custom item simply isn't counted
+// as sucessório, matching the spec's "não considerar automaticamente
+// todos os itens de proteção como sucessórios."
+const SUCCESSION_ELEMENT_NAMES = new Set(["seguro de vida", "previdência vgbl", "previdência pgbl", "holding", "offshore"]);
+
+function isSuccessionElement(element: string): boolean {
+  return SUCCESSION_ELEMENT_NAMES.has(element.trim().toLowerCase());
+}
+
+export type SuccessionPlanning = {
+  totalAssetsCents: number;
+  metaCents: number;
+  currentCents: number;
+  gapCents: number;
+  /** 0-100+, or null when Ativos Totais is 0 (meta would be 0 too). */
+  pctCoverage: number | null;
+  byElement: CategoryComposition[];
+};
+
+/** "Planejamento Sucessório" — compares the current value of the 5
+ * sucessório-relevant proteções against a 20%-of-ativos target. Reuses
+ * `totalAssetsCents` from computeTotals rather than recomputing it, so
+ * this always agrees with the headline Ativos Totais card. */
+export function computeSuccessionPlanning(data: PatrimonioData, totalAssetsCents: number): SuccessionPlanning {
+  const matched = data.protections.filter((p) => p.isActive && isSuccessionElement(p.element));
+  const currentCents = matched.reduce((sum, p) => sum + (p.currentValueCents ?? 0), 0);
+  const metaCents = Math.round(totalAssetsCents * SUCCESSION_META_FRACTION);
+  const gapCents = Math.max(0, metaCents - currentCents);
+  const pctCoverage = metaCents > 0 ? (currentCents / metaCents) * 100 : null;
+  const byElement: CategoryComposition[] = matched
+    .filter((p) => (p.currentValueCents ?? 0) > 0)
+    .map((p) => ({ category: p.id, label: p.element, valueCents: p.currentValueCents ?? 0 }));
+  return { totalAssetsCents, metaCents, currentCents, gapCents, pctCoverage, byElement };
+}
+
 export type PatrimonioSnapshotRow = {
   kind: "asset" | "liability";
   id: string;

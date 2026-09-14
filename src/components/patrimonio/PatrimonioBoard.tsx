@@ -8,10 +8,18 @@ import { AssetCategoryTable } from "./AssetCategoryTable";
 import { LiabilityCategoryTable } from "./LiabilityCategoryTable";
 import { ProtectionTable } from "./ProtectionTable";
 import { NetWorthEvolutionChart } from "./NetWorthEvolutionChart";
-import { AssetCompositionDonut } from "./AssetCompositionDonut";
-import { LiabilityCompositionDonut } from "./LiabilityCompositionDonut";
+import { CompositionDonut } from "./CompositionDonut";
+import { ProtectionSummaryCards } from "./ProtectionSummaryCards";
+import { ProtectionGauge } from "./ProtectionGauge";
+import { ProtectionDetailBreakdown } from "./ProtectionDetailBreakdown";
+import { SuccessionPlanningSection } from "./SuccessionPlanningSection";
 import { MonthlyConfirmationPanel } from "./MonthlyConfirmationPanel";
-import { PATRIMONIO_ASSET_CATEGORY_LABELS, PATRIMONIO_LIABILITY_CATEGORY_LABELS } from "@/lib/patrimonio-colors";
+import {
+  PATRIMONIO_ASSET_CATEGORY_LABELS,
+  PATRIMONIO_LIABILITY_CATEGORY_LABELS,
+  PATRIMONIO_ASSET_CATEGORY_COLORS,
+  PATRIMONIO_LIABILITY_CATEGORY_COLORS,
+} from "@/lib/patrimonio-colors";
 import {
   PATRIMONIO_ASSET_GROUP_META,
   PATRIMONIO_LIABILITY_GROUP_META,
@@ -19,7 +27,27 @@ import {
 } from "@/lib/patrimonio-group-meta";
 import type { PatrimonioAsset, PatrimonioLiability, PatrimonioProtection } from "@/generated/prisma/client";
 import type { PatrimonioAssetCategory, PatrimonioLiabilityCategory } from "@/generated/prisma/enums";
-import type { CategoryComposition, PatrimonioMonthPoint, PatrimonioSnapshotRow, PatrimonioTotals } from "@/lib/patrimonio";
+import type {
+  CategoryComposition,
+  DebtRatio,
+  PatrimonioMonthPoint,
+  PatrimonioSnapshotRow,
+  PatrimonioTotals,
+  ProtectionDetailRow,
+  ProtectionSummary,
+  SuccessionPlanning,
+} from "@/lib/patrimonio";
+
+// Tipo/Localização only ever have 2 real values + "Não informado" — a
+// small fixed palette is enough, unlike Categoria which has its own
+// dedicated color per category (patrimonio-colors.ts).
+const FALLBACK_PALETTE = ["var(--primary)", "var(--success)", "var(--text-faint)"];
+const LIQUIDITY_COLORS: Record<string, string> = {
+  ALTA: "var(--success)",
+  MEDIA: "var(--warning)",
+  BAIXA: "var(--danger)",
+  NAO_INFORMADO: "var(--text-faint)",
+};
 
 const ASSET_CATEGORIES: PatrimonioAssetCategory[] = ["FINANCEIRO", "BEM_MOVEL", "BEM_IMOVEL", "INTANGIVEL", "COLECIONAVEL"];
 const LIABILITY_CATEGORIES: PatrimonioLiabilityCategory[] = ["EMPRESTIMO_DIVIDA", "FINANCIAMENTO", "CONSORCIO", "OUTRO"];
@@ -53,7 +81,12 @@ export function PatrimonioBoard({
   assetsByCategory,
   assetsByUsage,
   assetsByLocation,
+  assetsByLiquidity,
   liabilitiesByCategory,
+  debtRatio,
+  protectionSummary,
+  protectionDetailRows,
+  successionPlanning,
   confirmMonthKey,
   snapshotRows,
 }: {
@@ -65,7 +98,12 @@ export function PatrimonioBoard({
   assetsByCategory: CategoryComposition[];
   assetsByUsage: CategoryComposition[];
   assetsByLocation: CategoryComposition[];
+  assetsByLiquidity: CategoryComposition[];
   liabilitiesByCategory: CategoryComposition[];
+  debtRatio: DebtRatio;
+  protectionSummary: ProtectionSummary;
+  protectionDetailRows: ProtectionDetailRow[];
+  successionPlanning: SuccessionPlanning;
   confirmMonthKey: string;
   snapshotRows: PatrimonioSnapshotRow[];
 }) {
@@ -92,6 +130,7 @@ export function PatrimonioBoard({
         totalAssetsCents={totals.totalAssetsCents}
         totalLiabilitiesCents={totals.totalLiabilitiesCents}
         netWorthCents={totals.netWorthCents}
+        debtRatio={debtRatio}
       />
 
       <CollapsibleSection
@@ -172,14 +211,71 @@ export function PatrimonioBoard({
         </div>
       </CollapsibleSection>
 
-      <div className="space-y-4">
+      <div className="space-y-8">
         <h2 className="text-lg font-semibold text-[var(--text-primary)]">Visão Patrimonial</h2>
 
-        <NetWorthEvolutionChart points={series} />
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">Evolução Patrimonial</h3>
+          <NetWorthEvolutionChart points={series} />
+        </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <AssetCompositionDonut byCategory={assetsByCategory} byUsage={assetsByUsage} byLocation={assetsByLocation} />
-          <LiabilityCompositionDonut byCategory={liabilitiesByCategory} />
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">Composição dos Ativos</h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <CompositionDonut
+              title="Por Categoria"
+              data={assetsByCategory}
+              colorFor={(cat) => PATRIMONIO_ASSET_CATEGORY_COLORS[cat as PatrimonioAssetCategory]}
+              emptyMessage="Nenhum ativo cadastrado ainda."
+            />
+            <CompositionDonut
+              title="Por Tipo / Usabilidade"
+              data={assetsByUsage}
+              colorFor={(_, i) => FALLBACK_PALETTE[i % FALLBACK_PALETTE.length]}
+              emptyMessage="Nenhum ativo cadastrado ainda."
+            />
+            <CompositionDonut
+              title="Por Localização"
+              data={assetsByLocation}
+              colorFor={(_, i) => FALLBACK_PALETTE[i % FALLBACK_PALETTE.length]}
+              emptyMessage="Nenhum ativo cadastrado ainda."
+            />
+            <CompositionDonut
+              title="Por Nível de Liquidez"
+              data={assetsByLiquidity}
+              colorFor={(cat) => LIQUIDITY_COLORS[cat] ?? "var(--text-faint)"}
+              emptyMessage="Nenhum ativo cadastrado ainda."
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">Composição dos Passivos</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+            <CompositionDonut
+              title="Por Categoria"
+              data={liabilitiesByCategory}
+              colorFor={(cat) => PATRIMONIO_LIABILITY_CATEGORY_COLORS[cat as PatrimonioLiabilityCategory]}
+              emptyMessage="Nenhum passivo cadastrado ainda."
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">Proteção Patrimonial</h3>
+          <ProtectionSummaryCards summary={protectionSummary} />
+          <div className="card p-4 sm:p-5">
+            <p className="text-sm font-medium text-[var(--text-secondary)]">Velocímetro de Proteção</p>
+            <div className="mt-2 flex justify-center">
+              <ProtectionGauge pct={protectionSummary.pctCoverage} />
+            </div>
+          </div>
+          <ProtectionDetailBreakdown rows={protectionDetailRows} />
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">Planejamento Sucessório</h3>
+          <SuccessionPlanningSection planning={successionPlanning} />
         </div>
 
         <MonthlyConfirmationPanel monthKey={confirmMonthKey} rows={snapshotRows} />

@@ -446,12 +446,16 @@ const requiredBooleanSchema = z
   .enum(["true", "false"], "Selecione uma opção.")
   .transform((value) => value === "true");
 
-// "Tipo" (usageType) is required across all 5 asset categories (spec
-// sections 5-9 each list it as obrigatório); Financeiro additionally
-// requires "Performance" (rateLabel) and "Localização" — enforced below
-// via superRefine since those two are category-conditional, while
-// usageType is simply never `.optional()`. Nível de Liquidez stays
-// optional everywhere by explicit spec instruction.
+// "Tipo" (usageType) and "Nível de Liquidez" are required across all 5
+// asset categories (spec sections 5-9 list Tipo as obrigatório; the
+// Visão Patrimonial revision made Liquidez obrigatória too, everywhere,
+// to keep its own composition-by-liquidez chart meaningful). Financeiro
+// additionally requires "Performance" (rateLabel) and "Localização" —
+// enforced below via superRefine since those two are
+// category-conditional, while usageType/liquidity are simply never
+// `.optional()`. Existing rows saved before this rule stay null (never
+// backfilled) — only a create or edit going through this schema again
+// is forced to supply one.
 export const patrimonioAssetSchema = z
   .object({
     id: z.string().optional(),
@@ -460,7 +464,7 @@ export const patrimonioAssetSchema = z
     currentValueCents: requiredMoneyCentsSchema,
     usageType: patrimonioUsageTypeEnum,
     location: patrimonioLocationEnum.optional(),
-    liquidity: patrimonioLiquidityEnum.optional(),
+    liquidity: patrimonioLiquidityEnum,
     updateMethod: patrimonioUpdateMethodEnum,
     annualRatePct: optionalPercentSchema,
     rateLabel: optionalTextSchema(80),

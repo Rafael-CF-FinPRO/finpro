@@ -94,9 +94,9 @@ export type AssetColumnKey =
 
 /** Ordered column list per PatrimonioAssetCategory — mirrors the
  * reference spreadsheet's own field list per category (spec sections
- * 5-9). "Tipo" is required in every category; Financeiro additionally
- * requires Performance/Localização (see validation.ts's superRefine on
- * patrimonioAssetSchema); Nível de Liquidez is always optional. */
+ * 5-9). "Tipo" and "Nível de Liquidez" are required in every category;
+ * Financeiro additionally requires Performance/Localização (see
+ * validation.ts's superRefine on patrimonioAssetSchema). */
 export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioFieldColumn<AssetColumnKey>[]> = {
   FINANCEIRO: [
     { key: "name", label: "Conta", required: true },
@@ -104,7 +104,7 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
     { key: "usageType", label: "Tipo", required: true },
     { key: "rateLabel", label: "Performance", required: true },
     { key: "location", label: "Localização", required: true },
-    { key: "liquidity", label: "Nível de Liquidez", required: false, tooltip: LIQUIDITY_TOOLTIP },
+    { key: "liquidity", label: "Nível de Liquidez", required: true, tooltip: LIQUIDITY_TOOLTIP },
     { key: "notes", label: "Observações", required: false },
   ],
   BEM_MOVEL: [
@@ -114,7 +114,7 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
     { key: "annualRatePct", label: "Taxa de Correção Anual (%)", required: false, tooltip: TAXA_CORRECAO_TOOLTIP },
     { key: "purchaseDate", label: "Data de Compra", required: false },
     { key: "purchaseValueCents", label: "Valor de Compra", required: false },
-    { key: "liquidity", label: "Nível de Liquidez", required: false, tooltip: LIQUIDITY_TOOLTIP },
+    { key: "liquidity", label: "Nível de Liquidez", required: true, tooltip: LIQUIDITY_TOOLTIP },
     { key: "notes", label: "Observações", required: false },
   ],
   BEM_IMOVEL: [
@@ -127,7 +127,7 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
     { key: "isRented", label: "Alugado?", required: false },
     { key: "rentNetValueCents", label: "Aluguel Líquido", required: false },
     { key: "location", label: "Localização", required: false },
-    { key: "liquidity", label: "Nível de Liquidez", required: false, tooltip: LIQUIDITY_TOOLTIP },
+    { key: "liquidity", label: "Nível de Liquidez", required: true, tooltip: LIQUIDITY_TOOLTIP },
     { key: "notes", label: "Observações", required: false },
   ],
   INTANGIVEL: [
@@ -136,7 +136,7 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
     { key: "usageType", label: "Tipo", required: true },
     { key: "annualRatePct", label: "Taxa de Correção Anual (%)", required: false, tooltip: TAXA_CORRECAO_TOOLTIP },
     { key: "location", label: "Localização", required: false },
-    { key: "liquidity", label: "Nível de Liquidez", required: false, tooltip: LIQUIDITY_TOOLTIP },
+    { key: "liquidity", label: "Nível de Liquidez", required: true, tooltip: LIQUIDITY_TOOLTIP },
     { key: "notes", label: "Observações", required: false },
   ],
   COLECIONAVEL: [
@@ -147,7 +147,7 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
     { key: "purchaseDate", label: "Data de Compra", required: false },
     { key: "purchaseValueCents", label: "Valor de Compra", required: false },
     { key: "location", label: "Localização", required: false },
-    { key: "liquidity", label: "Nível de Liquidez", required: false, tooltip: LIQUIDITY_TOOLTIP },
+    { key: "liquidity", label: "Nível de Liquidez", required: true, tooltip: LIQUIDITY_TOOLTIP },
     { key: "notes", label: "Observações", required: false },
   ],
 };

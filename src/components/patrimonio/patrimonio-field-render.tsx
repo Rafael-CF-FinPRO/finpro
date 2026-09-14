@@ -193,8 +193,14 @@ export function renderFieldInput(
       );
     case "liquidity":
       return (
-        <select name={column.key} value={value} onChange={(e) => onChange(e.target.value)} className={base}>
-          <option value="">Não informado</option>
+        <select
+          name={column.key}
+          required={column.required}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={base}
+        >
+          <option value="">{column.required ? "Selecione..." : "Não informado"}</option>
           <option value="ALTA">Alta Liquidez</option>
           <option value="MEDIA">Média Liquidez</option>
           <option value="BAIXA">Baixa Liquidez</option>

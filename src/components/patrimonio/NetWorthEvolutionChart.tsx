@@ -14,12 +14,25 @@ const PAD_TOP = 12;
 const PAD_BOTTOM = 24;
 const MAX_X_LABELS = 6;
 const Y_TICKS = 4;
+const BAR_FRACTION = 0.5;
+const MIN_BAR_WIDTH = 4;
+const MAX_BAR_WIDTH = 28;
+const BAR_RADIUS = 3;
 
-/** "Evolução do Patrimônio Líquido" — 3 lines (Ativos/Passivos/PL)
- * sharing one scale, same grid+polyline+div-tooltip skeleton as
- * ComplianceEvolutionChart (dashboard), generalized here for currency
- * values that can go negative (Patrimônio Líquido) instead of a fixed
- * 0-100% scale. */
+const ASSETS_COLOR = "var(--success)";
+const LIABILITIES_COLOR = "var(--danger)";
+// Same blue used for "Saldo" elsewhere in the app — Patrimônio Líquido
+// is conceptually a running balance too, and it needs its own color
+// distinct from the green/red lines it's compared against.
+const NET_WORTH_COLOR = "var(--chart-saldo)";
+
+/** "Evolução Patrimonial" — a combo chart (spec section 2): Ativos and
+ * Passivos as lines sharing one scale with Patrimônio Líquido as
+ * vertical bars, so the bars' size/growth reads at a glance while the
+ * lines show the two components driving it. `points` already covers
+ * exactly the user's real history (src/lib/patrimonio.ts's
+ * firstPatrimonioMonthKey through the current month) — this component
+ * never fabricates a wider range on its own. */
 export function NetWorthEvolutionChart({ points }: { points: PatrimonioMonthPoint[] }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const { containerRef, width: WIDTH } = useChartWidth(FALLBACK_WIDTH);
@@ -52,23 +65,23 @@ export function NetWorthEvolutionChart({ points }: { points: PatrimonioMonthPoin
     PAD_LEFT + (points.length <= 1 ? chartWidth / 2 : (i / (points.length - 1)) * chartWidth);
   const yFor = (cents: number) => PAD_TOP + chartHeight - ((cents - min) / range) * chartHeight;
 
-  const series: { key: keyof PatrimonioMonthPoint; label: string; color: string }[] = [
-    { key: "totalAssetsCents", label: "Ativos", color: "var(--success)" },
-    { key: "totalLiabilitiesCents", label: "Passivos", color: "var(--danger)" },
-    { key: "netWorthCents", label: "Patrimônio Líquido", color: "var(--primary)" },
+  const lineSeries: { key: "totalAssetsCents" | "totalLiabilitiesCents"; label: string; color: string }[] = [
+    { key: "totalAssetsCents", label: "Ativos", color: ASSETS_COLOR },
+    { key: "totalLiabilitiesCents", label: "Passivos", color: LIABILITIES_COLOR },
   ];
 
   const yLabels = Array.from({ length: Y_TICKS + 1 }, (_, i) => min + (range * i) / Y_TICKS);
   const xLabelStep = Math.max(1, Math.ceil(points.length / MAX_X_LABELS));
   const slotWidth = points.length > 1 ? chartWidth / (points.length - 1) : chartWidth;
+  const barWidth = Math.min(MAX_BAR_WIDTH, Math.max(MIN_BAR_WIDTH, slotWidth * BAR_FRACTION));
   const hoveredPoint = hovered === null ? null : points[hovered];
   const showZeroLine = min < 0 && max > 0;
 
   return (
     <div className="card p-4">
-      <p className="text-sm font-medium text-[var(--text-secondary)]">Evolução do Patrimônio Líquido</p>
+      <p className="text-sm font-medium text-[var(--text-secondary)]">Evolução Patrimonial</p>
       <div ref={containerRef} className="relative mt-3">
-        <svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Evolução mensal do patrimônio">
+        <svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Evolução patrimonial mensal">
           {yLabels.map((value) => (
             <g key={value}>
               <line
@@ -90,24 +103,38 @@ export function NetWorthEvolutionChart({ points }: { points: PatrimonioMonthPoin
             <line x1={PAD_LEFT} x2={WIDTH - PAD_RIGHT} y1={yFor(0)} y2={yFor(0)} stroke="var(--text-faint)" strokeWidth={1} />
           )}
 
-          {series.map((s) => (
+          {points.map((p, i) => {
+            const barY = Math.min(yFor(p.netWorthCents), yFor(0));
+            const barHeight = Math.abs(yFor(p.netWorthCents) - yFor(0));
+            const opacity = hovered === null || hovered === i ? 0.85 : 0.4;
+            return (
+              barHeight > 0 && (
+                <rect
+                  key={p.monthKey}
+                  x={xFor(i) - barWidth / 2}
+                  y={barY}
+                  width={barWidth}
+                  height={barHeight}
+                  rx={BAR_RADIUS}
+                  fill={NET_WORTH_COLOR}
+                  opacity={opacity}
+                />
+              )
+            );
+          })}
+
+          {lineSeries.map((s) => (
             <polyline
               key={s.key}
-              points={points.map((p, i) => `${xFor(i)},${yFor(p[s.key] as number)}`).join(" ")}
+              points={points.map((p, i) => `${xFor(i)},${yFor(p[s.key])}`).join(" ")}
               fill="none"
               stroke={s.color}
               strokeWidth={2}
             />
           ))}
-          {series.map((s) =>
+          {lineSeries.map((s) =>
             points.map((p, i) => (
-              <circle
-                key={`${s.key}-${p.monthKey}`}
-                cx={xFor(i)}
-                cy={yFor(p[s.key] as number)}
-                r={hovered === i ? 4 : 3}
-                fill={s.color}
-              />
+              <circle key={`${s.key}-${p.monthKey}`} cx={xFor(i)} cy={yFor(p[s.key])} r={hovered === i ? 4 : 3} fill={s.color} />
             ))
           )}
 
@@ -143,29 +170,38 @@ export function NetWorthEvolutionChart({ points }: { points: PatrimonioMonthPoin
           >
             <p className="mb-1 font-semibold text-[var(--text-primary)]">{formatMonthKeyLabel(hoveredPoint.monthKey)}</p>
             <div className="space-y-0.5">
-              {series.map((s) => (
+              {lineSeries.map((s) => (
                 <div key={s.key} className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
                     {s.label}
                   </span>
-                  <span className="font-medium text-[var(--text-primary)]">
-                    {formatCentsToBRL(hoveredPoint[s.key] as number)}
-                  </span>
+                  <span className="font-medium text-[var(--text-primary)]">{formatCentsToBRL(hoveredPoint[s.key])}</span>
                 </div>
               ))}
+              <div className="flex items-center justify-between gap-2 border-t border-[var(--surface-border)] pt-1">
+                <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-sm" style={{ backgroundColor: NET_WORTH_COLOR }} />
+                  Patrimônio Líquido
+                </span>
+                <span className="font-medium text-[var(--text-primary)]">{formatCentsToBRL(hoveredPoint.netWorthCents)}</span>
+              </div>
             </div>
           </div>
         )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
-        {series.map((s) => (
+        {lineSeries.map((s) => (
           <span key={s.key} className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+            <span className="h-0.5 w-3 rounded-full" style={{ backgroundColor: s.color }} />
             {s.label}
           </span>
         ))}
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: NET_WORTH_COLOR }} />
+          Patrimônio Líquido
+        </span>
       </div>
     </div>
   );

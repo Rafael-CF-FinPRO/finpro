@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { requireModuleAccess } from "@/lib/modules";
-import { currentMonthKey, isValidMonthKey, shiftMonthKey } from "@/lib/dates";
+import { currentMonthKey, isValidMonthKey } from "@/lib/dates";
 import {
   getPatrimonioData,
   computeTotals,
@@ -11,15 +11,19 @@ import {
   getLiabilityComposition,
   getAssetDistributionByUsage,
   getAssetDistributionByLocation,
+  getAssetDistributionByLiquidity,
   getMonthSnapshotRows,
+  firstPatrimonioMonthKey,
+  computeDebtRatio,
+  computeProtectionSummary,
+  getProtectionDetailRows,
+  computeSuccessionPlanning,
 } from "@/lib/patrimonio";
 import { PatrimonioBoard } from "@/components/patrimonio/PatrimonioBoard";
 
 export const metadata: Metadata = {
   title: "Gestão Patrimonial | FinPRO",
 };
-
-const SERIES_MONTHS = 11;
 
 export default async function PatrimonioPage({
   searchParams,
@@ -40,11 +44,22 @@ export default async function PatrimonioPage({
   const data = await getPatrimonioData(session.userId);
 
   const totals = computeTotals(data, currentMonth);
-  const series = getMonthlySeries(data, shiftMonthKey(currentMonth, -SERIES_MONTHS), currentMonth);
+  // The evolution chart only ever covers the user's real history — the
+  // first month they actually had something cadastrado through today —
+  // never a fixed "últimos 12 meses" window with fabricated leading
+  // zeros (spec section 3). No cadastro yet -> no range at all; the
+  // chart itself renders its own empty state for an empty series.
+  const firstMonthKey = firstPatrimonioMonthKey(data);
+  const series = firstMonthKey ? getMonthlySeries(data, firstMonthKey, currentMonth) : [];
   const assetsByCategory = getAssetComposition(data, currentMonth);
   const assetsByUsage = getAssetDistributionByUsage(data, currentMonth);
   const assetsByLocation = getAssetDistributionByLocation(data, currentMonth);
+  const assetsByLiquidity = getAssetDistributionByLiquidity(data, currentMonth);
   const liabilitiesByCategory = getLiabilityComposition(data, currentMonth);
+  const debtRatio = computeDebtRatio(totals);
+  const protectionSummary = computeProtectionSummary(data);
+  const protectionDetailRows = getProtectionDetailRows(data);
+  const successionPlanning = computeSuccessionPlanning(data, totals.totalAssetsCents);
   const snapshotRows = getMonthSnapshotRows(data, confirmMonthKey);
 
   return (
@@ -64,7 +79,12 @@ export default async function PatrimonioPage({
           assetsByCategory={assetsByCategory}
           assetsByUsage={assetsByUsage}
           assetsByLocation={assetsByLocation}
+          assetsByLiquidity={assetsByLiquidity}
           liabilitiesByCategory={liabilitiesByCategory}
+          debtRatio={debtRatio}
+          protectionSummary={protectionSummary}
+          protectionDetailRows={protectionDetailRows}
+          successionPlanning={successionPlanning}
           confirmMonthKey={confirmMonthKey}
           snapshotRows={snapshotRows}
         />
