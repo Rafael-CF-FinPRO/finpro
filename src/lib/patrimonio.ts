@@ -9,6 +9,7 @@ import type {
   PatrimonioLiability,
   PatrimonioProtection,
   PatrimonioMonthlyConfirmation,
+  PatrimonioValueChange,
 } from "@/generated/prisma/client";
 import type { PatrimonioAssetCategory, PatrimonioLiabilityCategory } from "@/generated/prisma/enums";
 
@@ -17,13 +18,16 @@ import type { PatrimonioAssetCategory, PatrimonioLiabilityCategory } from "@/gen
  * rendering the totals, the historical series, and the compositions
  * never costs more than this single round trip. */
 export async function getPatrimonioData(userId: string) {
-  const [assets, liabilities, protections, confirmations] = await Promise.all([
+  const [assets, liabilities, protections, confirmations, valueChanges] = await Promise.all([
     prisma.patrimonioAsset.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
     prisma.patrimonioLiability.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
     prisma.patrimonioProtection.findMany({ where: { userId }, orderBy: { order: "asc" } }),
     prisma.patrimonioMonthlyConfirmation.findMany({ where: { userId } }),
+    // Newest first, per asset/liability — computeAssetAppreciationRate's
+    // .find() below relies on this order to grab the most recent one.
+    prisma.patrimonioValueChange.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
   ]);
-  return { assets, liabilities, protections, confirmations };
+  return { assets, liabilities, protections, confirmations, valueChanges };
 }
 
 export type PatrimonioData = Awaited<ReturnType<typeof getPatrimonioData>>;
@@ -415,4 +419,82 @@ export function getMonthSnapshotRows(data: PatrimonioData, monthKey: string): Pa
 export function protectionGapCents(protection: PatrimonioProtection): number | null {
   if (protection.idealValueCents == null || protection.currentValueCents == null) return null;
   return Math.max(0, protection.idealValueCents - protection.currentValueCents);
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Discriminated on `ratePct` so a consumer that checks `ratePct !== null`
+ * gets purchaseValueCents/purchaseDate/days narrowed to non-null too,
+ * instead of needing separate null checks (or `!` assertions) for each
+ * — they're only ever null or non-null together. */
+export type AssetAppreciationRate =
+  | {
+      ratePct: null;
+      purchaseValueCents: number | null;
+      currentValueCents: number;
+      purchaseDate: Date | null;
+      /** The date Valor Atual was last effectively updated — the newest
+       * PatrimonioValueChange for this asset, or the asset's own
+       * createdAt when its value has never changed since cadastro.
+       * Never "hoje". */
+      valueAsOfDate: Date;
+      days: null;
+    }
+  | {
+      /** Annualized valorização/desvalorização in percent (e.g. 5.42
+       * means "+5,42% a.a."). */
+      ratePct: number;
+      purchaseValueCents: number;
+      currentValueCents: number;
+      purchaseDate: Date;
+      valueAsOfDate: Date;
+      /** Real calendar days between purchaseDate and valueAsOfDate. */
+      days: number;
+    };
+
+/** "Taxa de Correção Anual (%)" for Bens Móveis/Imóveis/Intangível/
+ * Colecionáveis — the column keeps its existing name and position, but
+ * is now always a computed, read-only annualized rate
+ * ((Valor Atual ÷ Valor de Compra) ^ (365 ÷ dias) - 1) between the
+ * purchase and the last real value update, never a manually-typed
+ * figure and never anchored to today's date. This is deliberately
+ * decoupled from the `annualRatePct` DB column, which keeps its
+ * original role as the (currently unreachable — no UI sets
+ * updateMethod to PROJECAO_AUTOMATICA) manual rate the sparse
+ * confirmation ledger's projection engine (effectiveValueFor above)
+ * would compound forward from; this function never reads or writes
+ * that column. */
+export function computeAssetAppreciationRate(
+  asset: Pick<PatrimonioAsset, "id" | "createdAt" | "purchaseValueCents" | "currentValueCents" | "purchaseDate">,
+  valueChanges: PatrimonioValueChange[]
+): AssetAppreciationRate {
+  // valueChanges is sorted newest-first (getPatrimonioData), so the
+  // first match for this asset is its most recent value update.
+  const latestChange = valueChanges.find((vc) => vc.assetId === asset.id);
+  const valueAsOfDate = latestChange ? latestChange.createdAt : asset.createdAt;
+  const { purchaseValueCents, currentValueCents, purchaseDate } = asset;
+
+  if (purchaseValueCents == null || purchaseValueCents <= 0 || purchaseDate == null) {
+    return { ratePct: null, purchaseValueCents, currentValueCents, purchaseDate, valueAsOfDate, days: null };
+  }
+
+  const days = Math.round((valueAsOfDate.getTime() - purchaseDate.getTime()) / MS_PER_DAY);
+  if (!Number.isFinite(days) || days <= 0) {
+    return { ratePct: null, purchaseValueCents, currentValueCents, purchaseDate, valueAsOfDate, days: null };
+  }
+
+  const ratePct = (Math.pow(currentValueCents / purchaseValueCents, 365 / days) - 1) * 100;
+  return { ratePct, purchaseValueCents, currentValueCents, purchaseDate, valueAsOfDate, days };
+}
+
+/** One computeAssetAppreciationRate call per asset, keyed by id — built
+ * once in page.tsx and passed down as a plain prop so client table
+ * components never need to import this module (it pulls in
+ * @/lib/prisma) just to read a number they didn't compute themselves. */
+export function buildAssetAppreciationMap(data: PatrimonioData): Record<string, AssetAppreciationRate> {
+  const result: Record<string, AssetAppreciationRate> = {};
+  for (const asset of data.assets) {
+    result[asset.id] = computeAssetAppreciationRate(asset, data.valueChanges);
+  }
+  return result;
 }

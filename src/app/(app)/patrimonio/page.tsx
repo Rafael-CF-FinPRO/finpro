@@ -17,6 +17,7 @@ import {
   computeProtectionSummary,
   getProtectionDetailRows,
   computeSuccessionPlanning,
+  buildAssetAppreciationMap,
 } from "@/lib/patrimonio";
 import { PatrimonioBoard } from "@/components/patrimonio/PatrimonioBoard";
 
@@ -51,6 +52,7 @@ export default async function PatrimonioPage() {
   const protectionSummary = computeProtectionSummary(data);
   const protectionDetailRows = getProtectionDetailRows(data);
   const successionPlanning = computeSuccessionPlanning(data, totals.totalAssetsCents);
+  const assetAppreciationById = buildAssetAppreciationMap(data);
 
   return (
     <div>
@@ -75,6 +77,7 @@ export default async function PatrimonioPage() {
           protectionSummary={protectionSummary}
           protectionDetailRows={protectionDetailRows}
           successionPlanning={successionPlanning}
+          assetAppreciationById={assetAppreciationById}
         />
       </div>
     </div>

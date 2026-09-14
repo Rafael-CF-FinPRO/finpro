@@ -69,7 +69,12 @@ export const PATRIMONIO_FIELD_TYPE: Record<string, PatrimonioFieldType> = {
 
 const LIQUIDITY_TOOLTIP =
   "Indica a facilidade e velocidade para transformar este ativo em dinheiro sem perda relevante de valor.";
-const TAXA_CORRECAO_TOOLTIP = "Percentual estimado de valorização ou desvalorização anual do bem.";
+// Calculated automatically (src/lib/patrimonio.ts's computeAssetAppreciationRate)
+// from Valor de Compra/Valor Atual/datas — never a manually-typed figure,
+// hence no input for it anywhere in the edit row.
+const TAXA_CORRECAO_TOOLTIP =
+  "Calculada automaticamente: valorização ou desvalorização anualizada entre a data de compra e a última atualização do valor atual.";
+const RENDIMENTO_ALUGUEL_TOOLTIP = "Calculado automaticamente: Aluguel Líquido ÷ Valor Atual do imóvel, ao mês.";
 
 /** Shared by the "Documento Anexado" upload field (server-side check in
  * src/app/actions/patrimonio.ts) and its UI hint text — one document
@@ -90,6 +95,7 @@ export type AssetColumnKey =
   | "purchaseValueCents"
   | "isRented"
   | "rentNetValueCents"
+  | "rentalYieldPct"
   | "notes";
 
 /** Ordered column list per PatrimonioAssetCategory — mirrors the
@@ -126,6 +132,12 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
     { key: "purchaseValueCents", label: "Valor de Compra", required: false },
     { key: "isRented", label: "Alugado?", required: false },
     { key: "rentNetValueCents", label: "Aluguel Líquido", required: false },
+    {
+      key: "rentalYieldPct",
+      label: "Rendimento do Aluguel (%)",
+      required: false,
+      tooltip: RENDIMENTO_ALUGUEL_TOOLTIP,
+    },
     { key: "location", label: "Localização", required: false },
     { key: "liquidity", label: "Nível de Liquidez", required: true, tooltip: LIQUIDITY_TOOLTIP },
     { key: "notes", label: "Observações", required: false },
@@ -135,6 +147,8 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
     { key: "currentValueCents", label: "Valor / Equity", required: true },
     { key: "usageType", label: "Tipo", required: true },
     { key: "annualRatePct", label: "Taxa de Correção Anual (%)", required: false, tooltip: TAXA_CORRECAO_TOOLTIP },
+    { key: "purchaseDate", label: "Data de Aquisição", required: false },
+    { key: "purchaseValueCents", label: "Valor de Compra/Aquisição", required: false },
     { key: "location", label: "Localização", required: false },
     { key: "liquidity", label: "Nível de Liquidez", required: true, tooltip: LIQUIDITY_TOOLTIP },
     { key: "notes", label: "Observações", required: false },

@@ -28,6 +28,7 @@ import {
 import type { PatrimonioAsset, PatrimonioLiability, PatrimonioProtection } from "@/generated/prisma/client";
 import type { PatrimonioAssetCategory, PatrimonioLiabilityCategory } from "@/generated/prisma/enums";
 import type {
+  AssetAppreciationRate,
   CategoryComposition,
   DebtRatio,
   PatrimonioMonthPoint,
@@ -86,6 +87,7 @@ export function PatrimonioBoard({
   protectionSummary,
   protectionDetailRows,
   successionPlanning,
+  assetAppreciationById,
 }: {
   assets: PatrimonioAsset[];
   liabilities: PatrimonioLiability[];
@@ -101,6 +103,7 @@ export function PatrimonioBoard({
   protectionSummary: ProtectionSummary;
   protectionDetailRows: ProtectionDetailRow[];
   successionPlanning: SuccessionPlanning;
+  assetAppreciationById: Record<string, AssetAppreciationRate>;
 }) {
   // Absent from this map == closed, same "starts closed" default every
   // group already had before the global control existed.
@@ -169,7 +172,7 @@ export function PatrimonioBoard({
                 onToggle={() => toggleGroup(category)}
                 badge={<CountBadge count={items.filter((a) => a.isActive).length} />}
               >
-                <AssetCategoryTable category={category} assets={items} />
+                <AssetCategoryTable category={category} assets={items} assetAppreciationById={assetAppreciationById} />
               </CollapsibleSection>
             );
           })}
