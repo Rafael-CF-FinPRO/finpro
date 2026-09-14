@@ -93,7 +93,7 @@ export function NetWorthEvolutionChart({ points }: { points: PatrimonioMonthPoin
                 strokeWidth={1}
                 strokeDasharray="4 3"
               />
-              <text x={PAD_LEFT - 8} y={yFor(value) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[10px]">
+              <text x={PAD_LEFT - 8} y={yFor(value) + 3} textAnchor="end" className="fill-[var(--text-faint)] text-[11px]">
                 {formatCentsCompactBRL(value)}
               </text>
             </g>

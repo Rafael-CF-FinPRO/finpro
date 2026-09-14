@@ -9,11 +9,11 @@ import { LiabilityCategoryTable } from "./LiabilityCategoryTable";
 import { ProtectionTable } from "./ProtectionTable";
 import { NetWorthEvolutionChart } from "./NetWorthEvolutionChart";
 import { CompositionDonut } from "./CompositionDonut";
+import { DebtRatioGauge } from "./DebtRatioGauge";
 import { ProtectionSummaryCards } from "./ProtectionSummaryCards";
 import { ProtectionGauge } from "./ProtectionGauge";
 import { ProtectionDetailBreakdown } from "./ProtectionDetailBreakdown";
 import { SuccessionPlanningSection } from "./SuccessionPlanningSection";
-import { MonthlyConfirmationPanel } from "./MonthlyConfirmationPanel";
 import {
   PATRIMONIO_ASSET_CATEGORY_LABELS,
   PATRIMONIO_LIABILITY_CATEGORY_LABELS,
@@ -31,7 +31,6 @@ import type {
   CategoryComposition,
   DebtRatio,
   PatrimonioMonthPoint,
-  PatrimonioSnapshotRow,
   PatrimonioTotals,
   ProtectionDetailRow,
   ProtectionSummary,
@@ -87,8 +86,6 @@ export function PatrimonioBoard({
   protectionSummary,
   protectionDetailRows,
   successionPlanning,
-  confirmMonthKey,
-  snapshotRows,
 }: {
   assets: PatrimonioAsset[];
   liabilities: PatrimonioLiability[];
@@ -104,8 +101,6 @@ export function PatrimonioBoard({
   protectionSummary: ProtectionSummary;
   protectionDetailRows: ProtectionDetailRow[];
   successionPlanning: SuccessionPlanning;
-  confirmMonthKey: string;
-  snapshotRows: PatrimonioSnapshotRow[];
 }) {
   // Absent from this map == closed, same "starts closed" default every
   // group already had before the global control existed.
@@ -220,7 +215,7 @@ export function PatrimonioBoard({
         </div>
 
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">Composição dos Ativos</h3>
+          <h3 className="text-sm font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">Dados dos Ativos</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <CompositionDonut
               title="Por Categoria"
@@ -250,14 +245,15 @@ export function PatrimonioBoard({
         </div>
 
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">Composição dos Passivos</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+          <h3 className="text-sm font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">Dados dos Passivos</h3>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <CompositionDonut
               title="Por Categoria"
               data={liabilitiesByCategory}
               colorFor={(cat) => PATRIMONIO_LIABILITY_CATEGORY_COLORS[cat as PatrimonioLiabilityCategory]}
               emptyMessage="Nenhum passivo cadastrado ainda."
             />
+            <DebtRatioGauge debtRatio={debtRatio} />
           </div>
         </div>
 
@@ -279,8 +275,6 @@ export function PatrimonioBoard({
           <h3 className="text-sm font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">Planejamento Sucessório</h3>
           <SuccessionPlanningSection planning={successionPlanning} />
         </div>
-
-        <MonthlyConfirmationPanel monthKey={confirmMonthKey} rows={snapshotRows} />
       </div>
     </div>
   );

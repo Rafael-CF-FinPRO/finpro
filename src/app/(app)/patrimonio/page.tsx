@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { requireModuleAccess } from "@/lib/modules";
-import { currentMonthKey, isValidMonthKey } from "@/lib/dates";
+import { currentMonthKey } from "@/lib/dates";
 import {
   getPatrimonioData,
   computeTotals,
@@ -12,7 +12,6 @@ import {
   getAssetDistributionByUsage,
   getAssetDistributionByLocation,
   getAssetDistributionByLiquidity,
-  getMonthSnapshotRows,
   firstPatrimonioMonthKey,
   computeDebtRatio,
   computeProtectionSummary,
@@ -25,20 +24,12 @@ export const metadata: Metadata = {
   title: "Gestão Patrimonial | FinPRO",
 };
 
-export default async function PatrimonioPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
+export default async function PatrimonioPage() {
   const session = await getSession();
   if (!session) {
     redirect("/login");
   }
   await requireModuleAccess("gestao_patrimonial");
-
-  const params = await searchParams;
-  const requestedMonth = typeof params.month === "string" ? params.month : "";
-  const confirmMonthKey = isValidMonthKey(requestedMonth) ? requestedMonth : currentMonthKey();
 
   const currentMonth = currentMonthKey();
   const data = await getPatrimonioData(session.userId);
@@ -60,7 +51,6 @@ export default async function PatrimonioPage({
   const protectionSummary = computeProtectionSummary(data);
   const protectionDetailRows = getProtectionDetailRows(data);
   const successionPlanning = computeSuccessionPlanning(data, totals.totalAssetsCents);
-  const snapshotRows = getMonthSnapshotRows(data, confirmMonthKey);
 
   return (
     <div>
@@ -85,8 +75,6 @@ export default async function PatrimonioPage({
           protectionSummary={protectionSummary}
           protectionDetailRows={protectionDetailRows}
           successionPlanning={successionPlanning}
-          confirmMonthKey={confirmMonthKey}
-          snapshotRows={snapshotRows}
         />
       </div>
     </div>
