@@ -101,6 +101,7 @@ model User {
   patrimonioLiabilities   PatrimonioLiability[]
   patrimonioProtections   PatrimonioProtection[]
   patrimonioConfirmations PatrimonioMonthlyConfirmation[]
+  patrimonioValueChanges  PatrimonioValueChange[]
 
   @@index([consultorId])
 }
@@ -637,6 +638,7 @@ model PatrimonioAsset {
   user          User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
   liabilities   PatrimonioLiability[]
   confirmations PatrimonioMonthlyConfirmation[]
+  valueChanges  PatrimonioValueChange[]
 
   @@index([userId, category])
 }
@@ -663,6 +665,8 @@ model PatrimonioLiability {
   // Consórcio only.
   administrationFeePct  Float?
   creditValueCents      Int?
+  isContemplated        Boolean?
+  contemplationDate     DateTime?
   // Outros Passivos only — free-text type, since this category is
   // explicitly the catch-all for whatever doesn't fit the other three.
   liabilityType         String?
@@ -670,6 +674,15 @@ model PatrimonioLiability {
   startDate             DateTime?
   expectedEndDate       DateTime?
   dueDate               DateTime?
+  // A single attached document (contrato, cédula, extrato...) per
+  // liability — stored as bytes directly in Postgres rather than a new
+  // object-storage integration (nothing of the sort exists in this
+  // project yet, and one document per item never justifies one).
+  // documentData is null exactly when no document is attached.
+  documentFileName      String?
+  documentMimeType      String?
+  documentFileSize      Int?
+  documentData          Bytes?
   isActive              Boolean                      @default(true)
   notes                 String?
   createdAt             DateTime                     @default(now())
@@ -678,6 +691,7 @@ model PatrimonioLiability {
   user          User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
   linkedAsset   PatrimonioAsset?                 @relation(fields: [linkedAssetId], references: [id], onDelete: SetNull)
   confirmations PatrimonioMonthlyConfirmation[]
+  valueChanges  PatrimonioValueChange[]
 
   @@index([userId, category])
   @@index([linkedAssetId])
@@ -698,6 +712,12 @@ model PatrimonioProtection {
   idealValueCents   Int?
   isNeeded          Boolean?
   isCovered         Boolean?
+  // Same single-document-per-item convention as PatrimonioLiability
+  // (a seguro/apólice/previdência's own contract or apólice).
+  documentFileName  String?
+  documentMimeType  String?
+  documentFileSize  Int?
+  documentData      Bytes?
   notes             String?
   order             Int      @default(0)
   isActive          Boolean  @default(true)
@@ -736,4 +756,50 @@ model PatrimonioMonthlyConfirmation {
   @@unique([assetId, monthKey])
   @@unique([liabilityId, monthKey])
   @@index([userId, monthKey])
+}
+
+// Only MANUAL is ever written today — "Editar e atualizar" logs one row
+// here whenever the user changes an item's Valor Atual/Saldo Devedor (a
+// pure cadastral edit with no value change writes nothing here). The
+// other three exist so a future automatic-projection feature has
+// somewhere to log its own writes without a schema change — not wired
+// up yet (see src/lib/patrimonio.ts's effectiveValueFor, which computes
+// PROJETADO/CONFIRMADO purely in memory from PatrimonioMonthlyConfirmation
+// and never touches this table).
+enum PatrimonioValueChangeOrigin {
+  MANUAL
+  AUTOMATICA
+  PROJETADA
+  CONFIRMADA_MANUALMENTE
+}
+
+// A pure append-only audit trail of value changes — never updated or
+// deleted, unlike PatrimonioMonthlyConfirmation (which upserts one row
+// per item per month for the projection engine). This is a different
+// concern: "what did this item's value used to be, and when/who changed
+// it," independent of any particular month. changedByUserId is the
+// actual actor (session.realUserId) rather than the data owner — the
+// same distinction ConsultantModuleAccess.updatedBy already draws — so
+// a consultor editing a cliente's cadastro while impersonating them is
+// recorded accurately; deliberately not a relation (informational only,
+// matches that same precedent) so this table never needs its own
+// migration if the User model's shape changes.
+model PatrimonioValueChange {
+  id                 String                      @id @default(cuid())
+  userId             String
+  assetId            String?
+  liabilityId        String?
+  previousValueCents Int
+  newValueCents      Int
+  origin             PatrimonioValueChangeOrigin @default(MANUAL)
+  changedByUserId    String
+  createdAt          DateTime                    @default(now())
+
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset     PatrimonioAsset?     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  liability PatrimonioLiability? @relation(fields: [liabilityId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([assetId])
+  @@index([liabilityId])
 }

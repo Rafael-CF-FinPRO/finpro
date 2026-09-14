@@ -52,9 +52,13 @@ export const PATRIMONIO_FIELD_TYPE: Record<string, PatrimonioFieldType> = {
   administrationFeePct: "percent",
   purchaseDate: "date",
   dueDate: "date",
+  startDate: "date",
+  expectedEndDate: "date",
+  contemplationDate: "date",
   isRented: "boolean",
   isNeeded: "boolean",
   isCovered: "boolean",
+  isContemplated: "boolean",
   remainingInstallments: "integer",
   amortization: "text",
   correctionIndex: "text",
@@ -66,6 +70,13 @@ export const PATRIMONIO_FIELD_TYPE: Record<string, PatrimonioFieldType> = {
 const LIQUIDITY_TOOLTIP =
   "Indica a facilidade e velocidade para transformar este ativo em dinheiro sem perda relevante de valor.";
 const TAXA_CORRECAO_TOOLTIP = "Percentual estimado de valorização ou desvalorização anual do bem.";
+
+/** Shared by the "Documento Anexado" upload field (server-side check in
+ * src/app/actions/patrimonio.ts) and its UI hint text — one document
+ * per item, same 5 MB cap the CSV/OFX importer already uses
+ * (MAX_IMPORT_FILE_BYTES in src/lib/import/types.ts) for consistency,
+ * kept as its own constant since the two features are unrelated. */
+export const MAX_PATRIMONIO_DOCUMENT_BYTES = 5 * 1024 * 1024;
 
 export type AssetColumnKey =
   | "name"
@@ -152,7 +163,11 @@ export type LiabilityColumnKey =
   | "cetPct"
   | "correctionIndex"
   | "linkedAssetId"
+  | "startDate"
+  | "expectedEndDate"
   | "dueDate"
+  | "isContemplated"
+  | "contemplationDate"
   | "notes";
 
 const CET_TOOLTIP = "Custo Efetivo Total da operação, considerando juros, tarifas e demais encargos.";
@@ -169,6 +184,8 @@ const EMPRESTIMO_LIKE_COLUMNS: PatrimonioFieldColumn<LiabilityColumnKey>[] = [
   { key: "cetPct", label: "CET", required: false, tooltip: CET_TOOLTIP },
   { key: "correctionIndex", label: "Índice de Correção", required: false, tooltip: CORRECTION_INDEX_TOOLTIP },
   { key: "linkedAssetId", label: "Vinculado a Bem", required: false, tooltip: LINKED_ASSET_TOOLTIP },
+  { key: "startDate", label: "Data da Contratação", required: false },
+  { key: "expectedEndDate", label: "Data de Vencimento Final", required: false },
   { key: "notes", label: "Observações", required: false },
 ];
 
@@ -194,6 +211,8 @@ export const LIABILITY_CATEGORY_COLUMNS: Record<PatrimonioLiabilityCategory, Pat
     { key: "remainingInstallments", label: "Parcelas Restantes", required: false },
     { key: "correctionIndex", label: "Índice de Correção", required: false, tooltip: CORRECTION_INDEX_TOOLTIP },
     { key: "linkedAssetId", label: "Vinculado a Bem", required: false, tooltip: LINKED_ASSET_TOOLTIP },
+    { key: "isContemplated", label: "Contemplado?", required: false },
+    { key: "contemplationDate", label: "Data de Contemplação", required: false },
     { key: "notes", label: "Observações", required: false },
   ],
   OUTRO: [

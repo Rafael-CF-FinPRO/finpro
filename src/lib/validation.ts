@@ -508,6 +508,8 @@ export const patrimonioLiabilitySchema = z
     correctionIndex: optionalTextSchema(60),
     administrationFeePct: optionalPercentSchema,
     creditValueCents: optionalMoneyCentsSchema,
+    isContemplated: optionalBooleanSchema,
+    contemplationDate: optionalDateInputSchema,
     liabilityType: optionalTextSchema(60),
     linkedAssetId: z
       .string()
@@ -535,9 +537,8 @@ export const patrimonioProtectionSchema = z.object({
   notes: optionalTextSchema(500),
 });
 
-export const patrimonioSetActiveSchema = z.object({
+export const patrimonioDeleteSchema = z.object({
   id: z.string().min(1, "Item inválido."),
-  isActive: z.enum(["true", "false"], "Valor inválido.").transform((value) => value === "true"),
 });
 
 export const patrimonioConfirmMonthlyValueSchema = z.object({

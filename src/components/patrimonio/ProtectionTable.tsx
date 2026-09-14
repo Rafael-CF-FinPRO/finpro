@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveProtectionAction, setProtectionActiveAction, type PatrimonioActionState } from "@/app/actions/patrimonio";
+import { saveProtectionAction, deleteProtectionAction, type PatrimonioActionState } from "@/app/actions/patrimonio";
 import { FieldError } from "@/components/auth/FieldError";
 import { SubmitButton } from "@/components/auth/SubmitButton";
 import { formatCentsToBRL } from "@/lib/money";
@@ -11,8 +11,14 @@ import { fieldValue, initialFieldInputValue, renderFieldInput } from "./patrimon
 import type { PatrimonioProtection } from "@/generated/prisma/client";
 
 const initialState: PatrimonioActionState = {};
-// +1 for "Complementação" (derived, not a form column) and +1 for actions.
-const COLUMN_COUNT = PROTECTION_COLUMNS.length + 2;
+// +1 for "Complementação" (derived, not a form column), +1 for
+// Documento Anexado (also not a form column — see the comment on
+// LiabilityCategoryTable's edit row for why), +1 for actions.
+const COLUMN_COUNT = PROTECTION_COLUMNS.length + 3;
+
+function documentUrl(id: string) {
+  return `/api/patrimonio/documents/protection/${id}`;
+}
 
 function yesNo(value: boolean | null): string {
   if (value == null) return "—";
@@ -44,6 +50,7 @@ function ProtectionEditRow({ protection, onDone }: { protection?: PatrimonioProt
       PROTECTION_COLUMNS.map((col) => [col.key, initialFieldInputValue(col.key, protection ? fieldValue(protection, col.key) : undefined)])
     )
   );
+  const [removeDocument, setRemoveDocument] = useState(false);
 
   useEffect(() => {
     if (!state.success) return;
@@ -71,6 +78,35 @@ function ProtectionEditRow({ protection, onDone }: { protection?: PatrimonioProt
                 <FieldError messages={state.fieldErrors?.[col.key]} />
               </div>
             ))}
+            <div className="min-w-[220px] flex-1">
+              <label className="field-label text-xs">Documento Anexado</label>
+              {protection?.documentFileName && !removeDocument && (
+                <p className="mb-1 truncate text-xs text-[var(--text-tertiary)]">
+                  <a
+                    href={documentUrl(protection.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[var(--primary)] hover:text-[var(--primary-hover)]"
+                  >
+                    {protection.documentFileName}
+                  </a>
+                </p>
+              )}
+              <input name="document" type="file" className="field-input" />
+              <FieldError messages={state.fieldErrors?.document} />
+              {protection?.documentFileName && (
+                <label className="mt-1 flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
+                  <input
+                    type="checkbox"
+                    name="removeDocument"
+                    value="true"
+                    checked={removeDocument}
+                    onChange={(e) => setRemoveDocument(e.target.checked)}
+                  />
+                  Remover documento anexado
+                </label>
+              )}
+            </div>
           </div>
           {state.error && <p className="alert-error mt-2">{state.error}</p>}
           <div className="mt-3 flex items-center gap-2">
@@ -90,15 +126,15 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
   const [pending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
 
+  // Excluídos (soft-deleted) never show up here — see deleteProtectionAction.
   const active = protections.filter((p) => p.isActive);
-  const inactive = protections.filter((p) => !p.isActive);
 
-  function toggleActive(id: string, isActive: boolean) {
+  function handleDelete(protection: PatrimonioProtection) {
+    if (!confirm(`Excluir "${protection.element}"? Essa ação removerá o cadastro atual da lista.`)) return;
     startTransition(async () => {
       const formData = new FormData();
-      formData.set("id", id);
-      formData.set("isActive", String(isActive));
-      await setProtectionActiveAction(formData);
+      formData.set("id", protection.id);
+      await deleteProtectionAction(formData);
       router.refresh();
     });
   }
@@ -133,6 +169,20 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
         </td>
         <td className="px-3 py-2 text-[var(--text-tertiary)]">{yesNo(protection.isNeeded)}</td>
         <td className="px-3 py-2 text-[var(--text-tertiary)]">{yesNo(protection.isCovered)}</td>
+        <td className="px-3 py-2 text-[var(--text-tertiary)]">
+          {protection.documentFileName ? (
+            <a
+              href={documentUrl(protection.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[var(--primary)] hover:text-[var(--primary-hover)]"
+            >
+              Ver documento
+            </a>
+          ) : (
+            <span className="text-[var(--text-faint)]">—</span>
+          )}
+        </td>
         <td className="px-3 py-2 text-right">
           <div className="flex items-center justify-end gap-3">
             <button
@@ -140,15 +190,15 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
               onClick={() => setEditingId(protection.id)}
               className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
             >
-              Editar
+              Editar e atualizar
             </button>
             <button
               type="button"
               disabled={pending}
-              onClick={() => toggleActive(protection.id, !protection.isActive)}
-              className={`text-xs font-medium ${protection.isActive ? "text-[var(--danger)]" : "text-[var(--primary)]"}`}
+              onClick={() => handleDelete(protection)}
+              className="text-xs font-medium text-[var(--danger)]"
             >
-              {protection.isActive ? "Inativar" : "Reativar"}
+              Excluir
             </button>
           </div>
         </td>
@@ -173,12 +223,12 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
               </th>
               <th className="px-3 py-1.5">Necessidade</th>
               <th className="px-3 py-1.5">Coberto?</th>
+              <th className="px-3 py-1.5">Documento</th>
               <th className="px-3 py-1.5" />
             </tr>
           </thead>
           <tbody>
             {active.map(renderRow)}
-            {inactive.map(renderRow)}
             {editingId === "new" && <ProtectionEditRow onDone={() => setEditingId(null)} />}
           </tbody>
         </table>

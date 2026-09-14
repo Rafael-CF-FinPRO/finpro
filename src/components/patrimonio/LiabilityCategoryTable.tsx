@@ -2,9 +2,10 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveLiabilityAction, setLiabilityActiveAction, type PatrimonioActionState } from "@/app/actions/patrimonio";
+import { saveLiabilityAction, deleteLiabilityAction, type PatrimonioActionState } from "@/app/actions/patrimonio";
 import { FieldError } from "@/components/auth/FieldError";
 import { SubmitButton } from "@/components/auth/SubmitButton";
+import { formatDateBR } from "@/lib/dates";
 import { LIABILITY_CATEGORY_COLUMNS, type LiabilityColumnKey, type PatrimonioFieldColumn } from "@/lib/patrimonio-fields";
 import { fieldValue, initialFieldInputValue, renderFieldInput, renderFieldViewValue } from "./patrimonio-field-render";
 import type { PatrimonioAsset, PatrimonioLiability } from "@/generated/prisma/client";
@@ -12,8 +13,16 @@ import type { PatrimonioLiabilityCategory } from "@/generated/prisma/enums";
 
 const initialState: PatrimonioActionState = {};
 
+function documentUrl(id: string) {
+  return `/api/patrimonio/documents/liability/${id}`;
+}
+
 /** Mirrors AssetCategoryTable's AssetEditRow — see its comment for why
- * this is a full-width wrapping form instead of one `<td>` per column. */
+ * this is a full-width wrapping form instead of one `<td>` per column.
+ * "Documento Anexado" is deliberately kept outside the generic
+ * column-driven loop: a file input can't be a controlled React element
+ * (browsers refuse to let JS set one's value), so it doesn't fit the
+ * same values/onChange state every other field here uses. */
 function LiabilityEditRow({
   category,
   liability,
@@ -39,6 +48,7 @@ function LiabilityEditRow({
       columns.map((col) => [col.key, initialFieldInputValue(col.key, liability ? fieldValue(liability, col.key) : undefined)])
     )
   );
+  const [removeDocument, setRemoveDocument] = useState(false);
 
   useEffect(() => {
     if (!state.success) return;
@@ -67,6 +77,35 @@ function LiabilityEditRow({
                 <FieldError messages={state.fieldErrors?.[col.key]} />
               </div>
             ))}
+            <div className="min-w-[220px] flex-1">
+              <label className="field-label text-xs">Documento Anexado</label>
+              {liability?.documentFileName && !removeDocument && (
+                <p className="mb-1 truncate text-xs text-[var(--text-tertiary)]">
+                  <a
+                    href={documentUrl(liability.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[var(--primary)] hover:text-[var(--primary-hover)]"
+                  >
+                    {liability.documentFileName}
+                  </a>
+                </p>
+              )}
+              <input name="document" type="file" className="field-input" />
+              <FieldError messages={state.fieldErrors?.document} />
+              {liability?.documentFileName && (
+                <label className="mt-1 flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
+                  <input
+                    type="checkbox"
+                    name="removeDocument"
+                    value="true"
+                    checked={removeDocument}
+                    onChange={(e) => setRemoveDocument(e.target.checked)}
+                  />
+                  Remover documento anexado
+                </label>
+              )}
+            </div>
           </div>
           {state.error && <p className="alert-error mt-2">{state.error}</p>}
           <div className="mt-3 flex items-center gap-2">
@@ -97,18 +136,25 @@ export function LiabilityCategoryTable({
   const [pending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const columns = LIABILITY_CATEGORY_COLUMNS[category];
-  const columnCount = columns.length + 1;
+  // +1 for Documento Anexado, +1 for Última Atualização, +1 for Ações.
+  const columnCount = columns.length + 3;
 
+  // Excluídos (soft-deleted) never show up here — see deleteLiabilityAction.
   const active = liabilities.filter((l) => l.isActive);
-  const inactive = liabilities.filter((l) => !l.isActive);
-  const isEmpty = active.length === 0 && inactive.length === 0;
+  const isEmpty = active.length === 0;
 
-  function toggleActive(id: string, isActive: boolean) {
+  function handleDelete(liability: PatrimonioLiability) {
+    if (
+      !confirm(
+        `Excluir "${liability.name}"? Essa ação removerá o cadastro atual, mas o histórico patrimonial poderá ser preservado para fins de rastreabilidade.`
+      )
+    ) {
+      return;
+    }
     startTransition(async () => {
       const formData = new FormData();
-      formData.set("id", id);
-      formData.set("isActive", String(isActive));
-      await setLiabilityActiveAction(formData);
+      formData.set("id", liability.id);
+      await deleteLiabilityAction(formData);
       router.refresh();
     });
   }
@@ -141,6 +187,21 @@ export function LiabilityCategoryTable({
             {renderFieldViewValue(col.key, fieldValue(liability, col.key), { assets })}
           </td>
         ))}
+        <td className="px-3 py-2 text-[var(--text-tertiary)]">
+          {liability.documentFileName ? (
+            <a
+              href={documentUrl(liability.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[var(--primary)] hover:text-[var(--primary-hover)]"
+            >
+              Ver documento
+            </a>
+          ) : (
+            <span className="text-[var(--text-faint)]">—</span>
+          )}
+        </td>
+        <td className="px-3 py-2 text-[var(--text-tertiary)]">{formatDateBR(liability.updatedAt)}</td>
         <td className="px-3 py-2 text-right">
           <div className="flex items-center justify-end gap-3">
             <button
@@ -148,15 +209,15 @@ export function LiabilityCategoryTable({
               onClick={() => setEditingId(liability.id)}
               className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
             >
-              Editar
+              Editar e atualizar
             </button>
             <button
               type="button"
               disabled={pending}
-              onClick={() => toggleActive(liability.id, !liability.isActive)}
-              className={`text-xs font-medium ${liability.isActive ? "text-[var(--danger)]" : "text-[var(--primary)]"}`}
+              onClick={() => handleDelete(liability)}
+              className="text-xs font-medium text-[var(--danger)]"
             >
-              {liability.isActive ? "Inativar" : "Reativar"}
+              Excluir
             </button>
           </div>
         </td>
@@ -184,12 +245,13 @@ export function LiabilityCategoryTable({
                     {col.label}
                   </th>
                 ))}
+                <th className="px-3 py-1.5">Documento</th>
+                <th className="px-3 py-1.5">Última Atualização</th>
                 <th className="px-3 py-1.5" />
               </tr>
             </thead>
             <tbody>
               {active.map(renderRow)}
-              {inactive.map(renderRow)}
               {editingId === "new" && (
                 <LiabilityEditRow
                   category={category}

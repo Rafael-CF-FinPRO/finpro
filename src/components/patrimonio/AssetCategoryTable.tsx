@@ -2,9 +2,10 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveAssetAction, setAssetActiveAction, type PatrimonioActionState } from "@/app/actions/patrimonio";
+import { saveAssetAction, deleteAssetAction, type PatrimonioActionState } from "@/app/actions/patrimonio";
 import { FieldError } from "@/components/auth/FieldError";
 import { SubmitButton } from "@/components/auth/SubmitButton";
+import { formatDateBR } from "@/lib/dates";
 import { ASSET_CATEGORY_COLUMNS, type AssetColumnKey, type PatrimonioFieldColumn } from "@/lib/patrimonio-fields";
 import { fieldValue, initialFieldInputValue, renderFieldInput, renderFieldViewValue } from "./patrimonio-field-render";
 import type { PatrimonioAsset } from "@/generated/prisma/client";
@@ -99,18 +100,26 @@ export function AssetCategoryTable({
   const [pending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const columns = ASSET_CATEGORY_COLUMNS[category];
-  const columnCount = columns.length + 1;
+  // +1 for "Última Atualização" (derived from updatedAt, not a form
+  // field) and +1 for Ações.
+  const columnCount = columns.length + 2;
 
+  // Excluídos (soft-deleted) never show up here — see deleteAssetAction.
   const active = assets.filter((a) => a.isActive);
-  const inactive = assets.filter((a) => !a.isActive);
-  const isEmpty = active.length === 0 && inactive.length === 0;
+  const isEmpty = active.length === 0;
 
-  function toggleActive(id: string, isActive: boolean) {
+  function handleDelete(asset: PatrimonioAsset) {
+    if (
+      !confirm(
+        `Excluir "${asset.name}"? Essa ação removerá o cadastro atual, mas o histórico patrimonial poderá ser preservado para fins de rastreabilidade.`
+      )
+    ) {
+      return;
+    }
     startTransition(async () => {
       const formData = new FormData();
-      formData.set("id", id);
-      formData.set("isActive", String(isActive));
-      await setAssetActiveAction(formData);
+      formData.set("id", asset.id);
+      await deleteAssetAction(formData);
       router.refresh();
     });
   }
@@ -140,6 +149,7 @@ export function AssetCategoryTable({
             {renderFieldViewValue(col.key, fieldValue(asset, col.key))}
           </td>
         ))}
+        <td className="px-3 py-2 text-[var(--text-tertiary)]">{formatDateBR(asset.updatedAt)}</td>
         <td className="px-3 py-2 text-right">
           <div className="flex items-center justify-end gap-3">
             <button
@@ -147,15 +157,15 @@ export function AssetCategoryTable({
               onClick={() => setEditingId(asset.id)}
               className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
             >
-              Editar
+              Editar e atualizar
             </button>
             <button
               type="button"
               disabled={pending}
-              onClick={() => toggleActive(asset.id, !asset.isActive)}
-              className={`text-xs font-medium ${asset.isActive ? "text-[var(--danger)]" : "text-[var(--primary)]"}`}
+              onClick={() => handleDelete(asset)}
+              className="text-xs font-medium text-[var(--danger)]"
             >
-              {asset.isActive ? "Inativar" : "Reativar"}
+              Excluir
             </button>
           </div>
         </td>
@@ -181,12 +191,12 @@ export function AssetCategoryTable({
                     {col.label}
                   </th>
                 ))}
+                <th className="px-3 py-1.5">Última Atualização</th>
                 <th className="px-3 py-1.5" />
               </tr>
             </thead>
             <tbody>
               {active.map(renderRow)}
-              {inactive.map(renderRow)}
               {editingId === "new" && (
                 <AssetEditRow category={category} columns={columns} columnCount={columnCount} onDone={() => setEditingId(null)} />
               )}
