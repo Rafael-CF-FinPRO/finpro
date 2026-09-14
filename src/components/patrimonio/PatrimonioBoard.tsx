@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronsDown, ChevronsUp } from "lucide-react";
+import { ChevronsDown, ChevronsUp, Landmark, TrendingDown } from "lucide-react";
 import { PatrimonioIndicatorCards } from "./PatrimonioIndicatorCards";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { AssetCategoryTable } from "./AssetCategoryTable";
@@ -152,7 +152,9 @@ export function PatrimonioBoard({
         }
       >
         <div className="space-y-3">
-          <p className="text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Ativos</p>
+          <p className="flex items-center gap-1.5 text-sm font-bold tracking-wide uppercase" style={{ color: "var(--success)" }}>
+            <Landmark size={15} /> Ativos
+          </p>
           {ASSET_CATEGORIES.map((category) => {
             const items = assets.filter((a) => a.category === category);
             const meta = PATRIMONIO_ASSET_GROUP_META[category];
@@ -172,7 +174,12 @@ export function PatrimonioBoard({
             );
           })}
 
-          <p className="pt-2 text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Passivos</p>
+          <p
+            className="flex items-center gap-1.5 pt-2 text-sm font-bold tracking-wide uppercase"
+            style={{ color: "var(--danger)" }}
+          >
+            <TrendingDown size={15} /> Passivos
+          </p>
           {LIABILITY_CATEGORIES.map((category) => {
             const items = liabilities.filter((l) => l.category === category);
             const meta = PATRIMONIO_LIABILITY_GROUP_META[category];
@@ -192,7 +199,12 @@ export function PatrimonioBoard({
             );
           })}
 
-          <p className="pt-2 text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Proteção</p>
+          <p
+            className="flex items-center gap-1.5 pt-2 text-sm font-bold tracking-wide uppercase"
+            style={{ color: "var(--chart-saldo)" }}
+          >
+            <ProtectionIcon size={15} /> Proteção
+          </p>
           <CollapsibleSection
             title="Proteção Patrimonial e Planejamento Sucessório"
             tooltip={PATRIMONIO_PROTECTION_GROUP_META.subtitle}
