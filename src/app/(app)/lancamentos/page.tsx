@@ -66,6 +66,8 @@ export default async function LancamentosPage({
     status: t.status,
     seriesId: t.seriesId,
     seriesType: t.series?.seriesType ?? null,
+    seriesEndDate: t.series?.endDate ? toDateInputValue(t.series.endDate) : null,
+    seriesInstallmentCount: t.series?.installmentCount ?? null,
     installmentLabel:
       t.series?.seriesType === "PARCELADO" &&
       t.installmentNumber !== null &&

@@ -77,12 +77,15 @@ export function buildInstallmentRows(series: TransactionSeries, today: Date = ne
   );
 }
 
-/** Recurring occurrences from `series.startDate` up to whichever comes
- * first: `series.endDate`, or `horizonDate`. Used both at creation
- * (first batch) and by ensureRecurringOccurrences (top-up), which
- * passes a later starting cursor so already-generated dates are never
- * duplicated. */
-function buildRecurringRows(
+/** Recurring occurrences from `fromDate` up to whichever comes first:
+ * `series.endDate`, or `horizonDate`. Used at creation (first batch,
+ * via buildInitialRecurringRows), by ensureRecurringOccurrences
+ * (top-up, passing a later starting cursor so already-generated dates
+ * are never duplicated), and by the series-settings/conversion actions
+ * in src/app/actions/series.ts (extending an existing série's endDate,
+ * or generating the remaining occurrences when a normal transaction is
+ * converted into a new recurring série). */
+export function buildRecurringRows(
   series: TransactionSeries,
   fromDate: Date,
   horizonDate: Date,
@@ -98,12 +101,20 @@ function buildRecurringRows(
   return rows;
 }
 
+/** How far ahead an open-ended (or not-yet-ended) RECORRENTE series is
+ * kept materialized from `today` — the same standard horizon used at
+ * creation, by the rolling top-up, and by src/app/actions/series.ts's
+ * série-settings/conversion actions, so "how far ahead" never drifts
+ * between the three call sites. */
+export function defaultHorizonDate(today: Date = new Date()): Date {
+  return addMonthsClamped(today, HORIZON_MONTHS);
+}
+
 /** The initial batch of recurring occurrences generated right when the
  * series is created — from startDate up to the standard horizon (or
  * endDate, if sooner). */
 export function buildInitialRecurringRows(series: TransactionSeries, today: Date = new Date()): OccurrenceRow[] {
-  const horizonDate = addMonthsClamped(today, HORIZON_MONTHS);
-  return buildRecurringRows(series, series.startDate, horizonDate, today);
+  return buildRecurringRows(series, series.startDate, defaultHorizonDate(today), today);
 }
 
 /** Tops up every active RECORRENTE series belonging to `userId` so its
@@ -123,7 +134,7 @@ export async function ensureRecurringOccurrences(userId: string): Promise<void> 
   if (activeSeries.length === 0) return;
 
   const today = new Date();
-  const horizonDate = addMonthsClamped(today, HORIZON_MONTHS);
+  const horizonDate = defaultHorizonDate(today);
 
   for (const series of activeSeries) {
     const cursorStart = series.generatedUntil ?? series.startDate;

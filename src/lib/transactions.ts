@@ -146,7 +146,7 @@ export async function getTransactions(userId: string, filters: TransactionFilter
       category: { select: { name: true } },
       paymentMethod: { select: { name: true } },
       tag: { select: { name: true } },
-      series: { select: { seriesType: true, installmentCount: true } },
+      series: { select: { seriesType: true, installmentCount: true, endDate: true } },
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
   });

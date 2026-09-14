@@ -10,6 +10,8 @@ import {
   createRecurringSeriesAction,
   createInstallmentSeriesAction,
   updateSeriesOccurrenceAction,
+  convertToRecurringSeriesAction,
+  convertToInstallmentSeriesAction,
 } from "@/app/actions/series";
 import { createPaymentMethodAction } from "@/app/actions/payment-methods";
 import { createTagAction } from "@/app/actions/tags";
@@ -189,9 +191,17 @@ export function TransactionForm({
   const isEdit = Boolean(initialData);
   const belongsToSeries = Boolean(initialData?.seriesId);
 
-  // Only relevant when creating — an existing transaction never
-  // switches series membership through this form (normal stays
-  // normal, a series occurrence stays in its series).
+  // Editable only when isEdit (see the Tipo selector below) — creation
+  // keeps Tipo fixed to whichever "+ Registrar..." button was clicked.
+  const [selectedType, setSelectedType] = useState(type);
+
+  // A lançamento that already belongs to a série never switches series
+  // membership through this form (that série's own settings are
+  // adjusted separately — see SeriesSettingsForm). Otherwise (creating,
+  // or editing a normal lançamento) this drives whether the save either
+  // stays normal, becomes a fresh série (creation), or converts the
+  // existing lançamento into the first occurrence of a new série
+  // (editing).
   const [seriesMode, setSeriesMode] = useState<SeriesMode>("normal");
   const [showSeriesOptions, setShowSeriesOptions] = useState(false);
   const [editScope, setEditScope] = useState<SeriesEditScope>("this");
@@ -199,7 +209,11 @@ export function TransactionForm({
   const action = isEdit
     ? belongsToSeries
       ? updateSeriesOccurrenceAction
-      : updateTransactionAction
+      : seriesMode === "recorrente"
+        ? convertToRecurringSeriesAction
+        : seriesMode === "parcelado"
+          ? convertToInstallmentSeriesAction
+          : updateTransactionAction
     : seriesMode === "recorrente"
       ? createRecurringSeriesAction
       : seriesMode === "parcelado"
@@ -222,9 +236,11 @@ export function TransactionForm({
   // Inactive categories aren't offered for new selections, but an
   // existing transaction that already points at one must keep showing
   // it — otherwise editing that transaction would silently lose or
-  // change its category.
+  // change its category. Filtered by selectedType (not the fixed `type`
+  // prop) so changing Tipo while editing immediately narrows the list
+  // to that type's own categories.
   const categoriesForType = categories.filter(
-    (c) => c.type === type && (c.isActive || c.id === initialData?.categoryId)
+    (c) => c.type === selectedType && (c.isActive || c.id === initialData?.categoryId)
   );
   const selectedCategory = categoriesForType.find(
     (c) => c.id === selectedCategoryId
@@ -263,7 +279,7 @@ export function TransactionForm({
           </svg>
         </div>
         <p className="font-medium text-[var(--text-secondary)]">
-          {TYPE_LABELS[type]} registrada com sucesso.
+          {TYPE_LABELS[selectedType]} registrada com sucesso.
         </p>
       </div>
     );
@@ -286,10 +302,37 @@ export function TransactionForm({
   return (
     <form action={formAction} className="space-y-4" noValidate>
       {isEdit && <input type="hidden" name="id" value={initialData!.id} />}
-      <input type="hidden" name="type" value={type} />
+      <input type="hidden" name="type" value={selectedType} />
       {belongsToSeries && <input type="hidden" name="scope" value={editScope} />}
 
       {state.error && <p className="alert-error">{state.error}</p>}
+
+      {isEdit && (
+        <div>
+          <p className="field-label">Tipo</p>
+          <div className="flex gap-2">
+            {(["ENTRADA", "SAIDA", "NEUTRO"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={
+                  selectedType === option
+                    ? "btn-primary flex-1 !py-2 text-sm"
+                    : "btn-secondary flex-1 !py-2 text-sm"
+                }
+                onClick={() => {
+                  setSelectedType(option);
+                  // The previously-selected category almost certainly
+                  // doesn't belong to the new type's list.
+                  setSelectedCategoryId("");
+                }}
+              >
+                {TYPE_LABELS[option]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {belongsToSeries && (
         <div>
@@ -364,9 +407,9 @@ export function TransactionForm({
           type="text"
           defaultValue={initialData?.description}
           placeholder={
-            type === "ENTRADA"
+            selectedType === "ENTRADA"
               ? "Ex: Salário de agosto"
-              : type === "NEUTRO"
+              : selectedType === "NEUTRO"
                 ? "Ex: Pagamento da fatura do cartão"
                 : "Ex: Compras do mês"
           }
@@ -483,7 +526,7 @@ export function TransactionForm({
         />
       </div>
 
-      {!isEdit && (
+      {!belongsToSeries && (
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
             <input
@@ -496,8 +539,16 @@ export function TransactionForm({
                 if (!checked) setSeriesMode("normal");
               }}
             />
-            É um lançamento recorrente ou parcelado?
+            {isEdit
+              ? "Transformar em um lançamento recorrente ou parcelado?"
+              : "É um lançamento recorrente ou parcelado?"}
           </label>
+          {isEdit && showSeriesOptions && (
+            <p className="mt-1.5 text-xs text-[var(--muted)]">
+              Este lançamento passa a ser a primeira ocorrência/parcela de uma nova série; as próximas são
+              geradas automaticamente a partir dele.
+            </p>
+          )}
 
           {showSeriesOptions && (
             <div className="mt-3 space-y-3 rounded-lg border border-[var(--surface-border)] p-3">

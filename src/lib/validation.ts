@@ -108,28 +108,52 @@ export const transactionSchema = z.object({
     .or(z.literal("")),
 });
 
+// Shared by recurringSeriesSchema (creation/conversion) and
+// updateRecurrenceEndDateSchema (adjusting an existing series) — an
+// empty value means open-ended (see src/lib/series.ts's rolling
+// top-up). Cross-field checks against the series' own startDate (which
+// isn't always part of the same form — see updateRecurrenceEndDateSchema)
+// are done by the caller, not here.
+const optionalEndDateSchema = z
+  .string()
+  .optional()
+  .or(z.literal(""))
+  .transform((value, ctx) => {
+    if (!value) return null;
+    const date = parseDateInputValue(value);
+    if (!date) {
+      ctx.addIssue({ code: "custom", message: "Informe uma data final válida." });
+      return z.NEVER;
+    }
+    return date;
+  });
+
+// Shared by installmentSeriesSchema (creation/conversion) and
+// updateInstallmentCountSchema (adjusting an existing series).
+const installmentCountFieldSchema = z
+  .string()
+  .min(1, "Informe a quantidade de parcelas.")
+  .transform((value, ctx) => {
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < 2 || n > 360) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Informe uma quantidade de parcelas válida (entre 2 e 360).",
+      });
+      return z.NEVER;
+    }
+    return n;
+  });
+
 // A recurring series reuses every field transactionSchema already
 // validates (the "date" field becomes the first occurrence's date) and
 // adds only what's specific to recurrence — periodicity, and an
-// optional end date. An empty endDate means open-ended (see
-// src/lib/series.ts's rolling top-up).
+// optional end date.
 export const recurringSeriesSchema = z
   .object({
     ...transactionSchema.shape,
     periodicity: z.enum(["MENSAL"], "Periodicidade inválida."),
-    endDate: z
-      .string()
-      .optional()
-      .or(z.literal(""))
-      .transform((value, ctx) => {
-        if (!value) return null;
-        const date = parseDateInputValue(value);
-        if (!date) {
-          ctx.addIssue({ code: "custom", message: "Informe uma data final válida." });
-          return z.NEVER;
-        }
-        return date;
-      }),
+    endDate: optionalEndDateSchema,
   })
   .refine((data) => !data.endDate || data.endDate >= data.date, {
     message: "A data final deve ser igual ou posterior à data inicial.",
@@ -142,25 +166,27 @@ export const recurringSeriesSchema = z
 // the first installment's date.
 export const installmentSeriesSchema = z.object({
   ...transactionSchema.shape,
-  installmentCount: z
-    .string()
-    .min(1, "Informe a quantidade de parcelas.")
-    .transform((value, ctx) => {
-      const n = Number(value);
-      if (!Number.isInteger(n) || n < 2 || n > 360) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Informe uma quantidade de parcelas válida (entre 2 e 360).",
-        });
-        return z.NEVER;
-      }
-      return n;
-    }),
+  installmentCount: installmentCountFieldSchema,
 });
 
 // "Alterar/excluir só esta ocorrência" vs "esta e as próximas ainda
 // não pagas" — see src/lib/transaction-labels.ts's SeriesEditScope.
 export const seriesEditScopeSchema = z.enum(["this", "this_and_future"], "Escolha inválida.");
+
+// Adjusting an ALREADY-EXISTING série's own settings (not creation, not
+// per-occurrence field edits) — src/components/lancamentos/
+// SeriesSettingsForm.tsx / updateSeriesSettingsAction. The endDate ≥
+// startDate check against the série's own startDate happens in the
+// action itself, where that value is actually available.
+export const updateRecurrenceEndDateSchema = z.object({
+  seriesId: z.string().min(1, "Série inválida."),
+  endDate: optionalEndDateSchema,
+});
+
+export const updateInstallmentCountSchema = z.object({
+  seriesId: z.string().min(1, "Série inválida."),
+  installmentCount: installmentCountFieldSchema,
+});
 
 // One row of a bulk import (src/app/actions/import.ts) — same rules as
 // transactionSchema, since import must never be allowed to skip a check

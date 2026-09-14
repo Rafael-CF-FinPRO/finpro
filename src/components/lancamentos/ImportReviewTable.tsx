@@ -586,6 +586,8 @@ export function ImportReviewTable({
         </table>
       </div>
 
+      {formError && <p className="alert-error mt-4">{formError}</p>}
+
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={onCancel} disabled={pending}>
           Cancelar

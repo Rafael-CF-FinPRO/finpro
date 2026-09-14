@@ -7,6 +7,7 @@ import { CLASSIFICATION_LABELS, STATUS_LABELS, TYPE_LABELS } from "@/lib/transac
 import { markTransactionPaidStatusAction } from "@/app/actions/transactions";
 import { TransactionModal } from "./TransactionModal";
 import { TransactionForm, type SimpleOption } from "./TransactionForm";
+import { SeriesSettingsForm } from "./SeriesSettingsForm";
 import { DeleteTransactionButton } from "./DeleteTransactionButton";
 import { ImportWizard } from "./ImportWizard";
 import type { Classification, SeriesType, TransactionStatus } from "@/generated/prisma/enums";
@@ -37,6 +38,10 @@ export type TransactionRow = {
   status: TransactionStatus;
   seriesId: string | null;
   seriesType: SeriesType | null;
+  // The série's own settings (src/components/lancamentos/SeriesSettingsForm.tsx)
+  // — null/null for a normal, series-less transaction.
+  seriesEndDate: string | null;
+  seriesInstallmentCount: number | null;
   installmentLabel: string | null;
 };
 
@@ -495,11 +500,23 @@ export function TransactionsBoard({
         <TransactionModal
           title={
             modal.mode === "edit"
-              ? `Editar ${TYPE_LABELS[modal.type].toLowerCase()}`
+              // Generic now that Tipo is editable inside the form itself
+              // (see TransactionForm) — a title fixed to the original
+              // type would go stale the moment the user changes it.
+              ? "Editar lançamento"
               : `Registrar ${TYPE_LABELS[modal.type].toLowerCase()}`
           }
           onClose={() => setModal(null)}
         >
+          {modal.mode === "edit" && modal.transaction.seriesId && modal.transaction.seriesType && (
+            <SeriesSettingsForm
+              seriesId={modal.transaction.seriesId}
+              seriesType={modal.transaction.seriesType}
+              initialEndDate={modal.transaction.seriesEndDate}
+              initialInstallmentCount={modal.transaction.seriesInstallmentCount}
+              amountCents={modal.transaction.amountCents}
+            />
+          )}
           <TransactionForm
             // Force a fresh mount per transaction (or for "create") so the
             // form's local category-selection state always re-initializes
