@@ -217,7 +217,7 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
     const gap = gapCents(protection);
     return (
       <tr key={protection.id} className="border-t border-[var(--surface-border)]">
-        <td className="px-3 py-2">
+        <td className="px-3 py-2.5 text-left">
           <p className="font-medium text-[var(--text-primary)]">{protection.element}</p>
           {protection.objective && (
             <p className="max-w-xs text-xs text-[var(--text-tertiary)]" title={protection.objective}>
@@ -225,20 +225,20 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
             </p>
           )}
         </td>
-        <td className="px-3 py-2 text-right text-[var(--text-primary)]">
+        <td className="px-3 py-2.5 text-center font-semibold text-[var(--text-primary)]">
           {protection.currentValueCents != null ? formatCentsToBRL(protection.currentValueCents) : "—"}
         </td>
-        <td className="px-3 py-2 text-right text-[var(--text-primary)]">
+        <td className="px-3 py-2.5 text-center font-semibold text-[var(--text-primary)]">
           {protection.idealValueCents != null ? formatCentsToBRL(protection.idealValueCents) : "—"}
         </td>
-        <td className="px-3 py-2 text-right">
+        <td className="px-3 py-2.5 text-center">
           {gap != null && gap > 0 ? (
             <span className="font-medium text-[var(--warning)]">{formatCentsToBRL(gap)}</span>
           ) : (
             <span className="text-[var(--text-faint)]">—</span>
           )}
         </td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-2.5 text-center">
           <ProtectionFlagToggle
             id={protection.id}
             field="isNeeded"
@@ -247,7 +247,7 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
             offLabel="Não precisa"
           />
         </td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-2.5 text-center">
           <ProtectionFlagToggle
             id={protection.id}
             field="isCovered"
@@ -256,13 +256,13 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
             offLabel="Não possui"
           />
         </td>
-        <td className="px-3 py-2 text-[var(--text-tertiary)]">
+        <td className="px-3 py-2.5 text-center text-[var(--text-secondary)]">
           {protection.documentFileName ? (
             <a
               href={documentUrl(protection.id)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[var(--primary)] hover:text-[var(--primary-hover)]"
+              className="text-[var(--primary)] transition-colors hover:text-[var(--primary-hover)]"
             >
               Ver documento
             </a>
@@ -270,12 +270,12 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
             <span className="text-[var(--text-faint)]">—</span>
           )}
         </td>
-        <td className="px-3 py-2 text-right">
-          <div className="flex items-center justify-end gap-3">
+        <td className="px-3 py-2.5 text-center">
+          <div className="flex items-center justify-center gap-3">
             <button
               type="button"
               onClick={() => setEditingId(protection.id)}
-              className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
+              className="text-xs font-medium text-[var(--primary)] transition-colors hover:text-[var(--primary-hover)]"
             >
               Editar e atualizar
             </button>
@@ -283,7 +283,7 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
               type="button"
               disabled={pending}
               onClick={() => handleDelete(protection)}
-              className="text-xs font-medium text-[var(--danger)]"
+              className="text-xs font-medium text-[var(--danger)] transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Excluir
             </button>
@@ -298,20 +298,20 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs font-medium text-[var(--muted)]">
-              <th className="px-3 py-1.5">Elemento</th>
-              <th className="px-3 py-1.5 text-right">Valor atual</th>
-              <th className="px-3 py-1.5 text-right">Valor ideal</th>
+            <tr className="text-xs font-semibold tracking-wide text-[var(--text-secondary)]">
+              <th className="px-3 py-2 text-left">Elemento</th>
+              <th className="px-3 py-2 text-center">Valor atual</th>
+              <th className="px-3 py-2 text-center">Valor ideal</th>
               <th
-                className="px-3 py-1.5 text-right"
+                className="px-3 py-2 text-center"
                 title="Diferença entre o Valor Ideal e o Valor da Proteção Atual."
               >
                 Complementação
               </th>
-              <th className="px-3 py-1.5">Necessidade</th>
-              <th className="px-3 py-1.5">Coberto?</th>
-              <th className="px-3 py-1.5">Documento</th>
-              <th className="px-3 py-1.5" />
+              <th className="px-3 py-2 text-center">Necessidade</th>
+              <th className="px-3 py-2 text-center">Coberto?</th>
+              <th className="px-3 py-2 text-center">Documento</th>
+              <th className="px-3 py-2" />
             </tr>
           </thead>
           <tbody>

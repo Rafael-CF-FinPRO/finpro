@@ -161,7 +161,7 @@ export function PatrimonioBoard({
               <CollapsibleSection
                 key={category}
                 title={PATRIMONIO_ASSET_CATEGORY_LABELS[category]}
-                subtitle={meta.subtitle}
+                tooltip={meta.subtitle}
                 icon={<Icon size={18} className="shrink-0 text-[var(--muted)]" />}
                 open={isOpen(category)}
                 onToggle={() => toggleGroup(category)}
@@ -181,7 +181,7 @@ export function PatrimonioBoard({
               <CollapsibleSection
                 key={category}
                 title={PATRIMONIO_LIABILITY_CATEGORY_LABELS[category]}
-                subtitle={meta.subtitle}
+                tooltip={meta.subtitle}
                 icon={<Icon size={18} className="shrink-0 text-[var(--muted)]" />}
                 open={isOpen(category)}
                 onToggle={() => toggleGroup(category)}
@@ -195,7 +195,7 @@ export function PatrimonioBoard({
           <p className="pt-2 text-xs font-medium tracking-wide text-[var(--muted)] uppercase">Proteção</p>
           <CollapsibleSection
             title="Proteção Patrimonial e Planejamento Sucessório"
-            subtitle={PATRIMONIO_PROTECTION_GROUP_META.subtitle}
+            tooltip={PATRIMONIO_PROTECTION_GROUP_META.subtitle}
             icon={<ProtectionIcon size={18} className="shrink-0 text-[var(--muted)]" />}
             open={isOpen(PROTECTION_KEY)}
             onToggle={() => toggleGroup(PROTECTION_KEY)}

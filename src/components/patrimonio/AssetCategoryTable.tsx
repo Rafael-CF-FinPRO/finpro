@@ -139,23 +139,23 @@ export function AssetCategoryTable({
     }
     return (
       <tr key={asset.id} className="border-t border-[var(--surface-border)]">
-        {columns.map((col) => (
+        {columns.map((col, i) => (
           <td
             key={col.key}
-            className={`px-3 py-2 ${
-              col.key === "currentValueCents" ? "text-right font-medium text-[var(--text-primary)]" : "text-[var(--text-tertiary)]"
+            className={`px-3 py-2.5 ${i === 0 ? "text-left" : "text-center"} ${
+              col.key === "currentValueCents" ? "font-semibold text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
             }`}
           >
             {renderFieldViewValue(col.key, fieldValue(asset, col.key))}
           </td>
         ))}
-        <td className="px-3 py-2 text-[var(--text-tertiary)]">{formatDateBR(asset.updatedAt)}</td>
-        <td className="px-3 py-2 text-right">
-          <div className="flex items-center justify-end gap-3">
+        <td className="px-3 py-2.5 text-center text-[var(--text-secondary)]">{formatDateBR(asset.updatedAt)}</td>
+        <td className="px-3 py-2.5 text-center">
+          <div className="flex items-center justify-center gap-3">
             <button
               type="button"
               onClick={() => setEditingId(asset.id)}
-              className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
+              className="text-xs font-medium text-[var(--primary)] transition-colors hover:text-[var(--primary-hover)]"
             >
               Editar e atualizar
             </button>
@@ -163,7 +163,7 @@ export function AssetCategoryTable({
               type="button"
               disabled={pending}
               onClick={() => handleDelete(asset)}
-              className="text-xs font-medium text-[var(--danger)]"
+              className="text-xs font-medium text-[var(--danger)] transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Excluir
             </button>
@@ -181,18 +181,14 @@ export function AssetCategoryTable({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs font-medium text-[var(--muted)]">
-                {columns.map((col) => (
-                  <th
-                    key={col.key}
-                    className={`px-3 py-1.5 ${col.key === "currentValueCents" ? "text-right" : ""}`}
-                    title={col.tooltip}
-                  >
+              <tr className="text-xs font-semibold tracking-wide text-[var(--text-secondary)]">
+                {columns.map((col, i) => (
+                  <th key={col.key} className={`px-3 py-2 ${i === 0 ? "text-left" : "text-center"}`} title={col.tooltip}>
                     {col.label}
                   </th>
                 ))}
-                <th className="px-3 py-1.5">Última Atualização</th>
-                <th className="px-3 py-1.5" />
+                <th className="px-3 py-2 text-center">Última Atualização</th>
+                <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>

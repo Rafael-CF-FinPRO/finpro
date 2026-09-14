@@ -175,25 +175,25 @@ export function LiabilityCategoryTable({
     }
     return (
       <tr key={liability.id} className="border-t border-[var(--surface-border)]">
-        {columns.map((col) => (
+        {columns.map((col, i) => (
           <td
             key={col.key}
-            className={`px-3 py-2 ${
+            className={`px-3 py-2.5 ${i === 0 ? "text-left" : "text-center"} ${
               col.key === "currentBalanceCents" || col.key === "creditValueCents"
-                ? "text-right font-medium text-[var(--danger)]"
-                : "text-[var(--text-tertiary)]"
+                ? "font-semibold text-[var(--danger)]"
+                : "text-[var(--text-secondary)]"
             }`}
           >
             {renderFieldViewValue(col.key, fieldValue(liability, col.key), { assets })}
           </td>
         ))}
-        <td className="px-3 py-2 text-[var(--text-tertiary)]">
+        <td className="px-3 py-2.5 text-center text-[var(--text-secondary)]">
           {liability.documentFileName ? (
             <a
               href={documentUrl(liability.id)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[var(--primary)] hover:text-[var(--primary-hover)]"
+              className="text-[var(--primary)] transition-colors hover:text-[var(--primary-hover)]"
             >
               Ver documento
             </a>
@@ -201,13 +201,13 @@ export function LiabilityCategoryTable({
             <span className="text-[var(--text-faint)]">—</span>
           )}
         </td>
-        <td className="px-3 py-2 text-[var(--text-tertiary)]">{formatDateBR(liability.updatedAt)}</td>
-        <td className="px-3 py-2 text-right">
-          <div className="flex items-center justify-end gap-3">
+        <td className="px-3 py-2.5 text-center text-[var(--text-secondary)]">{formatDateBR(liability.updatedAt)}</td>
+        <td className="px-3 py-2.5 text-center">
+          <div className="flex items-center justify-center gap-3">
             <button
               type="button"
               onClick={() => setEditingId(liability.id)}
-              className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
+              className="text-xs font-medium text-[var(--primary)] transition-colors hover:text-[var(--primary-hover)]"
             >
               Editar e atualizar
             </button>
@@ -215,7 +215,7 @@ export function LiabilityCategoryTable({
               type="button"
               disabled={pending}
               onClick={() => handleDelete(liability)}
-              className="text-xs font-medium text-[var(--danger)]"
+              className="text-xs font-medium text-[var(--danger)] transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Excluir
             </button>
@@ -233,21 +233,15 @@ export function LiabilityCategoryTable({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs font-medium text-[var(--muted)]">
-                {columns.map((col) => (
-                  <th
-                    key={col.key}
-                    className={`px-3 py-1.5 ${
-                      col.key === "currentBalanceCents" || col.key === "creditValueCents" ? "text-right" : ""
-                    }`}
-                    title={col.tooltip}
-                  >
+              <tr className="text-xs font-semibold tracking-wide text-[var(--text-secondary)]">
+                {columns.map((col, i) => (
+                  <th key={col.key} className={`px-3 py-2 ${i === 0 ? "text-left" : "text-center"}`} title={col.tooltip}>
                     {col.label}
                   </th>
                 ))}
-                <th className="px-3 py-1.5">Documento</th>
-                <th className="px-3 py-1.5">Última Atualização</th>
-                <th className="px-3 py-1.5" />
+                <th className="px-3 py-2 text-center">Documento</th>
+                <th className="px-3 py-2 text-center">Última Atualização</th>
+                <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { InfoIcon } from "@/components/common/InfoIcon";
 
 const MAXIMO_COLOR = "var(--indicator-maximo)";
 const ACEITAVEL_COLOR = "var(--indicator-aceitavel)";
@@ -144,17 +145,7 @@ function InfoButton({
   onToggle: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
-      onClick={onToggle}
-      aria-expanded={open}
-      aria-label={label}
-      className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[10px] leading-none text-[var(--muted)] hover:text-[var(--primary)]"
-    >
-      ⓘ
-    </button>
+    <InfoIcon onMouseEnter={onEnter} onMouseLeave={onLeave} onClick={onToggle} aria-expanded={open} aria-label={label} />
   );
 }
 

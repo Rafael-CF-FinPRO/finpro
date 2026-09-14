@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { updateIncomeAction, type BudgetActionState } from "@/app/actions/budget";
 import { formatCentsToBRL } from "@/lib/money";
+import { InfoIcon } from "@/components/common/InfoIcon";
 
 const initialState: BudgetActionState = {};
 
@@ -22,15 +23,11 @@ export function IncomeCard({ monthlyIncomeCents, hasProfile }: { monthlyIncomeCe
       <div className="flex items-start gap-1.5">
         <p className="text-sm text-[var(--muted)]">Renda mensal de referência</p>
         <div className="relative">
-          <button
-            type="button"
+          <InfoIcon
             onClick={() => setShowInfo((prev) => !prev)}
             aria-expanded={showInfo}
             aria-label="Como a renda mensal de referência é calculada"
-            className="cursor-help text-xs text-[var(--muted)] hover:text-[var(--primary)]"
-          >
-            ⓘ
-          </button>
+          />
           {showInfo && (
             <div className="absolute left-0 top-5 z-10 w-72 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] p-3 text-xs leading-relaxed text-[var(--text-tertiary)] shadow-lg">
               <p>
