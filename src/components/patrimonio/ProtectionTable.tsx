@@ -2,9 +2,15 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveProtectionAction, deleteProtectionAction, type PatrimonioActionState } from "@/app/actions/patrimonio";
+import {
+  saveProtectionAction,
+  deleteProtectionAction,
+  setProtectionFlagAction,
+  type PatrimonioActionState,
+} from "@/app/actions/patrimonio";
 import { FieldError } from "@/components/auth/FieldError";
 import { SubmitButton } from "@/components/auth/SubmitButton";
+import { ToggleSwitch } from "./ToggleSwitch";
 import { formatCentsToBRL } from "@/lib/money";
 import { PROTECTION_COLUMNS } from "@/lib/patrimonio-fields";
 import { fieldValue, initialFieldInputValue, renderFieldInput } from "./patrimonio-field-render";
@@ -15,14 +21,13 @@ const initialState: PatrimonioActionState = {};
 // Documento Anexado (also not a form column — see the comment on
 // LiabilityCategoryTable's edit row for why), +1 for actions.
 const COLUMN_COUNT = PROTECTION_COLUMNS.length + 3;
+// Necessidade/Coberto render as ToggleSwitch, not through the generic
+// renderFieldInput loop — excluded here so the loop doesn't also draw
+// a <select> for them.
+const FORM_COLUMNS = PROTECTION_COLUMNS.filter((col) => col.key !== "isNeeded" && col.key !== "isCovered");
 
 function documentUrl(id: string) {
   return `/api/patrimonio/documents/protection/${id}`;
-}
-
-function yesNo(value: boolean | null): string {
-  if (value == null) return "—";
-  return value ? "Sim" : "Não";
 }
 
 /** "Complementação necessária" — never stored, always derived from the
@@ -35,6 +40,45 @@ function gapCents(protection: PatrimonioProtection): number | null {
   return Math.max(0, protection.idealValueCents - protection.currentValueCents);
 }
 
+/** Necessidade/Coberto's view-mode toggle — flips immediately via
+ * setProtectionFlagAction, no need to open "Editar e atualizar" first
+ * (spec rule 5). Same optimistic-then-reconcile pattern as the "Pago"
+ * toggle in Lançamentos: the switch flips locally right away and only
+ * reverts if the background save actually fails. A never-set value
+ * (null, e.g. a freshly-seeded elemento) simply starts at the "off"
+ * state — a toggle has no third position, and the first click already
+ * makes it explicit either way. */
+function ProtectionFlagToggle({
+  id,
+  field,
+  value,
+  onLabel,
+  offLabel,
+}: {
+  id: string;
+  field: "isNeeded" | "isCovered";
+  value: boolean | null;
+  onLabel: string;
+  offLabel: string;
+}) {
+  const [optimistic, setOptimistic] = useState(value ?? false);
+  const [, startTransition] = useTransition();
+
+  function handleClick() {
+    const next = !optimistic;
+    setOptimistic(next);
+    startTransition(async () => {
+      try {
+        await setProtectionFlagAction({ id, field, value: next });
+      } catch {
+        setOptimistic(!next);
+      }
+    });
+  }
+
+  return <ToggleSwitch checked={optimistic} onLabel={onLabel} offLabel={offLabel} onChange={handleClick} />;
+}
+
 /** Mirrors AssetCategoryTable's edit row. "Objetivo" stays out of the
  * view-mode table (shown as a subtitle under Elemento instead, see
  * renderRow below) to keep the table from growing an 8th column, but is
@@ -44,7 +88,8 @@ function ProtectionEditRow({ protection, onDone }: { protection?: PatrimonioProt
   const [state, formAction] = useActionState(saveProtectionAction, initialState);
   // Controlled — see renderFieldInput's comment for why (React resets
   // uncontrolled form fields after any bound action call, including a
-  // validation failure).
+  // validation failure). Necessidade/Coberto live in the same object so
+  // Salvar/Cancelar treats them exactly like every other field.
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       PROTECTION_COLUMNS.map((col) => [col.key, initialFieldInputValue(col.key, protection ? fieldValue(protection, col.key) : undefined)])
@@ -67,8 +112,10 @@ function ProtectionEditRow({ protection, onDone }: { protection?: PatrimonioProt
       <td colSpan={COLUMN_COUNT} className="p-3">
         <form action={formAction}>
           {protection && <input type="hidden" name="id" value={protection.id} />}
+          <input type="hidden" name="isNeeded" value={values.isNeeded === "true" ? "true" : "false"} />
+          <input type="hidden" name="isCovered" value={values.isCovered === "true" ? "true" : "false"} />
           <div className="flex flex-wrap items-start gap-3">
-            {PROTECTION_COLUMNS.map((col) => (
+            {FORM_COLUMNS.map((col) => (
               <div key={col.key} className="min-w-[150px] flex-1">
                 <label className="field-label text-xs" title={col.tooltip}>
                   {col.label}
@@ -78,6 +125,30 @@ function ProtectionEditRow({ protection, onDone }: { protection?: PatrimonioProt
                 <FieldError messages={state.fieldErrors?.[col.key]} />
               </div>
             ))}
+            <div className="min-w-[150px] flex-1">
+              <label className="field-label text-xs">Necessidade</label>
+              <div className="mt-1.5">
+                <ToggleSwitch
+                  checked={values.isNeeded === "true"}
+                  onLabel="Precisa"
+                  offLabel="Não precisa"
+                  onChange={() => setValues((prev) => ({ ...prev, isNeeded: prev.isNeeded === "true" ? "false" : "true" }))}
+                />
+              </div>
+              <FieldError messages={state.fieldErrors?.isNeeded} />
+            </div>
+            <div className="min-w-[150px] flex-1">
+              <label className="field-label text-xs">Coberto?</label>
+              <div className="mt-1.5">
+                <ToggleSwitch
+                  checked={values.isCovered === "true"}
+                  onLabel="Possui"
+                  offLabel="Não possui"
+                  onChange={() => setValues((prev) => ({ ...prev, isCovered: prev.isCovered === "true" ? "false" : "true" }))}
+                />
+              </div>
+              <FieldError messages={state.fieldErrors?.isCovered} />
+            </div>
             <div className="min-w-[220px] flex-1">
               <label className="field-label text-xs">Documento Anexado</label>
               {protection?.documentFileName && !removeDocument && (
@@ -167,8 +238,24 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
             <span className="text-[var(--text-faint)]">—</span>
           )}
         </td>
-        <td className="px-3 py-2 text-[var(--text-tertiary)]">{yesNo(protection.isNeeded)}</td>
-        <td className="px-3 py-2 text-[var(--text-tertiary)]">{yesNo(protection.isCovered)}</td>
+        <td className="px-3 py-2">
+          <ProtectionFlagToggle
+            id={protection.id}
+            field="isNeeded"
+            value={protection.isNeeded}
+            onLabel="Precisa"
+            offLabel="Não precisa"
+          />
+        </td>
+        <td className="px-3 py-2">
+          <ProtectionFlagToggle
+            id={protection.id}
+            field="isCovered"
+            value={protection.isCovered}
+            onLabel="Possui"
+            offLabel="Não possui"
+          />
+        </td>
         <td className="px-3 py-2 text-[var(--text-tertiary)]">
           {protection.documentFileName ? (
             <a

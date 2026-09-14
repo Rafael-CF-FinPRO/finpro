@@ -349,6 +349,27 @@ export async function deleteProtectionAction(formData: FormData) {
   revalidatePath("/patrimonio");
 }
 
+/** Necessidade/Coberto's toggle switches (ProtectionTable.tsx) flip
+ * straight from the table, no "Editar e atualizar" needed first — same
+ * immediacy as the "Pago" toggle in Lançamentos
+ * (markTransactionPaidStatusAction), so this takes a plain typed object
+ * rather than FormData like every save/delete action above (there's no
+ * <form> involved, the toggle calls this directly). */
+export async function setProtectionFlagAction(input: {
+  id: string;
+  field: "isNeeded" | "isCovered";
+  value: boolean;
+}) {
+  const session = await requirePatrimonioSession();
+  const { id, field, value } = input;
+
+  await prisma.patrimonioProtection.updateMany({
+    where: { id, userId: session.userId },
+    data: field === "isNeeded" ? { isNeeded: value } : { isCovered: value },
+  });
+  revalidatePath("/patrimonio");
+}
+
 /** "Fotografia do mês" — confirms/adjusts one bem ou dívida's value for
  * one specific month (src/lib/patrimonio.ts's sparse confirmation
  * ledger). Upsert: re-confirming the same item+month just updates the
