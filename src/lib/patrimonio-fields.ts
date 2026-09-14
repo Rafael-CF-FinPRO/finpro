@@ -120,6 +120,7 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
     { key: "annualRatePct", label: "Taxa de Correção Anual (%)", required: false, tooltip: TAXA_CORRECAO_TOOLTIP },
     { key: "purchaseDate", label: "Data de Compra", required: false },
     { key: "purchaseValueCents", label: "Valor de Compra", required: false },
+    { key: "location", label: "Localização", required: false },
     { key: "liquidity", label: "Nível de Liquidez", required: true, tooltip: LIQUIDITY_TOOLTIP },
     { key: "notes", label: "Observações", required: false },
   ],
