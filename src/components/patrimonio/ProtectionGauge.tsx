@@ -1,3 +1,7 @@
+"use client";
+
+import { useChartWidth } from "@/lib/use-chart-width";
+
 // Same speedometer style as BudgetComplianceScore (Dashboard's
 // "Cumprimento do Orçamento"): a thin stroke-based arc with rounded
 // capsule zones and small gaps between them, tick labels at the zone
@@ -33,11 +37,20 @@ function tierFor(pct: number | null): { label: string; color: string } {
   return { label: "Insuficiente", color: "var(--danger)" };
 }
 
-const SIZE = 220;
-const CX = SIZE / 2;
-const CY = 118;
-const R = 88;
-const STROKE_WIDTH = 14;
+// Proportions (as fractions of `size`) preserved from the previous
+// fixed-220px version — only the overall scale is now responsive to
+// the card's actual width, via useChartWidth, so the gauge fills the
+// space it's given instead of floating as a small fixed shape inside
+// whatever the card happens to stretch to. Clamped to a reasonable
+// range: never so small it's illegible, never so large it dwarfs the
+// "82%"/"Ideal" text (which stays a fixed px size).
+const FALLBACK_SIZE = 220;
+const MIN_SIZE = 200;
+const MAX_SIZE = 300;
+const CY_RATIO = 118 / 220;
+const R_RATIO = 88 / 220;
+const STROKE_WIDTH_RATIO = 14 / 220;
+
 // A small gap between zones so their rounded caps read as separate
 // capsule segments instead of overlapping at the 50/80 boundaries — the
 // true 0/100 ends stay full-length.
@@ -48,49 +61,59 @@ const ZONES = [
   { from: 80 + ZONE_GAP_PCT / 2, to: 100, color: "var(--success)" },
 ];
 const TICKS = [0, 50, 80, 100];
-const TICK_LABEL_R = R + STROKE_WIDTH / 2 + 12;
 
 /** "Nível de Proteção" (spec section 9) — the primary way the
  * protection coverage percentage is shown, never just a number in a
- * card. */
+ * card. Sized responsively to its wrapping card (useChartWidth) and
+ * centered within it, both horizontally and vertically, so it reads as
+ * proportional to the card's actual area instead of a small fixed
+ * shape adrift in extra space. */
 export function ProtectionGauge({ pct }: { pct: number | null }) {
+  const { containerRef, width } = useChartWidth(FALLBACK_SIZE);
+  const size = Math.min(MAX_SIZE, Math.max(MIN_SIZE, width));
+  const cx = size / 2;
+  const cy = size * CY_RATIO;
+  const r = size * R_RATIO;
+  const strokeWidth = size * STROKE_WIDTH_RATIO;
+  const tickLabelR = r + strokeWidth / 2 + 12;
+
   const value = pct ?? 0;
   const tier = tierFor(pct);
 
   const needleAngle = angleForPct(value);
-  const tipR = R + STROKE_WIDTH / 2 + 3;
+  const tipR = r + strokeWidth / 2 + 3;
   const baseR = tipR + 10;
   const halfWidthDeg = 5;
   const trianglePoints = [
-    polarToCartesian(CX, CY, tipR, needleAngle),
-    polarToCartesian(CX, CY, baseR, needleAngle - halfWidthDeg),
-    polarToCartesian(CX, CY, baseR, needleAngle + halfWidthDeg),
+    polarToCartesian(cx, cy, tipR, needleAngle),
+    polarToCartesian(cx, cy, baseR, needleAngle - halfWidthDeg),
+    polarToCartesian(cx, cy, baseR, needleAngle + halfWidthDeg),
   ]
     .map((p) => `${p.x},${p.y}`)
     .join(" ");
 
   return (
-    <div className="flex flex-col items-center">
+    <div ref={containerRef} className="flex w-full flex-1 flex-col items-center justify-center">
       <svg
-        width={SIZE}
-        height={CY + STROKE_WIDTH / 2 + 20}
-        viewBox={`0 0 ${SIZE} ${CY + STROKE_WIDTH / 2 + 20}`}
+        width={size}
+        height={cy + strokeWidth / 2 + 20}
+        viewBox={`0 0 ${size} ${cy + strokeWidth / 2 + 20}`}
         role="img"
         aria-label="Nível de proteção patrimonial"
       >
         {ZONES.map((zone) => (
           <path
             key={zone.color}
-            d={describeSemiArc(CX, CY, R, angleForPct(zone.from), angleForPct(zone.to))}
+            d={describeSemiArc(cx, cy, r, angleForPct(zone.from), angleForPct(zone.to))}
             fill="none"
             stroke={zone.color}
-            strokeWidth={STROKE_WIDTH}
+            strokeWidth={strokeWidth}
             strokeLinecap="round"
             opacity={0.85}
           />
         ))}
         {TICKS.map((v) => {
-          const p = polarToCartesian(CX, CY, TICK_LABEL_R, angleForPct(v));
+          const p = polarToCartesian(cx, cy, tickLabelR, angleForPct(v));
           return (
             <text
               key={v}
@@ -105,10 +128,10 @@ export function ProtectionGauge({ pct }: { pct: number | null }) {
           );
         })}
         <polygon points={trianglePoints} fill="var(--primary)" />
-        <text x={CX} y={CY - 20} textAnchor="middle" className="fill-[var(--text-primary)] text-2xl font-bold">
+        <text x={cx} y={cy - 20} textAnchor="middle" className="fill-[var(--text-primary)] text-2xl font-bold">
           {pct === null ? "—" : `${Math.round(pct)}%`}
         </text>
-        <text x={CX} y={CY} textAnchor="middle" className="text-xs font-medium" fill={tier.color}>
+        <text x={cx} y={cy} textAnchor="middle" className="text-xs font-medium" fill={tier.color}>
           {tier.label}
         </text>
       </svg>
