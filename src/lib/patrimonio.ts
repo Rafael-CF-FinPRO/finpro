@@ -464,14 +464,23 @@ export type AssetAppreciationRate =
  * confirmation ledger's projection engine (effectiveValueFor above)
  * would compound forward from; this function never reads or writes
  * that column. */
+/** The date Valor Atual was last effectively updated for one asset —
+ * the newest PatrimonioValueChange for it, or the asset's own
+ * createdAt when its value has never changed since cadastro. Never
+ * "hoje". Shared by every computed indicator that needs a real "as of"
+ * date (computeAssetAppreciationRate, computeCapitalReturn below).
+ * `valueChanges` is sorted newest-first (getPatrimonioData), so the
+ * first match for this asset is its most recent value update. */
+function latestValueAsOfDate(assetId: string, createdAt: Date, valueChanges: PatrimonioValueChange[]): Date {
+  const latestChange = valueChanges.find((vc) => vc.assetId === assetId);
+  return latestChange ? latestChange.createdAt : createdAt;
+}
+
 export function computeAssetAppreciationRate(
   asset: Pick<PatrimonioAsset, "id" | "createdAt" | "purchaseValueCents" | "currentValueCents" | "purchaseDate">,
   valueChanges: PatrimonioValueChange[]
 ): AssetAppreciationRate {
-  // valueChanges is sorted newest-first (getPatrimonioData), so the
-  // first match for this asset is its most recent value update.
-  const latestChange = valueChanges.find((vc) => vc.assetId === asset.id);
-  const valueAsOfDate = latestChange ? latestChange.createdAt : asset.createdAt;
+  const valueAsOfDate = latestValueAsOfDate(asset.id, asset.createdAt, valueChanges);
   const { purchaseValueCents, currentValueCents, purchaseDate } = asset;
 
   if (purchaseValueCents == null || purchaseValueCents <= 0 || purchaseDate == null) {
@@ -495,6 +504,79 @@ export function buildAssetAppreciationMap(data: PatrimonioData): Record<string, 
   const result: Record<string, AssetAppreciationRate> = {};
   for (const asset of data.assets) {
     result[asset.id] = computeAssetAppreciationRate(asset, data.valueChanges);
+  }
+  return result;
+}
+
+/** "Retorno sobre o Capital Investido (%)" — Bens Imóveis/Bens Móveis/
+ * Colecionáveis only (Intangível keeps the older, single-figure "Taxa
+ * de Correção Anual (%)" above, untouched). Two independent figures in
+ * one cell: Retorno Total (a plain percentage gain over the capital
+ * invested, no time dimension) and Retorno Anualizado (the same CAGR
+ * shape as computeAssetAppreciationRate, just against Capital Total
+ * Investido instead of Valor de Compra alone). Either can be null on
+ * its own — Total only needs Capital Total Investido > 0, Anualizado
+ * additionally needs a real purchase date and a positive elapsed
+ * period — so a missing Data de Compra shows Total but "—" for a.a.,
+ * never a fabricated one. */
+export type CapitalReturn = {
+  totalPct: number | null;
+  annualizedPct: number | null;
+  purchaseValueCents: number | null;
+  /** Bens Móveis/Colecionáveis never set this column, so it's always 0
+   * for them — Capital Total Investido then reduces to Valor de Compra
+   * exactly, with no category branch needed here. */
+  additionalInvestmentCents: number;
+  capitalInvestedCents: number | null;
+  currentValueCents: number;
+  purchaseDate: Date | null;
+  valueAsOfDate: Date;
+  days: number | null;
+};
+
+export function computeCapitalReturn(
+  asset: Pick<
+    PatrimonioAsset,
+    "id" | "createdAt" | "purchaseValueCents" | "currentValueCents" | "purchaseDate" | "additionalInvestmentCents"
+  >,
+  valueChanges: PatrimonioValueChange[]
+): CapitalReturn {
+  const valueAsOfDate = latestValueAsOfDate(asset.id, asset.createdAt, valueChanges);
+  const { purchaseValueCents, currentValueCents, purchaseDate } = asset;
+  const additionalInvestmentCents = asset.additionalInvestmentCents ?? 0;
+  const capitalInvestedCents = purchaseValueCents != null ? purchaseValueCents + additionalInvestmentCents : null;
+
+  const base = {
+    purchaseValueCents,
+    additionalInvestmentCents,
+    capitalInvestedCents,
+    currentValueCents,
+    purchaseDate,
+    valueAsOfDate,
+  };
+
+  if (capitalInvestedCents == null || capitalInvestedCents <= 0) {
+    return { ...base, totalPct: null, annualizedPct: null, days: null };
+  }
+
+  const totalPct = (currentValueCents / capitalInvestedCents - 1) * 100;
+
+  if (purchaseDate == null) {
+    return { ...base, totalPct, annualizedPct: null, days: null };
+  }
+  const days = Math.round((valueAsOfDate.getTime() - purchaseDate.getTime()) / MS_PER_DAY);
+  if (!Number.isFinite(days) || days <= 0) {
+    return { ...base, totalPct, annualizedPct: null, days: null };
+  }
+
+  const annualizedPct = (Math.pow(currentValueCents / capitalInvestedCents, 365 / days) - 1) * 100;
+  return { ...base, totalPct, annualizedPct, days };
+}
+
+export function buildCapitalReturnMap(data: PatrimonioData): Record<string, CapitalReturn> {
+  const result: Record<string, CapitalReturn> = {};
+  for (const asset of data.assets) {
+    result[asset.id] = computeCapitalReturn(asset, data.valueChanges);
   }
   return result;
 }

@@ -123,6 +123,7 @@ export async function saveAssetAction(
     purchaseValueCents: f(formData, "purchaseValueCents"),
     isRented: f(formData, "isRented"),
     rentNetValueCents: f(formData, "rentNetValueCents"),
+    additionalInvestmentCents: f(formData, "additionalInvestmentCents"),
     notes: f(formData, "notes"),
   });
   if (!parsed.success) {

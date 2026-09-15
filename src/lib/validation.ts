@@ -472,6 +472,7 @@ export const patrimonioAssetSchema = z
     purchaseValueCents: optionalMoneyCentsSchema,
     isRented: optionalBooleanSchema,
     rentNetValueCents: optionalMoneyCentsSchema,
+    additionalInvestmentCents: optionalMoneyCentsSchema,
     notes: optionalTextSchema(500),
   })
   .superRefine((data, ctx) => {

@@ -44,6 +44,8 @@ export const PATRIMONIO_FIELD_TYPE: Record<string, PatrimonioFieldType> = {
   creditValueCents: "money",
   institutionName: "text",
   paidValueCents: "money",
+  additionalInvestmentCents: "money",
+  capitalInvestedCents: "money",
   idealValueCents: "money",
   usageType: "usage",
   location: "location",
@@ -73,10 +75,19 @@ const LIQUIDITY_TOOLTIP =
   "Indica a facilidade e velocidade para transformar este ativo em dinheiro sem perda relevante de valor.";
 // Calculated automatically (src/lib/patrimonio.ts's computeAssetAppreciationRate)
 // from Valor de Compra/Valor Atual/datas — never a manually-typed figure,
-// hence no input for it anywhere in the edit row.
+// hence no input for it anywhere in the edit row. Intangível only —
+// Bens Móveis/Imóveis/Colecionáveis use CAPITAL_RETURN_TOOLTIP instead.
 const TAXA_CORRECAO_TOOLTIP =
   "Calculada automaticamente: valorização ou desvalorização anualizada entre a data de compra e a última atualização do valor atual.";
 const RENDIMENTO_ALUGUEL_TOOLTIP = "Calculado automaticamente: Aluguel Líquido ÷ Valor Atual do imóvel, ao mês.";
+// Calculated automatically (src/lib/patrimonio.ts's computeCapitalReturn)
+// from Capital Total Investido/Valor Atual/datas — never a
+// manually-typed figure.
+const CAPITAL_RETURN_TOOLTIP =
+  "Apresenta o retorno acumulado e o retorno anualizado do bem, considerando o capital efetivamente investido.";
+const ADDITIONAL_INVESTMENT_TOOLTIP =
+  "Somatório dos valores investidos após a aquisição do imóvel, como reformas, ampliações, adaptações, instalações e outras melhorias incorporadas ao patrimônio.";
+const CAPITAL_INVESTED_TOOLTIP = "Calculado automaticamente: Valor de Compra + Investimentos Adicionais, quando aplicável.";
 
 /** Shared by the "Documento Anexado" upload field (server-side check in
  * src/app/actions/patrimonio.ts) and its UI hint text — one document
@@ -93,8 +104,11 @@ export type AssetColumnKey =
   | "location"
   | "liquidity"
   | "annualRatePct"
+  | "capitalReturnPct"
   | "purchaseDate"
   | "purchaseValueCents"
+  | "additionalInvestmentCents"
+  | "capitalInvestedCents"
   | "isRented"
   | "rentNetValueCents"
   | "rentalYieldPct"
@@ -119,9 +133,15 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
     { key: "name", label: "Descrição", required: true },
     { key: "currentValueCents", label: "Valor Atual", required: true },
     { key: "usageType", label: "Tipo", required: true },
-    { key: "annualRatePct", label: "Taxa de Correção Anual (%)", required: false, tooltip: TAXA_CORRECAO_TOOLTIP },
+    {
+      key: "capitalReturnPct",
+      label: "Retorno sobre o Capital Investido (%)",
+      required: false,
+      tooltip: CAPITAL_RETURN_TOOLTIP,
+    },
     { key: "purchaseDate", label: "Data de Compra", required: false },
     { key: "purchaseValueCents", label: "Valor de Compra", required: false },
+    { key: "capitalInvestedCents", label: "Capital Total Investido", required: false, tooltip: CAPITAL_INVESTED_TOOLTIP },
     { key: "location", label: "Localização", required: false },
     { key: "liquidity", label: "Nível de Liquidez", required: true, tooltip: LIQUIDITY_TOOLTIP },
     { key: "notes", label: "Observações", required: false },
@@ -130,9 +150,21 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
     { key: "name", label: "Descrição", required: true },
     { key: "currentValueCents", label: "Valor Venal", required: true },
     { key: "usageType", label: "Tipo", required: true },
-    { key: "annualRatePct", label: "Taxa de Correção Anual (%)", required: false, tooltip: TAXA_CORRECAO_TOOLTIP },
+    {
+      key: "capitalReturnPct",
+      label: "Retorno sobre o Capital Investido (%)",
+      required: false,
+      tooltip: CAPITAL_RETURN_TOOLTIP,
+    },
     { key: "purchaseDate", label: "Data de Compra", required: false },
     { key: "purchaseValueCents", label: "Valor de Compra", required: false },
+    {
+      key: "additionalInvestmentCents",
+      label: "Investimentos Adicionais",
+      required: false,
+      tooltip: ADDITIONAL_INVESTMENT_TOOLTIP,
+    },
+    { key: "capitalInvestedCents", label: "Capital Total Investido", required: false, tooltip: CAPITAL_INVESTED_TOOLTIP },
     { key: "isRented", label: "Alugado?", required: false },
     { key: "rentNetValueCents", label: "Aluguel Líquido", required: false },
     {
@@ -160,9 +192,15 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
     { key: "name", label: "Descrição", required: true },
     { key: "currentValueCents", label: "Valor do Item", required: true },
     { key: "usageType", label: "Tipo", required: true },
-    { key: "annualRatePct", label: "Taxa de Correção Anual (%)", required: false, tooltip: TAXA_CORRECAO_TOOLTIP },
+    {
+      key: "capitalReturnPct",
+      label: "Retorno sobre o Capital Investido (%)",
+      required: false,
+      tooltip: CAPITAL_RETURN_TOOLTIP,
+    },
     { key: "purchaseDate", label: "Data de Compra", required: false },
     { key: "purchaseValueCents", label: "Valor de Compra", required: false },
+    { key: "capitalInvestedCents", label: "Capital Total Investido", required: false, tooltip: CAPITAL_INVESTED_TOOLTIP },
     { key: "location", label: "Localização", required: false },
     { key: "liquidity", label: "Nível de Liquidez", required: true, tooltip: LIQUIDITY_TOOLTIP },
     { key: "notes", label: "Observações", required: false },

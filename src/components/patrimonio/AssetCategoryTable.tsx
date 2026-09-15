@@ -14,17 +14,18 @@ import { SortableTh } from "./SortableTh";
 import { sortRows, sortablePrimitive, nextSortState, type SortState, type SortPrimitive } from "./sortable";
 import type { PatrimonioAsset } from "@/generated/prisma/client";
 import type { PatrimonioAssetCategory } from "@/generated/prisma/enums";
-import type { AssetAppreciationRate } from "@/lib/patrimonio";
+import type { AssetAppreciationRate, CapitalReturn } from "@/lib/patrimonio";
 
 const initialState: PatrimonioActionState = {};
 const MUTED_DASH = <span className="text-[var(--text-faint)]">—</span>;
 
-// Both are always-computed, never-editable columns (Taxa de Correção
-// Anual and Rendimento do Aluguel) — excluded from the edit row's
-// generic column loop so no <input> for them is ever rendered, while
-// staying in ASSET_CATEGORY_COLUMNS so the header/view-row keep
-// showing them in their existing position.
-const COMPUTED_COLUMN_KEYS: AssetColumnKey[] = ["annualRatePct", "rentalYieldPct"];
+// All always-computed, never-editable columns — excluded from the edit
+// row's generic column loop so no <input> for any of them is ever
+// rendered, while staying in ASSET_CATEGORY_COLUMNS so the
+// header/view-row keep showing them in their existing position.
+// additionalInvestmentCents is deliberately NOT here — unlike the
+// others, it's a real user-editable field (Bens Imóveis only).
+const COMPUTED_COLUMN_KEYS: AssetColumnKey[] = ["annualRatePct", "rentalYieldPct", "capitalReturnPct", "capitalInvestedCents"];
 
 /** "~X anos e Y meses" for the appreciation tooltip's "Período
  * considerado" line — average days/month, purely descriptive (the rate
@@ -70,6 +71,68 @@ function AppreciationRateCell({ appreciation }: { appreciation?: AssetAppreciati
       </p>
     </ValueTooltip>
   );
+}
+
+function formatReturnPct(pct: number, suffix: "total" | "a.a."): string {
+  const sign = pct > 0 ? "+" : "";
+  return `${sign}${pct.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% ${suffix}`;
+}
+
+function returnColor(pct: number | null): string {
+  if (pct === null) return "var(--text-faint)";
+  if (pct > 0) return "var(--success)";
+  if (pct < 0) return "var(--danger)";
+  return "var(--text-secondary)";
+}
+
+/** "Retorno sobre o Capital Investido (%)" — Bens Móveis/Imóveis/
+ * Colecionáveis only (Intangível keeps "Taxa de Correção Anual (%)"
+ * above, untouched). Two lines in the same cell — Retorno Total (no
+ * time dimension) and Retorno Anualizado — each independently colored
+ * and independently "—" when its own inputs are missing; the whole
+ * cell falls back to a single dash only when Total itself can't be
+ * computed at all (Capital Total Investido absent/≤0). */
+function CapitalReturnCell({ capitalReturn }: { capitalReturn?: CapitalReturn }) {
+  if (!capitalReturn || capitalReturn.totalPct === null) return MUTED_DASH;
+  const { totalPct, annualizedPct, purchaseValueCents, additionalInvestmentCents, capitalInvestedCents, currentValueCents, purchaseDate, valueAsOfDate, days } =
+    capitalReturn;
+  const totalLabel = formatReturnPct(totalPct, "total");
+  const annualLabel = annualizedPct !== null ? formatReturnPct(annualizedPct, "a.a.") : "—";
+  return (
+    <ValueTooltip
+      trigger={
+        <span className="font-medium">
+          <span className="block" style={{ color: returnColor(totalPct) }}>
+            {totalLabel}
+          </span>
+          <span className="block" style={{ color: returnColor(annualizedPct) }}>
+            {annualLabel}
+          </span>
+        </span>
+      }
+    >
+      <p className="font-semibold text-[var(--text-primary)]">Retorno sobre o Capital Investido</p>
+      <p className="mt-1.5">Valor de compra: {purchaseValueCents !== null ? formatCentsToBRL(purchaseValueCents) : "—"}</p>
+      {additionalInvestmentCents > 0 && <p>Investimentos adicionais: {formatCentsToBRL(additionalInvestmentCents)}</p>}
+      <p>Capital total investido: {capitalInvestedCents !== null ? formatCentsToBRL(capitalInvestedCents) : "—"}</p>
+      <p>Valor atual: {formatCentsToBRL(currentValueCents)}</p>
+      {purchaseDate && <p>Data de compra: {formatDateBR(purchaseDate)}</p>}
+      <p>Última atualização efetiva: {formatDateBR(valueAsOfDate)}</p>
+      {days !== null && <p>Período: {days} dias</p>}
+      <p className="mt-1.5">Retorno total: {totalLabel}</p>
+      <p>Retorno anualizado: {annualLabel}</p>
+      <p className="mt-1.5 text-[var(--text-faint)]">
+        Retorno acumulado e anualizado do bem, considerando o capital efetivamente investido.
+      </p>
+    </ValueTooltip>
+  );
+}
+
+/** "Capital Total Investido" — read-only, shares the same computed
+ * struct as CapitalReturnCell (no separate server round trip). */
+function CapitalInvestedCell({ capitalReturn }: { capitalReturn?: CapitalReturn }) {
+  if (!capitalReturn || capitalReturn.capitalInvestedCents === null) return MUTED_DASH;
+  return <span className="font-medium text-[var(--text-primary)]">{formatCentsToBRL(capitalReturn.capitalInvestedCents)}</span>;
 }
 
 /** Rendimento do Aluguel's monthly %, or null when Alugado?=Não or
@@ -188,10 +251,12 @@ export function AssetCategoryTable({
   category,
   assets,
   assetAppreciationById,
+  capitalReturnById,
 }: {
   category: PatrimonioAssetCategory;
   assets: PatrimonioAsset[];
   assetAppreciationById: Record<string, AssetAppreciationRate>;
+  capitalReturnById: Record<string, CapitalReturn>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -209,6 +274,8 @@ export function AssetCategoryTable({
   function getSortValue(asset: PatrimonioAsset, key: string): SortPrimitive {
     if (key === "annualRatePct") return assetAppreciationById[asset.id]?.ratePct ?? null;
     if (key === "rentalYieldPct") return rentalYieldMonthlyPct(asset);
+    if (key === "capitalReturnPct") return capitalReturnById[asset.id]?.annualizedPct ?? capitalReturnById[asset.id]?.totalPct ?? null;
+    if (key === "capitalInvestedCents") return capitalReturnById[asset.id]?.capitalInvestedCents ?? null;
     if (key === "updatedAt") return asset.updatedAt;
     return sortablePrimitive(key, fieldValue(asset, key));
   }
@@ -256,6 +323,10 @@ export function AssetCategoryTable({
               <AppreciationRateCell appreciation={assetAppreciationById[asset.id]} />
             ) : col.key === "rentalYieldPct" ? (
               <RentalYieldCell asset={asset} />
+            ) : col.key === "capitalReturnPct" ? (
+              <CapitalReturnCell capitalReturn={capitalReturnById[asset.id]} />
+            ) : col.key === "capitalInvestedCents" ? (
+              <CapitalInvestedCell capitalReturn={capitalReturnById[asset.id]} />
             ) : (
               renderFieldViewValue(col.key, fieldValue(asset, col.key))
             )}
