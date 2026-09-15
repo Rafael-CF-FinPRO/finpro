@@ -452,18 +452,19 @@ export type AssetAppreciationRate =
       days: number;
     };
 
-/** "Taxa de Correção Anual (%)" for Bens Móveis/Imóveis/Intangível/
- * Colecionáveis — the column keeps its existing name and position, but
- * is now always a computed, read-only annualized rate
+/** "Taxa de Correção Anual (%)" — a computed, read-only annualized rate
  * ((Valor Atual ÷ Valor de Compra) ^ (365 ÷ dias) - 1) between the
  * purchase and the last real value update, never a manually-typed
- * figure and never anchored to today's date. This is deliberately
- * decoupled from the `annualRatePct` DB column, which keeps its
- * original role as the (currently unreachable — no UI sets
- * updateMethod to PROJECAO_AUTOMATICA) manual rate the sparse
- * confirmation ledger's projection engine (effectiveValueFor above)
- * would compound forward from; this function never reads or writes
- * that column. */
+ * figure and never anchored to today's date. No cadastro category
+ * currently renders this (all 5 have moved to the dual Retorno
+ * Total/Anualizado shape below — computeCapitalReturn); left in place,
+ * unused but intact, rather than removed along with its prop
+ * threading. This is deliberately decoupled from the `annualRatePct`
+ * DB column, which keeps its original role as the (currently
+ * unreachable — no UI sets updateMethod to PROJECAO_AUTOMATICA) manual
+ * rate the sparse confirmation ledger's projection engine
+ * (effectiveValueFor above) would compound forward from; this function
+ * never reads or writes that column. */
 /** The date Valor Atual was last effectively updated for one asset —
  * the newest PatrimonioValueChange for it, or the asset's own
  * createdAt when its value has never changed since cadastro. Never

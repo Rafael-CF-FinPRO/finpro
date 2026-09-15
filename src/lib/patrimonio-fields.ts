@@ -73,12 +73,6 @@ export const PATRIMONIO_FIELD_TYPE: Record<string, PatrimonioFieldType> = {
 
 const LIQUIDITY_TOOLTIP =
   "Indica a facilidade e velocidade para transformar este ativo em dinheiro sem perda relevante de valor.";
-// Calculated automatically (src/lib/patrimonio.ts's computeAssetAppreciationRate)
-// from Valor de Compra/Valor Atual/datas — never a manually-typed figure,
-// hence no input for it anywhere in the edit row. Intangível only —
-// Bens Móveis/Imóveis/Colecionáveis use CAPITAL_RETURN_TOOLTIP instead.
-const TAXA_CORRECAO_TOOLTIP =
-  "Calculada automaticamente: valorização ou desvalorização anualizada entre a data de compra e a última atualização do valor atual.";
 const RENDIMENTO_ALUGUEL_TOOLTIP = "Calculado automaticamente: Aluguel Líquido ÷ Valor Atual do imóvel, ao mês.";
 // Calculated automatically (src/lib/patrimonio.ts's computeCapitalReturn)
 // from Capital Total Investido/Valor Atual/datas — never a
@@ -88,6 +82,12 @@ const CAPITAL_RETURN_TOOLTIP =
 const ADDITIONAL_INVESTMENT_TOOLTIP =
   "Somatório dos valores investidos após a aquisição do imóvel, como reformas, ampliações, adaptações, instalações e outras melhorias incorporadas ao patrimônio.";
 const CAPITAL_INVESTED_TOOLTIP = "Calculado automaticamente: Valor de Compra + Investimentos Adicionais, quando aplicável.";
+// Intangível only — same computeCapitalReturn engine as Bens Móveis/
+// Imóveis/Colecionáveis (there's no "Investimentos Adicionais" concept
+// here, so Capital Total Investido reduces to Valor de Compra /
+// Investido by itself), just its own header wording.
+const INVESTMENT_RETURN_TOOLTIP =
+  "Retorno Total e Retorno Anualizado calculados automaticamente a partir do Valor Atual, do Valor de Compra / Investido, da Data Inicial e da data da última atualização efetiva do Valor Atual.";
 
 /** Shared by the "Documento Anexado" upload field (server-side check in
  * src/app/actions/patrimonio.ts) and its UI hint text — one document
@@ -179,11 +179,16 @@ export const ASSET_CATEGORY_COLUMNS: Record<PatrimonioAssetCategory, PatrimonioF
   ],
   INTANGIVEL: [
     { key: "name", label: "Descrição", required: true },
-    { key: "currentValueCents", label: "Valor / Equity", required: true },
+    { key: "currentValueCents", label: "Valor Atual", required: true },
     { key: "usageType", label: "Tipo", required: true },
-    { key: "annualRatePct", label: "Taxa de Correção Anual (%)", required: false, tooltip: TAXA_CORRECAO_TOOLTIP },
-    { key: "purchaseDate", label: "Data de Aquisição", required: false },
-    { key: "purchaseValueCents", label: "Valor de Compra/Aquisição", required: false },
+    {
+      key: "capitalReturnPct",
+      label: "Retorno sobre o Investimento (%)",
+      required: false,
+      tooltip: INVESTMENT_RETURN_TOOLTIP,
+    },
+    { key: "purchaseDate", label: "Data Inicial", required: false },
+    { key: "purchaseValueCents", label: "Valor de Compra / Investido", required: false },
     { key: "location", label: "Localização", required: false },
     { key: "liquidity", label: "Nível de Liquidez", required: true, tooltip: LIQUIDITY_TOOLTIP },
     { key: "notes", label: "Observações", required: false },

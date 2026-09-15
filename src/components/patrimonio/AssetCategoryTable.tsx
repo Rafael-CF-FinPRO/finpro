@@ -46,11 +46,13 @@ function formatAnnualRate(pct: number): string {
   return `${sign}${pct.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.a.`;
 }
 
-/** "Taxa de Correção Anual (%)" — always computed server-side
- * (src/lib/patrimonio.ts's computeAssetAppreciationRate, threaded down
- * via the assetAppreciationById prop), never read off the asset's own
- * `annualRatePct` column directly. Discreet color: green for
- * valorização, red for desvalorização, neutral at exactly 0%. */
+/** "Taxa de Correção Anual (%)" — no cadastro category currently
+ * renders this column (all 5 moved to CapitalReturnCell below,
+ * Intangível last); left in place, unused but intact, rather than
+ * removed along with its prop threading. Always computed server-side,
+ * never read off the asset's own `annualRatePct` column directly.
+ * Discreet color: green for valorização, red for desvalorização,
+ * neutral at exactly 0%. */
 function AppreciationRateCell({ appreciation }: { appreciation?: AssetAppreciationRate }) {
   if (!appreciation || appreciation.ratePct === null) return MUTED_DASH;
   const { ratePct, purchaseValueCents, currentValueCents, purchaseDate, valueAsOfDate, days } = appreciation;
@@ -85,13 +87,16 @@ function returnColor(pct: number | null): string {
   return "var(--text-secondary)";
 }
 
-/** "Retorno sobre o Capital Investido (%)" — Bens Móveis/Imóveis/
- * Colecionáveis only (Intangível keeps "Taxa de Correção Anual (%)"
- * above, untouched). Two lines in the same cell — Retorno Total (no
- * time dimension) and Retorno Anualizado — each independently colored
- * and independently "—" when its own inputs are missing; the whole
- * cell falls back to a single dash only when Total itself can't be
- * computed at all (Capital Total Investido absent/≤0). */
+/** "Retorno sobre o Capital Investido (%)" (Bens Móveis/Imóveis/
+ * Colecionáveis) and "Retorno sobre o Investimento (%)" (Intangível,
+ * same underlying computeCapitalReturn — it has no "Investimentos
+ * Adicionais" concept, so Capital Total Investido there always reduces
+ * to Valor de Compra / Investido by itself). Two lines in the same
+ * cell — Retorno Total (no time dimension) and Retorno Anualizado —
+ * each independently colored and independently "—" when its own
+ * inputs are missing; the whole cell falls back to a single dash only
+ * when Total itself can't be computed at all (Capital Total Investido
+ * absent/≤0). */
 function CapitalReturnCell({ capitalReturn }: { capitalReturn?: CapitalReturn }) {
   if (!capitalReturn || capitalReturn.totalPct === null) return MUTED_DASH;
   const { totalPct, annualizedPct, purchaseValueCents, additionalInvestmentCents, capitalInvestedCents, currentValueCents, purchaseDate, valueAsOfDate, days } =
