@@ -207,6 +207,8 @@ export async function saveLiabilityAction(
     correctionIndex: f(formData, "correctionIndex"),
     administrationFeePct: f(formData, "administrationFeePct"),
     creditValueCents: f(formData, "creditValueCents"),
+    institutionName: f(formData, "institutionName"),
+    paidValueCents: f(formData, "paidValueCents"),
     isContemplated: f(formData, "isContemplated"),
     contemplationDate: f(formData, "contemplationDate"),
     liabilityType: f(formData, "liabilityType"),

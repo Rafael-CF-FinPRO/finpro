@@ -14,6 +14,8 @@ import { ToggleSwitch } from "./ToggleSwitch";
 import { formatCentsToBRL } from "@/lib/money";
 import { PROTECTION_COLUMNS } from "@/lib/patrimonio-fields";
 import { fieldValue, initialFieldInputValue, renderFieldInput } from "./patrimonio-field-render";
+import { SortableTh } from "./SortableTh";
+import { sortRows, nextSortState, type SortState, type SortPrimitive } from "./sortable";
 import type { PatrimonioProtection } from "@/generated/prisma/client";
 
 const initialState: PatrimonioActionState = {};
@@ -81,15 +83,23 @@ function ProtectionFlagToggle({
 
 /** Mirrors AssetCategoryTable's edit row. "Objetivo" stays out of the
  * view-mode table (shown as a subtitle under Elemento instead, see
- * renderRow below) to keep the table from growing an 8th column, but is
- * still one of the editable fields here. */
+ * renderRow below) to keep the table from growing an 8th column.
+ *
+ * Editable only while CREATING a new elemento — once it exists,
+ * Objetivo/Explicação becomes a fixed, structural fact about it, not a
+ * day-to-day variable like Valor Atual or Necessidade (spec: "não
+ * permitir alterar esses textos durante a atualização normal"). Its
+ * value still travels with every "editar e atualizar" submit via a
+ * hidden input carrying the unchanged existing text, so an edit never
+ * wipes it — the form just doesn't render a visible field for it. */
 function ProtectionEditRow({ protection, onDone }: { protection?: PatrimonioProtection; onDone: () => void }) {
   const router = useRouter();
   const [state, formAction] = useActionState(saveProtectionAction, initialState);
+  const isExisting = protection !== undefined;
   // Controlled — see renderFieldInput's comment for why (React resets
   // uncontrolled form fields after any bound action call, including a
-  // validation failure). Necessidade/Coberto live in the same object so
-  // Salvar/Cancelar treats them exactly like every other field.
+  // validation failure). Necessidade/Coberto/Objetivo live in the same
+  // object so Salvar/Cancelar treats them exactly like every other field.
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       PROTECTION_COLUMNS.map((col) => [col.key, initialFieldInputValue(col.key, protection ? fieldValue(protection, col.key) : undefined)])
@@ -114,8 +124,9 @@ function ProtectionEditRow({ protection, onDone }: { protection?: PatrimonioProt
           {protection && <input type="hidden" name="id" value={protection.id} />}
           <input type="hidden" name="isNeeded" value={values.isNeeded === "true" ? "true" : "false"} />
           <input type="hidden" name="isCovered" value={values.isCovered === "true" ? "true" : "false"} />
+          {isExisting && <input type="hidden" name="objective" value={values.objective} />}
           <div className="flex flex-wrap items-start gap-3">
-            {FORM_COLUMNS.map((col) => (
+            {FORM_COLUMNS.filter((col) => !isExisting || col.key !== "objective").map((col) => (
               <div key={col.key} className="min-w-[150px] flex-1">
                 <label className="field-label text-xs" title={col.tooltip}>
                   {col.label}
@@ -196,9 +207,33 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
+  const [sortState, setSortState] = useState<SortState>(null);
 
   // Excluídos (soft-deleted) never show up here — see deleteProtectionAction.
   const active = protections.filter((p) => p.isActive);
+
+  function getSortValue(protection: PatrimonioProtection, key: string): SortPrimitive {
+    switch (key) {
+      case "element":
+        return protection.element;
+      case "currentValueCents":
+        return protection.currentValueCents;
+      case "idealValueCents":
+        return protection.idealValueCents;
+      case "gapCents":
+        return gapCents(protection);
+      case "isNeeded":
+        return protection.isNeeded ? 1 : 0;
+      case "isCovered":
+        return protection.isCovered ? 1 : 0;
+      case "documentFileName":
+        return protection.documentFileName ? 1 : 0;
+      default:
+        return null;
+    }
+  }
+  const sortedActive = sortRows(active, sortState, getSortValue);
+  const handleSort = (key: string) => setSortState((prev) => nextSortState(prev, key));
 
   function handleDelete(protection: PatrimonioProtection) {
     if (!confirm(`Excluir "${protection.element}"? Essa ação removerá o cadastro atual da lista.`)) return;
@@ -299,23 +334,24 @@ export function ProtectionTable({ protections }: { protections: PatrimonioProtec
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs font-semibold tracking-wide text-[var(--text-secondary)]">
-              <th className="px-3 py-2 text-left">Elemento</th>
-              <th className="px-3 py-2 text-center">Valor atual</th>
-              <th className="px-3 py-2 text-center">Valor ideal</th>
-              <th
-                className="px-3 py-2 text-center"
-                title="Diferença entre o Valor Ideal e o Valor da Proteção Atual."
-              >
-                Complementação
-              </th>
-              <th className="px-3 py-2 text-center">Necessidade</th>
-              <th className="px-3 py-2 text-center">Coberto?</th>
-              <th className="px-3 py-2 text-center">Documento</th>
+              <SortableTh label="Elemento" sortKey="element" sortState={sortState} onSort={handleSort} align="left" />
+              <SortableTh label="Valor atual" sortKey="currentValueCents" sortState={sortState} onSort={handleSort} />
+              <SortableTh label="Valor ideal" sortKey="idealValueCents" sortState={sortState} onSort={handleSort} />
+              <SortableTh
+                label="Complementação"
+                sortKey="gapCents"
+                sortState={sortState}
+                onSort={handleSort}
+                tooltip="Diferença entre o Valor Ideal e o Valor da Proteção Atual."
+              />
+              <SortableTh label="Necessidade" sortKey="isNeeded" sortState={sortState} onSort={handleSort} />
+              <SortableTh label="Coberto?" sortKey="isCovered" sortState={sortState} onSort={handleSort} />
+              <SortableTh label="Documento" sortKey="documentFileName" sortState={sortState} onSort={handleSort} />
               <th className="px-3 py-2" />
             </tr>
           </thead>
           <tbody>
-            {active.map(renderRow)}
+            {sortedActive.map(renderRow)}
             {editingId === "new" && <ProtectionEditRow onDone={() => setEditingId(null)} />}
           </tbody>
         </table>

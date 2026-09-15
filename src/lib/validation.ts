@@ -512,6 +512,8 @@ export const patrimonioLiabilitySchema = z
     correctionIndex: optionalTextSchema(60),
     administrationFeePct: optionalPercentSchema,
     creditValueCents: optionalMoneyCentsSchema,
+    institutionName: optionalTextSchema(120),
+    paidValueCents: optionalMoneyCentsSchema,
     isContemplated: optionalBooleanSchema,
     contemplationDate: optionalDateInputSchema,
     liabilityType: optionalTextSchema(60),
@@ -525,8 +527,11 @@ export const patrimonioLiabilitySchema = z
     notes: optionalTextSchema(500),
   })
   .superRefine((data, ctx) => {
-    if (data.category === "CONSORCIO" && data.creditValueCents == null) {
-      ctx.addIssue({ code: "custom", path: ["creditValueCents"], message: "Informe o crédito da carta." });
+    // Crédito da Carta is no longer required for Consórcio (spec:
+    // "deve deixar de ser obrigatório") — Valor Já Pago no Controle
+    // takes over as the one mandatory value field for this category.
+    if (data.category === "CONSORCIO" && data.paidValueCents == null) {
+      ctx.addIssue({ code: "custom", path: ["paidValueCents"], message: "Informe o valor já pago no controle." });
     }
   });
 

@@ -6,15 +6,111 @@ import { saveLiabilityAction, deleteLiabilityAction, type PatrimonioActionState 
 import { FieldError } from "@/components/auth/FieldError";
 import { SubmitButton } from "@/components/auth/SubmitButton";
 import { formatDateBR } from "@/lib/dates";
+import { formatCentsToBRL } from "@/lib/money";
 import { LIABILITY_CATEGORY_COLUMNS, type LiabilityColumnKey, type PatrimonioFieldColumn } from "@/lib/patrimonio-fields";
 import { fieldValue, initialFieldInputValue, renderFieldInput, renderFieldViewValue } from "./patrimonio-field-render";
+import { ValueTooltip } from "./ValueTooltip";
+import { SortableTh } from "./SortableTh";
+import { sortRows, sortablePrimitive, nextSortState, type SortState, type SortPrimitive } from "./sortable";
 import type { PatrimonioAsset, PatrimonioLiability } from "@/generated/prisma/client";
 import type { PatrimonioLiabilityCategory } from "@/generated/prisma/enums";
 
 const initialState: PatrimonioActionState = {};
+const MUTED_DASH = <span className="text-[var(--text-faint)]">—</span>;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// "Custo de Crédito (%)" is always-computed, never-editable — excluded
+// from the edit row's generic column loop so no <input> for it is ever
+// rendered, while staying in LIABILITY_CATEGORY_COLUMNS so the
+// header/view-row keep showing it in its (Consórcio-only) position.
+const COMPUTED_COLUMN_KEYS: LiabilityColumnKey[] = ["creditCostPct"];
 
 function documentUrl(id: string) {
   return `/api/patrimonio/documents/liability/${id}`;
+}
+
+type CreditCost = {
+  monthlyPct: number;
+  annualPct: number;
+  creditValueCents: number;
+  paidValueCents: number;
+  currentBalanceCents: number;
+  totalToPayCents: number;
+  startDate: Date;
+  expectedEndDate: Date;
+  days: number;
+};
+
+/** "Custo de Crédito (%)" — Consórcios only. Deliberately independent
+ * from "Taxa de Administração" (administrationFeePct stays a manual,
+ * untouched field): this is the annualized cost of the total amount
+ * that will have been paid (Valor Já Pago + Saldo a Pagar) relative to
+ * Crédito da Carta, over the real contracted period (Data da
+ * Contratação -> Data da Última Parcela) — same CAGR shape as
+ * src/lib/patrimonio.ts's computeAssetAppreciationRate ("segue a
+ * lógica apresentada anteriormente"), with the monthly figure derived
+ * from the annual one via compound conversion (matching this app's own
+ * monthlyRateFromAnnual convention). Null (never a synthetic "—") the
+ * moment any of these five inputs is missing or the period is
+ * zero/invalid — nothing here is ever estimated. */
+function computeCreditCost(liability: PatrimonioLiability): CreditCost | null {
+  const { creditValueCents, paidValueCents, currentBalanceCents, startDate, expectedEndDate } = liability;
+  if (creditValueCents == null || creditValueCents <= 0) return null;
+  if (paidValueCents == null || startDate == null || expectedEndDate == null) return null;
+  const totalToPayCents = paidValueCents + currentBalanceCents;
+  if (totalToPayCents <= 0) return null;
+  const days = Math.round((expectedEndDate.getTime() - startDate.getTime()) / MS_PER_DAY);
+  if (!Number.isFinite(days) || days <= 0) return null;
+  const annualPct = (Math.pow(totalToPayCents / creditValueCents, 365 / days) - 1) * 100;
+  const monthlyPct = (Math.pow(1 + annualPct / 100, 1 / 12) - 1) * 100;
+  return {
+    monthlyPct,
+    annualPct,
+    creditValueCents,
+    paidValueCents,
+    currentBalanceCents,
+    totalToPayCents,
+    startDate,
+    expectedEndDate,
+    days,
+  };
+}
+
+function formatPct(pct: number, suffix: "a.m." | "a.a."): string {
+  return `${pct.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% ${suffix}`;
+}
+
+function CreditCostCell({ liability }: { liability: PatrimonioLiability }) {
+  const cost = computeCreditCost(liability);
+  if (!cost) return MUTED_DASH;
+  const monthlyLabel = formatPct(cost.monthlyPct, "a.m.");
+  const annualLabel = formatPct(cost.annualPct, "a.a.");
+  return (
+    <ValueTooltip
+      trigger={
+        <span className="font-medium text-[var(--chart-saldo)]">
+          <span className="block">{monthlyLabel}</span>
+          <span className="block">{annualLabel}</span>
+        </span>
+      }
+    >
+      <p className="font-semibold text-[var(--text-primary)]">Custo de crédito</p>
+      <p className="mt-1.5">Crédito da carta: {formatCentsToBRL(cost.creditValueCents)}</p>
+      <p>Valor já pago: {formatCentsToBRL(cost.paidValueCents)}</p>
+      <p>Saldo a pagar: {formatCentsToBRL(cost.currentBalanceCents)}</p>
+      <p>Total a pagar (já pago + saldo): {formatCentsToBRL(cost.totalToPayCents)}</p>
+      <p>
+        Período: {formatDateBR(cost.startDate)} a {formatDateBR(cost.expectedEndDate)}
+      </p>
+      <p>Fórmula: (Total a pagar ÷ Crédito da carta) ^ (365 ÷ dias) − 1</p>
+      <p className="mt-1.5">Mensal: {monthlyLabel}</p>
+      <p>Anualizado: {annualLabel}</p>
+      <p className="mt-1.5 text-[var(--text-faint)]">
+        Independente da Taxa de Administração (preenchimento manual) — representa o custo efetivo do crédito com
+        base nos valores e no prazo contratado.
+      </p>
+    </ValueTooltip>
+  );
 }
 
 /** Mirrors AssetCategoryTable's AssetEditRow — see its comment for why
@@ -40,12 +136,13 @@ function LiabilityEditRow({
 }) {
   const router = useRouter();
   const [state, formAction] = useActionState(saveLiabilityAction, initialState);
+  const formColumns = columns.filter((col) => !COMPUTED_COLUMN_KEYS.includes(col.key));
   // Controlled — see renderFieldInput's comment for why (React resets
   // uncontrolled form fields after any bound action call, including a
   // validation failure).
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
-      columns.map((col) => [col.key, initialFieldInputValue(col.key, liability ? fieldValue(liability, col.key) : undefined)])
+      formColumns.map((col) => [col.key, initialFieldInputValue(col.key, liability ? fieldValue(liability, col.key) : undefined)])
     )
   );
   const [removeDocument, setRemoveDocument] = useState(false);
@@ -67,7 +164,7 @@ function LiabilityEditRow({
           <input type="hidden" name="category" value={category} />
           {liability && <input type="hidden" name="id" value={liability.id} />}
           <div className="flex flex-wrap items-start gap-3">
-            {columns.map((col) => (
+            {formColumns.map((col) => (
               <div key={col.key} className="min-w-[150px] flex-1">
                 <label className="field-label text-xs" title={col.tooltip}>
                   {col.label}
@@ -135,6 +232,7 @@ export function LiabilityCategoryTable({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
+  const [sortState, setSortState] = useState<SortState>(null);
   const columns = LIABILITY_CATEGORY_COLUMNS[category];
   // +1 for Documento Anexado, +1 for Última Atualização, +1 for Ações.
   const columnCount = columns.length + 3;
@@ -142,6 +240,16 @@ export function LiabilityCategoryTable({
   // Excluídos (soft-deleted) never show up here — see deleteLiabilityAction.
   const active = liabilities.filter((l) => l.isActive);
   const isEmpty = active.length === 0;
+
+  function getSortValue(liability: PatrimonioLiability, key: string): SortPrimitive {
+    if (key === "creditCostPct") return computeCreditCost(liability)?.annualPct ?? null;
+    if (key === "linkedAssetId") return assets.find((a) => a.id === liability.linkedAssetId)?.name ?? null;
+    if (key === "documentFileName") return liability.documentFileName ? 1 : 0;
+    if (key === "updatedAt") return liability.updatedAt;
+    return sortablePrimitive(key, fieldValue(liability, key));
+  }
+  const sortedActive = sortRows(active, sortState, getSortValue);
+  const handleSort = (key: string) => setSortState((prev) => nextSortState(prev, key));
 
   function handleDelete(liability: PatrimonioLiability) {
     if (
@@ -184,7 +292,11 @@ export function LiabilityCategoryTable({
                 : "text-[var(--text-secondary)]"
             }`}
           >
-            {renderFieldViewValue(col.key, fieldValue(liability, col.key), { assets })}
+            {col.key === "creditCostPct" ? (
+              <CreditCostCell liability={liability} />
+            ) : (
+              renderFieldViewValue(col.key, fieldValue(liability, col.key), { assets })
+            )}
           </td>
         ))}
         <td className="px-3 py-2.5 text-center text-[var(--text-secondary)]">
@@ -235,17 +347,23 @@ export function LiabilityCategoryTable({
             <thead>
               <tr className="text-xs font-semibold tracking-wide text-[var(--text-secondary)]">
                 {columns.map((col, i) => (
-                  <th key={col.key} className={`px-3 py-2 ${i === 0 ? "text-left" : "text-center"}`} title={col.tooltip}>
-                    {col.label}
-                  </th>
+                  <SortableTh
+                    key={col.key}
+                    label={col.label}
+                    sortKey={col.key}
+                    sortState={sortState}
+                    onSort={handleSort}
+                    align={i === 0 ? "left" : "center"}
+                    tooltip={col.tooltip}
+                  />
                 ))}
-                <th className="px-3 py-2 text-center">Documento</th>
-                <th className="px-3 py-2 text-center">Última Atualização</th>
+                <SortableTh label="Documento" sortKey="documentFileName" sortState={sortState} onSort={handleSort} />
+                <SortableTh label="Última Atualização" sortKey="updatedAt" sortState={sortState} onSort={handleSort} />
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
-              {active.map(renderRow)}
+              {sortedActive.map(renderRow)}
               {editingId === "new" && (
                 <LiabilityEditRow
                   category={category}

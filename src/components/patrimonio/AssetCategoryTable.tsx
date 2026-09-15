@@ -10,6 +10,8 @@ import { formatCentsToBRL } from "@/lib/money";
 import { ASSET_CATEGORY_COLUMNS, type AssetColumnKey, type PatrimonioFieldColumn } from "@/lib/patrimonio-fields";
 import { fieldValue, initialFieldInputValue, renderFieldInput, renderFieldViewValue } from "./patrimonio-field-render";
 import { ValueTooltip } from "./ValueTooltip";
+import { SortableTh } from "./SortableTh";
+import { sortRows, sortablePrimitive, nextSortState, type SortState, type SortPrimitive } from "./sortable";
 import type { PatrimonioAsset } from "@/generated/prisma/client";
 import type { PatrimonioAssetCategory } from "@/generated/prisma/enums";
 import type { AssetAppreciationRate } from "@/lib/patrimonio";
@@ -70,14 +72,22 @@ function AppreciationRateCell({ appreciation }: { appreciation?: AssetAppreciati
   );
 }
 
+/** Rendimento do Aluguel's monthly %, or null when Alugado?=Não or
+ * data's missing — shared by the cell (below) and the column's sort
+ * value, so the two never drift apart. */
+function rentalYieldMonthlyPct(asset: PatrimonioAsset): number | null {
+  if (!asset.isRented || asset.rentNetValueCents == null || asset.currentValueCents <= 0) return null;
+  return (asset.rentNetValueCents / asset.currentValueCents) * 100;
+}
+
 /** "Rendimento do Aluguel (%)" — Bens Imóveis only, purely derived from
  * fields already on the asset (no server round trip needed, unlike the
  * appreciation rate which depends on value-change history). Always
  * against Valor Atual, never Valor de Compra (spec section 9); "—"
  * when Alugado?=Não — a non-alugado imóvel never shows a synthetic 0%. */
 function RentalYieldCell({ asset }: { asset: PatrimonioAsset }) {
-  if (!asset.isRented || asset.rentNetValueCents == null || asset.currentValueCents <= 0) return MUTED_DASH;
-  const monthlyPct = (asset.rentNetValueCents / asset.currentValueCents) * 100;
+  const monthlyPct = rentalYieldMonthlyPct(asset);
+  if (monthlyPct === null) return MUTED_DASH;
   const annualPct = monthlyPct * 12;
   const monthlyLabel = `${monthlyPct.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.m.`;
   const annualLabel = `${annualPct.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.a.`;
@@ -186,6 +196,7 @@ export function AssetCategoryTable({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
+  const [sortState, setSortState] = useState<SortState>(null);
   const columns = ASSET_CATEGORY_COLUMNS[category];
   // +1 for "Última Atualização" (derived from updatedAt, not a form
   // field) and +1 for Ações.
@@ -194,6 +205,14 @@ export function AssetCategoryTable({
   // Excluídos (soft-deleted) never show up here — see deleteAssetAction.
   const active = assets.filter((a) => a.isActive);
   const isEmpty = active.length === 0;
+
+  function getSortValue(asset: PatrimonioAsset, key: string): SortPrimitive {
+    if (key === "annualRatePct") return assetAppreciationById[asset.id]?.ratePct ?? null;
+    if (key === "rentalYieldPct") return rentalYieldMonthlyPct(asset);
+    if (key === "updatedAt") return asset.updatedAt;
+    return sortablePrimitive(key, fieldValue(asset, key));
+  }
+  const sortedActive = sortRows(active, sortState, getSortValue);
 
   function handleDelete(asset: PatrimonioAsset) {
     if (
@@ -276,16 +295,27 @@ export function AssetCategoryTable({
             <thead>
               <tr className="text-xs font-semibold tracking-wide text-[var(--text-secondary)]">
                 {columns.map((col, i) => (
-                  <th key={col.key} className={`px-3 py-2 ${i === 0 ? "text-left" : "text-center"}`} title={col.tooltip}>
-                    {col.label}
-                  </th>
+                  <SortableTh
+                    key={col.key}
+                    label={col.label}
+                    sortKey={col.key}
+                    sortState={sortState}
+                    onSort={(key) => setSortState((prev) => nextSortState(prev, key))}
+                    align={i === 0 ? "left" : "center"}
+                    tooltip={col.tooltip}
+                  />
                 ))}
-                <th className="px-3 py-2 text-center">Última Atualização</th>
+                <SortableTh
+                  label="Última Atualização"
+                  sortKey="updatedAt"
+                  sortState={sortState}
+                  onSort={(key) => setSortState((prev) => nextSortState(prev, key))}
+                />
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
-              {active.map(renderRow)}
+              {sortedActive.map(renderRow)}
               {editingId === "new" && (
                 <AssetEditRow category={category} columns={columns} columnCount={columnCount} onDone={() => setEditingId(null)} />
               )}

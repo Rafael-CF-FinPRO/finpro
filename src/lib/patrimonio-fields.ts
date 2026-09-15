@@ -42,6 +42,8 @@ export const PATRIMONIO_FIELD_TYPE: Record<string, PatrimonioFieldType> = {
   rentNetValueCents: "money",
   installmentValueCents: "money",
   creditValueCents: "money",
+  institutionName: "text",
+  paidValueCents: "money",
   idealValueCents: "money",
   usageType: "usage",
   location: "location",
@@ -171,7 +173,10 @@ export type LiabilityColumnKey =
   | "name"
   | "currentBalanceCents"
   | "creditValueCents"
+  | "institutionName"
+  | "paidValueCents"
   | "administrationFeePct"
+  | "creditCostPct"
   | "installmentValueCents"
   | "remainingInstallments"
   | "amortization"
@@ -189,6 +194,14 @@ const CET_TOOLTIP = "Custo Efetivo Total da operação, considerando juros, tari
 const CORRECTION_INDEX_TOOLTIP = "Índice que reajusta o saldo ou as parcelas (ex.: IPCA, CDI, INCC).";
 const LINKED_ASSET_TOOLTIP = "Associa esta dívida a um bem já cadastrado em Ativos, quando aplicável.";
 const AMORTIZATION_TOOLTIP = "Sistema de amortização da dívida (ex.: SAC, PRICE).";
+const PAID_VALUE_TOOLTIP =
+  "Valor efetivamente pago até o momento no consórcio — diferente do saldo a pagar, do crédito da carta e da taxa de administração.";
+// Calculated automatically (src/components/patrimonio/LiabilityCategoryTable.tsx's
+// computeCreditCost) from Crédito da Carta, Valor Já Pago, Saldo a
+// Pagar e o período contratado — nunca a mesma coisa que a Taxa de
+// Administração, que continua sendo preenchida manualmente.
+const CREDIT_COST_TOOLTIP =
+  "Calculado automaticamente: custo efetivo anualizado do crédito, com base no total pago (já pago + saldo a pagar) frente ao crédito da carta, no período contratado.";
 
 const EMPRESTIMO_LIKE_COLUMNS: PatrimonioFieldColumn<LiabilityColumnKey>[] = [
   { key: "name", label: "Descrição", required: true },
@@ -213,15 +226,20 @@ export const LIABILITY_CATEGORY_COLUMNS: Record<PatrimonioLiabilityCategory, Pat
   EMPRESTIMO_DIVIDA: EMPRESTIMO_LIKE_COLUMNS,
   FINANCIAMENTO: EMPRESTIMO_LIKE_COLUMNS,
   CONSORCIO: [
-    { key: "name", label: "Descrição", required: true },
-    { key: "creditValueCents", label: "Crédito da Carta", required: true },
+    { key: "institutionName", label: "Administradora/Instituição", required: false },
+    { key: "name", label: "Descrição ou Finalidade", required: true },
+    { key: "creditValueCents", label: "Crédito da Carta", required: false },
+    { key: "paidValueCents", label: "Valor Já Pago no Controle", required: true, tooltip: PAID_VALUE_TOOLTIP },
     { key: "currentBalanceCents", label: "Saldo a Pagar", required: true },
+    { key: "startDate", label: "Data da Contratação", required: false },
+    { key: "expectedEndDate", label: "Data da Última Parcela", required: false },
     {
       key: "administrationFeePct",
       label: "Taxa de Administração",
       required: false,
-      tooltip: "Percentual cobrado pela administradora do consórcio.",
+      tooltip: "Percentual cobrado pela administradora do consórcio — preenchimento manual.",
     },
+    { key: "creditCostPct", label: "Custo de Crédito (%)", required: false, tooltip: CREDIT_COST_TOOLTIP },
     { key: "installmentValueCents", label: "Valor Parcela Atual", required: false },
     { key: "remainingInstallments", label: "Parcelas Restantes", required: false },
     { key: "correctionIndex", label: "Índice de Correção", required: false, tooltip: CORRECTION_INDEX_TOOLTIP },

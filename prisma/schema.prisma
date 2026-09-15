@@ -665,6 +665,13 @@ model PatrimonioLiability {
   // Consórcio only.
   administrationFeePct  Float?
   creditValueCents      Int?
+  // "Administradora/Instituição" — e.g. "Porto Seguro", "Rodobens".
+  institutionName       String?
+  // "Valor Já Pago no Controle" — what's actually been paid into the
+  // consórcio so far, distinct from currentBalanceCents ("Saldo a
+  // Pagar", what's still owed) and creditValueCents (the letter's face
+  // value). Required for CONSORCIO (validation.ts's superRefine).
+  paidValueCents        Int?
   isContemplated        Boolean?
   contemplationDate     DateTime?
   // Outros Passivos only — free-text type, since this category is
